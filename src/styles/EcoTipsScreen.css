@@ -1,0 +1,285 @@
+.eco-tips-screen {
+  min-height: 100vh;
+  background: linear-gradient(to bottom right, rgb(15 23 42), rgb(30 41 59), rgb(20 83 45));
+  padding-bottom: 6rem;
+}
+
+.eco-tips-header {
+  padding: 3rem 1.5rem 1.5rem;
+}
+
+.eco-tips-back-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: rgb(134 239 172);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color 0.3s;
+  margin-bottom: 1.5rem;
+}
+
+.eco-tips-back-button:hover {
+  color: rgb(74 222 128);
+}
+
+.eco-tips-back-button svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.eco-tips-title {
+  color: white;
+  font-size: 1.875rem;
+  line-height: 2.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.eco-tips-subtitle {
+  color: rgb(134 239 172);
+}
+
+.eco-tips-categories {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  scrollbar-width: none;
+}
+
+.eco-tips-categories::-webkit-scrollbar {
+  display: none;
+}
+
+.eco-tips-category-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: rgba(30 41 59 / 0.5);
+  border: 1px solid rgba(51 65 85 / 0.5);
+  border-radius: 9999px;
+  color: rgb(148 163 184);
+  font-size: 0.875rem;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.eco-tips-category-button.active {
+  background: rgba(34 197 94 / 0.2);
+  border-color: rgba(34 197 94 / 0.5);
+  color: rgb(74 222 128);
+}
+
+.eco-tips-category-button svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.eco-tips-grid {
+  padding: 0 1.5rem;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.eco-tip-card {
+  background: rgba(30 41 59 / 0.5);
+  backdrop-filter: blur(16px);
+  border-radius: 1rem;
+  overflow: hidden;
+  border: 1px solid rgba(51 65 85 / 0.5);
+  box-shadow: 0 25px 50px -12px rgba(0 0 0 / 0.25);
+  cursor: pointer;
+  transition: all 0.3s;
+  position: relative;
+}
+
+.eco-tip-card:hover {
+  border-color: rgba(34 197 94 / 0.5);
+}
+
+.eco-tip-image-container {
+  position: relative;
+  height: 12rem;
+  overflow: hidden;
+}
+
+.eco-tip-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s;
+}
+
+.eco-tip-card:hover .eco-tip-image {
+  transform: scale(1.05);
+}
+
+.eco-tip-image-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgb(15 23 42), rgba(15 23 42 / 0.5), transparent);
+}
+
+.eco-tip-icon {
+  position: absolute;
+  bottom: 1rem;
+  right: 1rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.75rem;
+  background: rgba(34 197 94 / 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.eco-tip-icon svg {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: white;
+}
+
+.eco-tip-content {
+  padding: 1.25rem;
+}
+
+.eco-tip-title {
+  color: white;
+  font-size: 1.125rem;
+  line-height: 1.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.eco-tip-description {
+  color: rgb(148 163 184);
+  font-size: 0.875rem;
+  margin-bottom: 0.75rem;
+}
+
+.eco-tip-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.eco-tip-impact {
+  color: rgb(74 222 128);
+  font-size: 0.875rem;
+}
+
+.eco-tip-read-more {
+  color: rgb(74 222 128);
+  font-size: 0.875rem;
+  transition: transform 0.3s;
+}
+
+.eco-tip-card:hover .eco-tip-read-more {
+  transform: translateX(0.25rem);
+}
+
+/* Modal Styles */
+.eco-tip-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0 0 0 / 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 50;
+}
+
+.eco-tip-modal {
+  background: rgb(30 41 59);
+  border: 1px solid rgb(51 65 85);
+  color: white;
+  max-width: 32rem;
+  width: 100%;
+  border-radius: 1rem;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.eco-tip-modal-header {
+  position: relative;
+  padding: 1.5rem;
+  border-bottom: 1px solid rgb(51 65 85);
+}
+
+.eco-tip-modal-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: none;
+  border: none;
+  color: rgb(148 163 184);
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  transition: all 0.3s;
+}
+
+.eco-tip-modal-close:hover {
+  background: rgba(51 65 85 / 0.5);
+  color: white;
+}
+
+.eco-tip-modal-close svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.eco-tip-modal-image {
+  width: 100%;
+  height: 12rem;
+  object-fit: cover;
+  margin: -1.5rem -1.5rem 1rem;
+  border-radius: 1rem 1rem 0 0;
+}
+
+.eco-tip-modal-title {
+  font-size: 1.5rem;
+  line-height: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.eco-tip-modal-subtitle {
+  color: rgb(134 239 172);
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+
+.eco-tip-modal-body {
+  padding: 1.5rem;
+}
+
+.eco-tip-modal-details {
+  color: rgb(203 213 225);
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+}
+
+.eco-tip-modal-footer {
+  padding: 1.5rem;
+  border-top: 1px solid rgb(51 65 85);
+}
+
+.eco-tip-modal-button {
+  width: 100%;
+  background: linear-gradient(to right, rgb(34 197 94), rgb(22 163 74));
+  color: white;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  border: none;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.eco-tip-modal-button:hover {
+  background: linear-gradient(to right, rgb(22 163 74), rgb(21 128 61));
+}

@@ -1,0 +1,14 @@
+.image-fallback-container {
+  display: inline-block;
+  background-color: rgb(243 244 246);
+  text-align: center;
+  vertical-align: middle;
+}
+
+.image-fallback-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
