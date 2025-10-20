@@ -156,8 +156,7 @@ export function SettingsScreen() {
           </p>
           <div className="settings-app-info-details">
             <p>Verzija 1.0.0</p>
-            <p>© 2025 EcoGuard Team</p>
-            <p className="small">Napravljeno sa ❤️ za našu planetu</p>
+            <p>© 2025 EcoGuard Nenad</p>
           </div>
         </div>
       </div>
