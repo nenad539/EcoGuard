@@ -8,7 +8,7 @@ export function RegisterScreen() {
   const { navigateTo } = useContext(NavigationContext);
   const [formData, setFormData] = useState({
     name: '',
-    email: '',
+    username: '',
     password: '',
     confirmPassword: '',
     termsAccepted: false,
@@ -68,18 +68,18 @@ export function RegisterScreen() {
             </div>
 
             <div className="register-field">
-              <label htmlFor="email" className="register-label">
-                Email
+              <label htmlFor="username" className="register-label">
+                Korisnicko Ime
               </label>
               <div className="register-input-container">
-                <Mail className="register-input-icon" />
+                <User className="register-input-icon" />
                 <input
-                  id="email"
+                  id="username"
                   type="email"
-                  value={formData.email}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, email: e.target.value })}
+                  value={formData.username}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, username: e.target.value })}
                   className="register-input"
-                  placeholder="vas.email@primer.com"
+                  placeholder="Korisnicko ime"
                 />
               </div>
             </div>

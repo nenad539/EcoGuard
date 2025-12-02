@@ -1,12 +1,12 @@
 import React, { useContext, useState } from 'react';
 import { motion } from 'motion/react';
 import { NavigationContext } from '../App';
-import { Shield, Leaf, Mail, Lock } from 'lucide-react';
+import { Shield, Leaf, Mail, Lock, User } from 'lucide-react';
 import '../styles/LoginScreen.css';
 
 export function LoginScreen() {
   const { navigateTo } = useContext(NavigationContext);
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
 
   const handleLogin = (e: React.FormEvent) => {
@@ -37,18 +37,18 @@ export function LoginScreen() {
 
           <form onSubmit={handleLogin} className="login-form">
             <div className="login-field">
-              <label htmlFor="email" className="login-label">
-                Email
+              <label htmlFor="username" className="login-label">
+                Korisnicko Ime
               </label>
               <div className="login-input-container">
-                <Mail className="login-input-icon" />
+                <User className="login-input-icon" />
                 <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  id="username"
+                  type="username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                   className="login-input"
-                  placeholder="vas.email@primer.com"
+                  placeholder="korisnicko ime"
                 />
               </div>
             </div>
