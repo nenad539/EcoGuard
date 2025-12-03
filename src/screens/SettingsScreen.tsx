@@ -15,20 +15,7 @@ export function SettingsScreen() {
   });
 
   const settingsSections = [
-    {
-      title: 'Izgled',
-      items: [
-        {
-          id: 'theme',
-          icon: settings.darkMode ? Moon : Sun,
-          label: 'Tema',
-          description: 'Light / Dark',
-          type: 'toggle' as const,
-          value: settings.darkMode,
-          onChange: (value: boolean) => setSettings({ ...settings, darkMode: value }),
-        },
-      ],
-    },
+   
     {
       title: 'Obavještenja',
       items: [
