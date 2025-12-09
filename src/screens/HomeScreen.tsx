@@ -12,11 +12,71 @@ export function HomeScreen() {
   const supabaseAnonkey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh0bXpkdXN2d2N3a2ViZ2hjZG5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ3OTQ5NDMsImV4cCI6MjA4MDM3MDk0M30.25yoZoNAruxcJBSnw5ulk6EM3LKTtPixQZJWrTSc-A0";
 
 
-  const stats = [
+  
+  const [userName, setUserName] = useState('');
+
+  const getUserName = async () => {
+    let { data: korisnik_profil, error } = await supabase
+      .from('korisnik_profil')
+      .select('korisnicko_ime');
+    
+    if (error) {
+      console.error('Error fetching user:', error);
+      return 'Korisnik';
+    }
+    
+    return korisnik_profil?.[0]?.korisnicko_ime || 'Korisnik';
+  };
+
+  useEffect(() => {
+    getUserName().then(name => setUserName(name));
+  }, []);
+
+
+
+  const getUserLevel = async () => {
+    let { data: korisnik_profil, error } = await supabase
+      .from('korisnik_profil')
+      .select('nivo');
+    
+    if (error) {
+      console.error('Error fetching user:', error);
+      return '0';
+    }
+    
+    return korisnik_profil?.[0]?.nivo || 'Korisnik';
+  };
+  const [userLevel, setUserLevel] = useState('');
+  useEffect(() => {
+    getUserLevel().then(nivo => setUserLevel(nivo));
+  }, []);
+
+   const getUserReciklirano = async () => {
+    let { data: korisnik_profil, error } = await supabase
+      .from('korisnik_profil')
+      .select('reciklirano_stvari');
+    
+    if (error) {
+      console.error('Error fetching user:', error);
+      return '0';
+    }
+    
+    return korisnik_profil?.[0]?.reciklirano_stvari || 'Korisnik';
+  };
+  
+  const [userReciklirano, setUserReciklirano] = useState('');
+  useEffect(() => {
+    getUserReciklirano().then(reciklirano => setUserReciklirano(reciklirano));
+  }, []);
+
+
+
+  
+const stats = [
     {
       icon: Recycle,
       label: 'Reciklirano',
-      value: userData.recycled,
+      value: userReciklirano,
       unit: 'stvari',
       gradient: 'from-green-500 to-emerald-600',
     },
@@ -42,41 +102,6 @@ export function HomeScreen() {
       gradient: 'from-purple-500 to-pink-600',
     },
   ];
-  const [userName, setUserName] = useState('');
-
-  const getUserName = async () => {
-    let { data: korisnik_profil, error } = await supabase
-      .from('korisnik_profil')
-      .select('korisnicko_ime');
-    
-    if (error) {
-      console.error('Error fetching user:', error);
-      return 'Korisnik';
-    }
-    
-    return korisnik_profil?.[0]?.korisnicko_ime || 'Korisnik';
-  };
-
-  useEffect(() => {
-    getUserName().then(name => setUserName(name));
-  }, []);
-  const getUserLevel = async () => {
-    let { data: korisnik_profil, error } = await supabase
-      .from('korisnik_profil')
-      .select('nivo');
-    
-    if (error) {
-      console.error('Error fetching user:', error);
-      return 'Korisnik';
-    }
-    
-    return korisnik_profil?.[0]?.nivo || 'Korisnik';
-  };
-  const [userLevel, setUserLevel] = useState('');
-  useEffect(() => {
-    getUserLevel().then(nivo => setUserLevel(nivo));
-  }, []);
-
 
 
 
