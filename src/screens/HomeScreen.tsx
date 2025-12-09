@@ -1,4 +1,5 @@
-import React, { useContext } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
+import { supabase } from '../supabase-client';
 import { motion } from 'motion/react';
 import { NavigationContext } from '../App';
 import { BottomNav } from '../components/common/BottomNav';
@@ -7,6 +8,9 @@ import '../styles/HomeScreen.css';
 
 export function HomeScreen() {
   const { userData, navigateTo } = useContext(NavigationContext);
+  const SUPABASE_URL = "https://htmzdusvwcwkebghcdnb.supabase.co"
+  const supabaseAnonkey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh0bXpkdXN2d2N3a2ViZ2hjZG5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ3OTQ5NDMsImV4cCI6MjA4MDM3MDk0M30.25yoZoNAruxcJBSnw5ulk6EM3LKTtPixQZJWrTSc-A0";
+
 
   const stats = [
     {
@@ -38,6 +42,46 @@ export function HomeScreen() {
       gradient: 'from-purple-500 to-pink-600',
     },
   ];
+  const [userName, setUserName] = useState('');
+
+  const getUserName = async () => {
+    let { data: korisnik_profil, error } = await supabase
+      .from('korisnik_profil')
+      .select('korisnicko_ime');
+    
+    if (error) {
+      console.error('Error fetching user:', error);
+      return 'Korisnik';
+    }
+    
+    return korisnik_profil?.[0]?.korisnicko_ime || 'Korisnik';
+  };
+
+  useEffect(() => {
+    getUserName().then(name => setUserName(name));
+  }, []);
+  const getUserLevel = async () => {
+    let { data: korisnik_profil, error } = await supabase
+      .from('korisnik_profil')
+      .select('nivo');
+    
+    if (error) {
+      console.error('Error fetching user:', error);
+      return 'Korisnik';
+    }
+    
+    return korisnik_profil?.[0]?.nivo || 'Korisnik';
+  };
+  const [userLevel, setUserLevel] = useState('');
+  useEffect(() => {
+    getUserLevel().then(nivo => setUserLevel(nivo));
+  }, []);
+
+
+
+
+  
+
 
   return (
     <div className="home-screen">
@@ -50,10 +94,10 @@ export function HomeScreen() {
               animate={{ opacity: 1, y: 0 }}
               className="home-welcome"
             >
-              Dobro došao nazad, {userData.name}
+              Dobro došao nazad, {userName}
               
             </motion.h1>
-            <p className="home-level">Eco Čuvar Lv.{userData.level}</p>
+            <p className="home-level">Eco Čuvar Lv.{userLevel}</p>
           </div>
           <div className="home-nav-buttons">
             <button
@@ -166,3 +210,4 @@ export function HomeScreen() {
     </div>
   );
 }
+
