@@ -1,5 +1,7 @@
 import React, { useContext } from 'react';
 import { motion } from 'motion/react';
+import { supabase } from '../supabase-client';
+import { useState, useEffect } from 'react';
 import { NavigationContext } from '../App';
 import { BottomNav } from '../components/common/BottomNav';
 import { ArrowLeft, Edit, BarChart3, LogOut, Award, Target, Flame } from 'lucide-react';
@@ -7,6 +9,100 @@ import '../styles/ProfileScreen.css';
 
 export function ProfileScreen() {
   const { userData, navigateTo } = useContext(NavigationContext);
+
+
+const getUserCompleted = async () => {
+    let { data: korisnik_profil, error } = await supabase
+      .from('korisnik_profil')
+      .select('izazova_zavrseno');
+    
+    if (error) {
+      console.error('Error fetching user:', error);
+      return '0';
+    }
+    
+    return korisnik_profil?.[0]?.izazova_zavrseno || '0';
+  };
+  const [userCompleted, setUserCompleted] = useState('');
+  useEffect(() => {
+    getUserCompleted().then(izazova_zavrseno => setUserCompleted(izazova_zavrseno));
+  }, []);
+
+
+  const getUserStreak = async () => {
+    let { data: korisnik_profil, error } = await supabase
+      .from('korisnik_profil')
+      .select('dnevna_serija');
+    
+    if (error) {
+      console.error('Error fetching user:', error);
+      return '0';
+    }
+    
+    return korisnik_profil?.[0]?.dnevna_serija || '0';
+  };
+  const [userStreak, setUserStreak] = useState('');
+  useEffect(() => {
+    getUserStreak().then(dnevna_serija => setUserStreak(dnevna_serija));
+  }, []);
+
+
+    const getUserPoints = async () => {
+      let { data: korisnik_profil, error } = await supabase
+        .from('korisnik_profil')
+        .select('ukupno_poena');
+      
+      if (error) {
+        console.error('Error fetching user:', error);
+        return '0';
+      }
+      
+      return korisnik_profil?.[0]?.ukupno_poena || '0';
+    };
+    
+    const [userPoints, setUserPoints] = useState('');
+    useEffect(() => {
+      getUserPoints().then(points => setUserPoints(points));
+    }, []);
+
+
+    const getUserName = async () => {
+        let { data: korisnik_profil, error } = await supabase
+          .from('korisnik_profil')
+          .select('korisnicko_ime');
+        
+        if (error) {
+          console.error('Error fetching user:', error);
+          return '0';
+        }
+        
+        return korisnik_profil?.[0]?.korisnicko_ime || 'Korisnik';
+      };
+      const [userName, setUserName] = useState('');
+      useEffect(() => {
+        getUserName().then(korisnicko_ime => setUserName(korisnicko_ime));
+      }, []);
+
+
+       const getUserLevel = async () => {
+          let { data: korisnik_profil, error } = await supabase
+            .from('korisnik_profil')
+            .select('nivo');
+          
+          if (error) {
+            console.error('Error fetching user:', error);
+            return '0';
+          }
+          
+          return korisnik_profil?.[0]?.nivo || 'Korisnik';
+        };
+        const [userLevel, setUserLevel] = useState('');
+        useEffect(() => {
+          getUserLevel().then(nivo => setUserLevel(nivo));
+        }, []);
+
+
+
 
   const achievements = [
     { id: 1, title: 'Prvi koraci', description: 'Završi prvi izazov', icon: <svg xmlns="http://www.w3.org/2000/svg" width={38} height={38} viewBox="0 0 2048 2048"><path fill="#2bc154" d="M1024 640q-80 0-149 30t-122 82t-83 123t-30 149q0 80 30 149t82 122t122 83t150 30q79 0 149-30t122-82t83-122t30-150q0-64-22-128h134q8 32 12 64t4 64q0 106-40 199t-110 162t-163 110t-199 41t-199-40t-162-110t-110-163t-40-199q0-106 40-199t109-162t163-110t199-41q32 0 64 4t64 12v134q-64-22-128-22m866 155q30 113 30 229q0 123-32 237t-90 214t-141 182t-181 140t-214 91t-238 32q-123 0-237-32t-214-90t-182-141t-140-181t-91-214t-32-238q0-123 32-237t90-214t141-182t181-140t214-91t238-32q116 0 229 30l-101 101v8q-32-5-64-8t-64-3q-106 0-204 27t-183 78t-156 120t-120 155t-77 184t-28 204t27 204t78 183t120 156t155 120t184 77t204 28t204-27t183-78t156-120t120-155t77-184t28-204q0-32-3-64t-8-64h8zm-610-118V390L1664 6v378h378l-384 384h-287l-223 223q4 15 4 33q0 27-10 50t-27 40t-41 28t-50 10q-27 0-50-10t-40-27t-28-41t-10-50q0-27 10-50t27-40t41-28t50-10q18 0 33 4zm128-37h197l128-128h-197V315l-128 128z"></path></svg>, unlocked: true },
@@ -18,9 +114,9 @@ export function ProfileScreen() {
   ];
 
   const stats = [
-    { label: 'Izazova završeno', value: '18', icon: Target },
-    { label: 'Dnevna serija', value: '12 dana', icon: Flame },
-    { label: 'Ukupno poena', value: userData.points.toLocaleString(), icon: Award },
+    { label: 'Izazova završeno', value: userCompleted, icon: Target },
+    { label: 'Dnevna serija', value: userStreak, icon: Flame },
+    { label: 'Ukupno poena', value: Number(userPoints).toLocaleString(), icon: Award },
   ];
 
   return (
@@ -48,10 +144,10 @@ export function ProfileScreen() {
               {userData.name[0]}
             </div>
             <div className="profile-details">
-              <h2 className="profile-name">{userData.name}</h2>
+              <h2 className="profile-name">{userName}</h2>
               <div className="profile-badges">
                 <span className="profile-badge profile-badge-level">
-                  Eco Čuvar Lv.{userData.level}
+                  Eco Čuvar Lv.{userLevel}
                 </span>
                 <span className="profile-badge profile-badge-rank">
                   Bronza
