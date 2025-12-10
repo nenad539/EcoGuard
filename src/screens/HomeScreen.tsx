@@ -88,6 +88,44 @@ export function HomeScreen() {
   }, []);
 
 
+  const getActivityPoints = async () => {
+    let { data: aktivnosti, error } = await supabase
+      .from('aktivnosti')
+      .select('poena_dodato');
+    
+    if (error) {
+      console.error('Error fetching user:', error);
+      return '20';
+    }
+    
+    return aktivnosti?.[0]?.poena_dodato || '0';
+  };
+  
+  const [poena_dodato, setActivityPoints] = useState('');
+  useEffect(() => {
+    getActivityPoints().then(poena_dodato => setActivityPoints(poena_dodato));
+  }, []);
+
+
+  const getActivityTitle = async () => {
+    let { data: aktivnosti, error } = await supabase
+      .from('aktivnosti')
+      .select('opis');
+    
+    if (error) {
+      console.error('Error fetching user:', error);
+      return '0';
+    }
+    
+    return aktivnosti?.[0]?.opis || '20';
+  };
+  
+  const [activityTitle, setActivityTitle] = useState('');
+  useEffect(() => {
+    getActivityTitle().then(activityTitle => setActivityTitle(activityTitle));
+  }, []);
+
+
 
   
 const stats = [
@@ -189,7 +227,7 @@ const stats = [
         <h2 className="home-section-title">Nedavne aktivnosti</h2>
         <div className="home-activity-list">
           {[
-            { title: 'Fotografija potvrđena - "Čišćenje parka"', time: 'Prije 1 sat', points: '+150', type: 'photo' },
+            { title: activityTitle, time: 'Prije 1 sat', points: poena_dodato, type: 'photo' },
             { title: 'Reciklirano 5 PET flaša', time: 'Prije 2 sata', points: '+50', type: 'standard' },
             { title: 'Kreiran novi foto izazov', time: 'Prije 4 sata', points: '+25', type: 'create' },
             { title: 'Završen izazov "Bicikl vikendom"', time: 'Prije 1 dan', points: '+120', type: 'standard' },
