@@ -1,0 +1,598 @@
+/* ISTI STILOVI KAO HOME SCREEN */
+.friend-system-screen {
+   min-height: 100vh;
+   background: linear-gradient(to bottom right, rgb(15 23 42), rgb(30 41 59), rgb(20 83 45));
+   padding: 1rem 1rem 5.5rem 1rem;
+   width: 100%;
+   box-sizing: border-box;
+}
+
+/* Header - identičan HomeScreen headeru */
+.friend-header {
+   padding: 0;
+   width: 100%;
+   box-sizing: border-box;
+}
+
+.friend-header-content {
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+   width: 100%;
+   margin-bottom: 1.5rem;
+}
+
+.friend-header-text {
+   flex: 1;
+}
+
+.friend-title {
+   color: white;
+   font-size: 1.5rem;
+   line-height: 1.3;
+   margin: 0;
+   font-weight: 600;
+}
+
+.friend-subtitle {
+   color: rgb(134 239 172);
+   font-size: 0.875rem;
+   margin-top: 0.25rem;
+   font-weight: 500;
+}
+
+/* Search Bar - identičan HomeScreen searchu */
+.friend-search-container {
+   width: 100%;
+   margin-bottom: 1.5rem;
+}
+
+.friend-search {
+   position: relative;
+   width: 100%;
+}
+
+.friend-search-input {
+   width: 100%;
+   background: rgba(30 41 59 / 0.7);
+   backdrop-filter: blur(12px);
+   border-radius: 1rem;
+   padding: 1rem 3rem;
+   border: 1px solid rgba(51 65 85 / 0.4);
+   color: white;
+   font-size: 0.9375rem;
+   transition: all 0.3s ease;
+   box-sizing: border-box;
+}
+
+.friend-search-input:focus {
+   outline: none;
+   border-color: rgba(34, 197, 94, 0.3);
+   box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.1);
+}
+
+.friend-search-input::placeholder {
+   color: rgb(148 163 184);
+}
+
+.friend-search-icon {
+   position: absolute;
+   left: 1rem;
+   top: 50%;
+   transform: translateY(-50%);
+   width: 1.25rem;
+   height: 1.25rem;
+   color: rgb(148 163 184);
+}
+
+.friend-filter-icon {
+   position: absolute;
+   right: 1rem;
+   top: 50%;
+   transform: translateY(-50%);
+   width: 1.25rem;
+   height: 1.25rem;
+   color: rgb(148 163 184);
+   cursor: pointer;
+   transition: all 0.2s ease;
+}
+
+.friend-filter-icon:hover {
+   color: rgb(74 222 128);
+   transform: translateY(-50%) scale(1.1);
+}
+
+/* Tabs - poboljšani izgled */
+.friend-tabs {
+   display: flex;
+   gap: 0.75rem;
+   margin-bottom: 1.5rem;
+   width: 100%;
+   overflow-x: auto;
+   -webkit-overflow-scrolling: touch;
+   scrollbar-width: none;
+}
+
+.friend-tabs::-webkit-scrollbar {
+   display: none;
+}
+
+.friend-tab {
+   display: flex;
+   align-items: center;
+   gap: 0.5rem;
+   padding: 0.75rem 1rem;
+   border-radius: 1rem;
+   border: 1px solid rgba(51 65 85 / 0.4);
+   background: rgba(30 41 59 / 0.6);
+   color: rgb(148 163 184);
+   font-size: 0.875rem;
+   font-weight: 500;
+   cursor: pointer;
+   transition: all 0.3s ease;
+   white-space: nowrap;
+   flex-shrink: 0;
+}
+
+.friend-tab.active {
+   background: rgba(34, 197, 94, 0.2);
+   color: rgb(74 222 128);
+   border-color: rgba(34, 197, 94, 0.3);
+}
+
+.friend-tab:hover:not(.active) {
+   background: rgba(51 65 85 / 0.4);
+   border-color: rgba(51 65 85 / 0.6);
+}
+
+.friend-tab-icon {
+   width: 1.125rem;
+   height: 1.125rem;
+}
+
+.tab-count {
+   background: rgba(34, 197, 94, 0.2);
+   color: rgb(74 222 128);
+   font-size: 0.75rem;
+   padding: 0.125rem 0.5rem;
+   border-radius: 9999px;
+   font-weight: 600;
+   min-width: 1.5rem;
+   text-align: center;
+}
+
+/* Content */
+.friend-content {
+   width: 100%;
+   box-sizing: border-box;
+}
+
+.friend-section {
+   margin-bottom: 2rem;
+}
+
+.friend-section-title {
+   color: white;
+   font-size: 1.125rem;
+   line-height: 1.4;
+   margin-bottom: 1rem;
+   font-weight: 600;
+}
+
+/* Friend Cards Grid - Isti stil kao stat kartice na HomeScreen */
+.friend-cards-grid {
+   display: flex;
+   flex-direction: column;
+   gap: 0.75rem;
+   width: 100%;
+}
+
+.friend-card {
+   background: rgba(30 41 59 / 0.6);
+   backdrop-filter: blur(12px);
+   border-radius: 1rem;
+   padding: 1rem;
+   border: 1px solid rgba(51 65 85 / 0.4);
+   transition: all 0.3s ease;
+   width: 100%;
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+   gap: 1rem;
+   box-sizing: border-box;
+}
+
+.friend-card:hover {
+   transform: translateY(-2px);
+   border-color: rgba(34, 197, 94, 0.3);
+   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+.friend-card-content {
+   display: flex;
+   align-items: center;
+   gap: 0.75rem;
+   flex: 1;
+}
+
+.friend-avatar-container {
+   position: relative;
+   flex-shrink: 0;
+}
+
+.friend-avatar {
+   width: 48px;
+   height: 48px;
+   border-radius: 0.875rem;
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   color: white;
+   font-weight: bold;
+   font-size: 0.875rem;
+   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.friend-status {
+   position: absolute;
+   bottom: -2px;
+   right: -2px;
+   width: 12px;
+   height: 12px;
+   border-radius: 50%;
+   border: 2px solid rgb(30 41 59);
+}
+
+.friend-info {
+   flex: 1;
+   min-width: 0;
+}
+
+.friend-info-header {
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+   margin-bottom: 0.25rem;
+}
+
+.friend-name {
+   color: white;
+   font-size: 0.9375rem;
+   font-weight: 600;
+   margin: 0;
+   white-space: nowrap;
+   overflow: hidden;
+   text-overflow: ellipsis;
+}
+
+.friend-rank {
+   background: rgba(59, 130, 246, 0.2);
+   color: rgb(96 165 250);
+   font-size: 0.6875rem;
+   font-weight: 600;
+   padding: 0.125rem 0.5rem;
+   border-radius: 9999px;
+   flex-shrink: 0;
+}
+
+.friend-details {
+   display: flex;
+   gap: 0.75rem;
+   margin-bottom: 0.5rem;
+   font-size: 0.75rem;
+}
+
+.friend-city {
+   color: rgb(148 163 184);
+}
+
+.friend-level {
+   color: rgb(251 191 36);
+   font-weight: 500;
+}
+
+/* Friend Stats - Isti stil kao na HomeScreen */
+.friend-stats {
+   display: flex;
+   gap: 0.75rem;
+}
+
+.friend-stat {
+   display: flex;
+   align-items: center;
+   gap: 0.25rem;
+}
+
+.friend-stat-icon {
+   width: 0.875rem;
+   height: 0.875rem;
+   color: rgb(74 222 128);
+}
+
+.friend-stat-value {
+   color: white;
+   font-size: 0.875rem;
+   font-weight: 700;
+}
+
+.friend-stat-label {
+   color: rgb(148 163 184);
+   font-size: 0.6875rem;
+   margin-left: 0.125rem;
+}
+
+/* Actions */
+.friend-actions {
+   display: flex;
+   gap: 0.5rem;
+   flex-shrink: 0;
+}
+
+.friend-action-btn {
+   display: flex;
+   align-items: center;
+   gap: 0.375rem;
+   padding: 0.5rem 0.875rem;
+   
+   border-radius: 0.75rem;
+   border: none;
+   font-size: 0.8125rem;
+   font-weight: 500;
+   cursor: pointer;
+   transition: all 0.2s ease;
+   white-space: nowrap;
+}
+
+.message-btn {
+   background: rgba(59, 130, 246, 0.2);
+   color: rgb(96 165 250);
+   border: 1px solid rgba(59, 130, 246, 0.3);
+   width: fit-content;
+}
+
+.message-btn:hover {
+   background: rgba(59, 130, 246, 0.3);
+}
+
+.add-btn {
+   background: linear-gradient(135deg, rgb(34 197 94), rgb(22 163 74));
+   color: white;
+   border: none;
+   box-shadow: 0 4px 12px rgba(34 197 94 / 0.3);
+}
+
+.add-btn:hover {
+   transform: translateY(-1px);
+   box-shadow: 0 6px 16px rgba(34 197 94 / 0.4);
+}
+
+.added-btn {
+   background: rgba(148, 163, 184, 0.2);
+   color: rgb(148 163 184);
+   border: 1px solid rgba(148, 163, 184, 0.3);
+   cursor: not-allowed;
+}
+
+/* Group Cards */
+.group-cards-grid {
+   display: flex;
+   flex-direction: column;
+   gap: 0.75rem;
+   width: 100%;
+}
+
+.group-card {
+   background: rgba(30 41 59 / 0.6);
+   backdrop-filter: blur(12px);
+   border-radius: 1rem;
+   padding: 1rem;
+   border: 1px solid rgba(51 65 85 / 0.4);
+   transition: all 0.3s ease;
+   width: 100%;
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+   gap: 1rem;
+   box-sizing: border-box;
+}
+
+.group-card:hover {
+   transform: translateY(-2px);
+   border-color: rgba(34, 197, 94, 0.3);
+   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+.group-card-content {
+   flex: 1;
+   min-width: 0;
+}
+
+.group-header {
+   display: flex;
+   justify-content: space-between;
+   align-items: flex-start;
+   margin-bottom: 0.5rem;
+}
+
+.group-name {
+   color: white;
+   font-size: 0.9375rem;
+   font-weight: 600;
+   margin: 0;
+   flex: 1;
+}
+
+.group-category {
+   font-size: 0.6875rem;
+   font-weight: 500;
+   padding: 0.125rem 0.5rem;
+   border-radius: 9999px;
+   border: 1px solid;
+   flex-shrink: 0;
+   margin-left: 0.5rem;
+}
+
+.group-description {
+   color: rgb(148 163 184);
+   font-size: 0.8125rem;
+   margin-bottom: 0.75rem;
+   line-height: 1.4;
+}
+
+.group-stats {
+   display: flex;
+   gap: 0.75rem;
+}
+
+.group-stat {
+   display: flex;
+   align-items: center;
+   gap: 0.25rem;
+}
+
+.group-stat-icon {
+   width: 0.875rem;
+   height: 0.875rem;
+   color: rgb(74 222 128);
+}
+
+.group-stat-value {
+   color: white;
+   font-size: 0.875rem;
+   font-weight: 700;
+}
+
+.group-stat-label {
+   color: rgb(148 163 184);
+   font-size: 0.6875rem;
+   margin-left: 0.125rem;
+}
+
+.group-actions {
+   flex-shrink: 0;
+}
+
+.group-action-btn {
+   padding: 0.5rem 0.875rem;
+   border-radius: 0.75rem;
+   border: none;
+   font-size: 0.8125rem;
+   font-weight: 500;
+   cursor: pointer;
+   transition: all 0.2s ease;
+   min-width: 6rem;
+}
+
+.join-btn {
+   background: linear-gradient(135deg, rgb(34 197 94), rgb(22 163 74));
+   color: white;
+   border: none;
+   box-shadow: 0 4px 12px rgba(34 197 94 / 0.3);
+}
+
+.join-btn:hover {
+   transform: translateY(-1px);
+   box-shadow: 0 6px 16px rgba(34 197 94 / 0.4);
+}
+
+.leave-btn {
+   background: rgba(239, 68, 68, 0.2);
+   color: rgb(248 113 113);
+   border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.leave-btn:hover {
+   background: rgba(239, 68, 68, 0.3);
+}
+
+/* Activity Cards */
+.activity-list {
+   display: flex;
+   flex-direction: column;
+   gap: 0.75rem;
+   width: 100%;
+}
+
+.activity-card {
+   background: rgba(30 41 59 / 0.6);
+   backdrop-filter: blur(12px);
+   border-radius: 1rem;
+   padding: 1rem;
+   border: 1px solid rgba(51 65 85 / 0.4);
+   display: flex;
+   align-items: center;
+   gap: 0.75rem;
+   transition: all 0.2s ease;
+   width: 100%;
+   box-sizing: border-box;
+}
+
+.activity-card:hover {
+   border-color: rgba(34, 197, 94, 0.3);
+   transform: translateY(-1px);
+}
+
+.activity-type {
+   font-size: 1.25rem;
+   flex-shrink: 0;
+}
+
+.activity-content {
+   flex: 1;
+   min-width: 0;
+}
+
+.activity-header {
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+   margin-bottom: 0.25rem;
+}
+
+.activity-user {
+   color: white;
+   font-size: 0.875rem;
+   font-weight: 600;
+   margin: 0;
+}
+
+.activity-time {
+   color: rgb(148 163 184);
+   font-size: 0.6875rem;
+   flex-shrink: 0;
+}
+
+.activity-action {
+   color: rgb(203 213 225);
+   font-size: 0.8125rem;
+   margin-bottom: 0.5rem;
+   line-height: 1.4;
+}
+
+.activity-points {
+   display: flex;
+   align-items: center;
+   gap: 0.25rem;
+   color: rgb(74 222 128);
+   font-size: 0.75rem;
+   font-weight: 500;
+}
+
+.activity-chevron {
+   width: 1rem;
+   height: 1rem;
+   color: rgb(148 163 184);
+   flex-shrink: 0;
+}
+
+/* Prazno stanje */
+.empty-state {
+   text-align: center;
+   padding: 3rem 1rem;
+   color: rgb(148 163 184);
+   background: rgba(30 41 59 / 0.5);
+   backdrop-filter: blur(12px);
+   border-radius: 1rem;
+   border: 1px solid rgba(51 65 85 / 0.4);
+   margin-top: 1rem;
+}

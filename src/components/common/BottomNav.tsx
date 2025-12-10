@@ -7,11 +7,12 @@ export function BottomNav() {
   const { currentScreen, navigateTo } = useContext(NavigationContext);
 
   const navItems = [
-    { screen: 'home' as Screen, icon: Home, label: 'Početna' },
-    { screen: 'photoChallenge' as Screen, icon: Camera, label: 'Izazovi' },
-    { screen: 'statistics' as Screen, icon: BarChart3, label: 'Statistika' },
-    { screen: 'community' as Screen, icon: Users, label: 'Zajednica' },
     { screen: 'settings' as Screen, icon: Settings, label: 'Podešavanja' },
+    { screen: 'photoChallenge' as Screen, icon: Camera, label: 'Izazovi' },
+    { screen: 'home' as Screen, icon: Home, label: 'Početna' },
+    { screen: 'statistics' as Screen, icon: BarChart3, label: 'Statistika' },
+    { screen: 'profile' as Screen, icon: Users, label: 'Nalog' },
+    
   ];
 
   return (

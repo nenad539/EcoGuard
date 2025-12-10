@@ -13,23 +13,27 @@ import { NotificationsScreen } from './screens/NotificationsScreen';
 import { EcoTipsScreen } from './screens/EcoTipsScreen';
 import { PhotoChallengeScreen } from './screens/PhotoChallengeScreen';
 import { TermsScreen } from './screens/TermsScreen';
+import { FriendSystemScreen } from "./screens/FriendSystemScreen";
+import { CreateChallengeScreen } from './screens/CreateChallengeScreen';
 import './styles/App.css';
 
-export type Screen = 
-  | 'splash'
-  | 'onboarding'
-  | 'login'
-  | 'register'
-  | 'home'
-  | 'challenges'
-  | 'statistics'
-  | 'community'
-  | 'profile'
-  | 'settings'
-  | 'notifications'
-  | 'ecoTips'
-  | 'terms'
-  | 'photoChallenge';
+export type Screen =
+  | "splash"
+  | "onboarding"
+  | "login"
+  | "register"
+  | "home"
+  | "challenges"
+  | "statistics"
+  | "community"
+  | "profile"
+  | "settings"
+  | "notifications"
+  | "ecoTips"
+  | "terms"
+  | "photoChallenge"
+  | "friends"
+  | "createChallenge";
 
 export type Theme = 'light' | 'dark';
 
@@ -121,22 +125,24 @@ export default function App() {
     <ThemeContext.Provider value={themeContext}>
       <NavigationContext.Provider value={navigationContext}>
         <div className="app-container">
-          {currentScreen === 'splash' && <SplashScreen />}
-          {currentScreen === 'onboarding' && <OnboardingScreen />}
-          {currentScreen === 'login' && <LoginScreen />}
-          {currentScreen === 'register' && <RegisterScreen />}
-          {currentScreen === 'home' && <HomeScreen />}
-          {currentScreen === 'challenges' && <ChallengesScreen />}
-          {currentScreen === 'statistics' && <StatisticsScreen />}
-          {currentScreen === 'community' && <CommunityScreen />}
-          {currentScreen === 'profile' && <ProfileScreen />}
-          {currentScreen === 'settings' && <SettingsScreen />}
-        {currentScreen === 'notifications' && <NotificationsScreen />}
-        {currentScreen === 'ecoTips' && <EcoTipsScreen />}
-        {currentScreen === 'photoChallenge' && <PhotoChallengeScreen />}
-        {currentScreen === 'terms' && <TermsScreen />}
-      </div>
-    </NavigationContext.Provider>
+          {currentScreen === "splash" && <SplashScreen />}
+          {currentScreen === "onboarding" && <OnboardingScreen />}
+          {currentScreen === "login" && <LoginScreen />}
+          {currentScreen === "register" && <RegisterScreen />}
+          {currentScreen === "home" && <HomeScreen />}
+          {currentScreen === "challenges" && <ChallengesScreen />}
+          {currentScreen === "statistics" && <StatisticsScreen />}
+          {currentScreen === "community" && <CommunityScreen />}
+          {currentScreen === "profile" && <ProfileScreen />}
+          {currentScreen === "settings" && <SettingsScreen />}
+          {currentScreen === "notifications" && <NotificationsScreen />}
+          {currentScreen === "ecoTips" && <EcoTipsScreen />}
+          {currentScreen === "photoChallenge" && <PhotoChallengeScreen />}
+          {currentScreen === "terms" && <TermsScreen />}
+          {currentScreen === "friends" && <FriendSystemScreen />}
+          {currentScreen === 'createChallenge' && <CreateChallengeScreen />}
+        </div>
+      </NavigationContext.Provider>
     </ThemeContext.Provider>
   );
 }

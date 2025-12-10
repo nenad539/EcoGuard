@@ -1,86 +1,206 @@
-import React, { useState } from 'react';
-import { motion } from 'motion/react';
-import { BottomNav } from '../components/common/BottomNav';
-import { ArrowLeft, Bell, Trophy, Users, Lightbulb, CheckCheck, Trash2 } from 'lucide-react';
-import { useContext } from 'react';
-import { NavigationContext } from '../App';
-import '../styles/NotificationsScreen.css';
+import React, { useState, useEffect } from "react";
+import { motion } from "motion/react";
+import { BottomNav } from "../components/common/BottomNav";
+import {
+  ArrowLeft,
+  Bell,
+  Trophy,
+  Users,
+  Lightbulb,
+  CheckCheck,
+  Trash2,
+  UserPlus,
+  MessageCircle,
+  Award,
+  Users as UsersIcon,
+  Star,
+} from "lucide-react";
+import { useContext } from "react";
+import { NavigationContext } from "../App";
+import "../styles/NotificationsScreen.css";
 
 type Notification = {
   id: number;
-  type: 'challenge' | 'achievement' | 'community' | 'tip';
+  type:
+    | "challenge"
+    | "achievement"
+    | "community"
+    | "tip"
+    | "friend_request"
+    | "friend_activity"
+    | "group";
   title: string;
   message: string;
   time: string;
   read: boolean;
   icon: React.ElementType;
   color: string;
+  friendId?: number;
+  groupId?: number;
+  action?: "accept" | "decline" | "view";
 };
 
 export function NotificationsScreen() {
   const { navigateTo } = useContext(NavigationContext);
   const [notifications, setNotifications] = useState<Notification[]>([
+    // Postojeće notifikacije
     {
       id: 1,
-      type: 'challenge',
-      title: 'Nova misija dostupna',
+      type: "challenge",
+      title: "Nova misija dostupna",
       message: 'Izazov "Sedmica bez plastike" je sada dostupan!',
-      time: 'Prije 5 min',
+      time: "Prije 5 min",
       read: false,
       icon: Trophy,
-      color: 'from-yellow-500 to-orange-600',
+      color: "yellow-orange",
     },
     {
       id: 2,
-      type: 'achievement',
-      title: 'Završio si izazov',
-      message: 'Čestitamo! Završio si "Recikliraj 10 flaša" i osvojio 100 poena.',
-      time: 'Prije 2 sata',
+      type: "achievement",
+      title: "Završio si izazov",
+      message:
+        'Čestitamo! Završio si "Recikliraj 10 flaša" i osvojio 100 poena.',
+      time: "Prije 2 sata",
       read: false,
       icon: Trophy,
-      color: 'from-green-500 to-emerald-600',
+      color: "green-emerald",
     },
+    // NOVE FRIEND NOTIFIKACIJE:
     {
       id: 3,
-      type: 'community',
-      title: 'Zajednica ti je čestitala!',
-      message: 'Ana Petrović i još 12 ljudi su lajkovali tvoj napredak.',
-      time: 'Prije 5 sati',
+      type: "friend_request",
+      title: "Novi zahtjev za prijateljstvo",
+      message: "David Kostić te dodao za prijatelja",
+      time: "Prije 15 min",
       read: false,
-      icon: Users,
-      color: 'from-purple-500 to-pink-600',
+      icon: UserPlus,
+      color: "purple-pink",
+      friendId: 10,
+      action: "accept",
     },
     {
       id: 4,
-      type: 'tip',
-      title: 'Savjet dana',
-      message: 'Isključi svjetla kad izlaziš iz sobe i uštedi do 15% energije.',
-      time: 'Prije 1 dan',
-      read: true,
-      icon: Lightbulb,
-      color: 'from-blue-500 to-cyan-600',
+      type: "friend_activity",
+      title: "Tvoj prijatelj je osvojio poene",
+      message:
+        'Ana Petrović je završila izazov "Bicikl na posao" i osvojila 150 poena',
+      time: "Prije 2 sata",
+      read: false,
+      icon: Users,
+      color: "blue-cyan",
+      friendId: 1,
+      action: "view",
     },
     {
       id: 5,
-      type: 'achievement',
-      title: 'Novi nivo otkljucan',
-      message: 'Napredovao si na Level 3! Nastavi tako!',
-      time: 'Prije 2 dana',
-      read: true,
-      icon: Trophy,
-      color: 'from-green-500 to-emerald-600',
+      type: "group",
+      title: "Nova grupa za tebe",
+      message: "Eko Biciklisti - pridruži se grupnoj vožnji ovog vikenda",
+      time: "Prije 1 dan",
+      read: false,
+      icon: UsersIcon,
+      color: "green-emerald",
+      groupId: 1,
+      action: "view",
     },
     {
       id: 6,
-      type: 'community',
-      title: 'Rang lista ažurirana',
-      message: 'Napredovao si na 42. mjesto! Još malo do top 40!',
-      time: 'Prije 3 dana',
+      type: "friend_activity",
+      title: "Prijatelj je dostigao novi nivo",
+      message: "Nikola Jovanović je dostigao Level 7! Čestitamo!",
+      time: "Prije 3 dana",
       read: true,
+      icon: Award,
+      color: "yellow-orange",
+      friendId: 2,
+      action: "view",
+    },
+    {
+      id: 7,
+      type: "friend_request",
+      title: "Zahtjev za prijateljstvo prihvaćen",
+      message: "Milan Popović je prihvatio tvoj zahtjev za prijateljstvo",
+      time: "Prije 4 dana",
+      read: true,
+      icon: UserPlus,
+      color: "green-emerald",
+      friendId: 11,
+      action: "view",
+    },
+    // Ostale postojeće notifikacije...
+    {
+      id: 8,
+      type: "community",
+      title: "Zajednica ti je čestitala!",
+      message: "Ana Petrović i još 12 ljudi su lajkovali tvoj napredak.",
+      time: "Prije 5 sati",
+      read: false,
       icon: Users,
-      color: 'from-purple-500 to-pink-600',
+      color: "purple-pink",
+    },
+    {
+      id: 9,
+      type: "tip",
+      title: "Savjet dana",
+      message: "Isključi svjetla kad izlaziš iz sobe i uštedi do 15% energije.",
+      time: "Prije 1 dan",
+      read: true,
+      icon: Lightbulb,
+      color: "blue-cyan",
     },
   ]);
+
+  // Funkcije za rukovanje friend notifikacijama
+  const handleFriendRequest = (id: number, accept: boolean) => {
+    setNotifications(
+      notifications.map((notification) =>
+        notification.id === id
+          ? {
+              ...notification,
+              read: true,
+              title: accept ? "Zahtjev prihvaćen" : "Zahtjev odbijen",
+              message: accept
+                ? "Prihvatili ste zahtjev za prijateljstvo"
+                : "Odbili ste zahtjev za prijateljstvo",
+              icon: CheckCheck,
+              color: accept ? "green-emerald" : "red-red",
+              action: undefined,
+            }
+          : notification
+      )
+    );
+
+    // Ovdje bi bilo dobro pozvati API za accept/decline zahtjeva
+    if (accept) {
+      console.log("Zahtjev prihvaćen za friendId:", id);
+    } else {
+      console.log("Zahtjev odbijen za friendId:", id);
+    }
+  };
+
+  const handleViewFriend = (friendId: number) => {
+    navigateTo("friends");
+    console.log("Pogledaj prijatelja ID:", friendId);
+  };
+
+  const handleJoinGroup = (groupId: number) => {
+    setNotifications(
+      notifications.map((notification) =>
+        notification.id === groupId
+          ? {
+              ...notification,
+              read: true,
+              title: "Pridružio si se grupi",
+              message: "Sada si član grupe!",
+              icon: UsersIcon,
+              color: "green-emerald",
+              action: undefined,
+            }
+          : notification
+      )
+    );
+    console.log("Pridruži se grupi ID:", groupId);
+  };
 
   const markAllAsRead = () => {
     setNotifications(notifications.map((n) => ({ ...n, read: true })));
@@ -92,12 +212,55 @@ export function NotificationsScreen() {
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const getNotificationIconClass = (color: string) => {
-    if (color.includes('yellow') && color.includes('orange')) return 'yellow-orange';
-    if (color.includes('green') && color.includes('emerald')) return 'green-emerald';
-    if (color.includes('purple') && color.includes('pink')) return 'purple-pink';
-    if (color.includes('blue') && color.includes('cyan')) return 'blue-cyan';
-    return 'yellow-orange';
+  // Funkcija za dobijanje ikone za akciju
+  const getActionButton = (notification: Notification) => {
+    if (!notification.action) return null;
+
+    switch (notification.action) {
+      case "accept":
+        return (
+          <div className="notification-actions">
+            <button
+              onClick={() => handleFriendRequest(notification.id, true)}
+              className="action-btn accept-btn"
+            >
+              <CheckCheck className="w-4 h-4" />
+              Prihvati
+            </button>
+            <button
+              onClick={() => handleFriendRequest(notification.id, false)}
+              className="action-btn decline-btn"
+            >
+              ✕ Odbij
+            </button>
+          </div>
+        );
+      case "view":
+        if (notification.friendId) {
+          return (
+            <button
+              onClick={() => handleViewFriend(notification.friendId!)}
+              className="action-btn view-btn"
+            >
+              <Users className="w-4 h-4" />
+              Pogledaj
+            </button>
+          );
+        } else if (notification.groupId) {
+          return (
+            <button
+              onClick={() => handleJoinGroup(notification.id)}
+              className="action-btn join-btn"
+            >
+              <UsersIcon className="w-4 h-4" />
+              Pridruži se
+            </button>
+          );
+        }
+        return null;
+      default:
+        return null;
+    }
   };
 
   return (
@@ -106,7 +269,7 @@ export function NotificationsScreen() {
       <div className="notifications-header">
         <div className="notifications-header-controls">
           <button
-            onClick={() => navigateTo('home')}
+            onClick={() => navigateTo("home")}
             className="notifications-back-button"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -126,9 +289,7 @@ export function NotificationsScreen() {
           <div className="notifications-bell-container">
             <Bell className="notifications-bell-icon" />
             {unreadCount > 0 && (
-              <div className="notifications-unread-badge">
-                {unreadCount}
-              </div>
+              <div className="notifications-unread-badge">{unreadCount}</div>
             )}
           </div>
           <div>
@@ -142,7 +303,7 @@ export function NotificationsScreen() {
             <p className="notifications-subtitle">
               {unreadCount > 0
                 ? `${unreadCount} nepročitanih obavještenja`
-                : 'Sve je pročitano'}
+                : "Sve je pročitano"}
             </p>
           </div>
         </div>
@@ -154,7 +315,9 @@ export function NotificationsScreen() {
           <div className="notifications-empty">
             <div className="notifications-empty-icon">🔔</div>
             <h3 className="notifications-empty-title">Nema obavještenja</h3>
-            <p className="notifications-empty-text">Ovdje će se pojaviti tvoja obavještenja</p>
+            <p className="notifications-empty-text">
+              Ovdje će se pojaviti tvoja obavještenja
+            </p>
           </div>
         ) : (
           notifications.map((notification, index) => (
@@ -163,18 +326,24 @@ export function NotificationsScreen() {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: index * 0.05 }}
-              className={`notification-item ${!notification.read ? 'unread' : ''}`}
+              className={`notification-item ${
+                !notification.read ? "unread" : ""
+              }`}
             >
               <div className="notification-content">
                 {/* Icon */}
-                <div className={`notification-icon ${getNotificationIconClass(notification.color)}`}>
+                <div className={`notification-icon ${notification.color}`}>
                   <notification.icon />
                 </div>
 
                 {/* Content */}
                 <div className="notification-text">
                   <div className="notification-header">
-                    <h3 className={`notification-title ${notification.read ? 'read' : 'unread'}`}>
+                    <h3
+                      className={`notification-title ${
+                        notification.read ? "read" : "unread"
+                      }`}
+                    >
                       {notification.title}
                     </h3>
                     {!notification.read && (
@@ -182,8 +351,14 @@ export function NotificationsScreen() {
                     )}
                   </div>
                   <p className="notification-message">{notification.message}</p>
+
+                  {/* Action Buttons */}
+                  {getActionButton(notification)}
+
                   <div className="notification-footer">
-                    <span className="notification-time">{notification.time}</span>
+                    <span className="notification-time">
+                      {notification.time}
+                    </span>
                     <button
                       onClick={() => deleteNotification(notification.id)}
                       className="notification-delete-button"
@@ -205,14 +380,21 @@ export function NotificationsScreen() {
             <h3 className="quick-actions-title">Brze akcije</h3>
             <div className="quick-actions-grid">
               <button
-                onClick={() => navigateTo('challenges')}
+                onClick={() => navigateTo("challenges")}
                 className="quick-action-button"
               >
                 <Trophy className="w-4 h-4" />
                 Izazovi
               </button>
               <button
-                onClick={() => navigateTo('ecoTips')}
+                onClick={() => navigateTo("friends")}
+                className="quick-action-button"
+              >
+                <Users className="w-4 h-4" />
+                Prijatelji
+              </button>
+              <button
+                onClick={() => navigateTo("ecoTips")}
                 className="quick-action-button"
               >
                 <Lightbulb className="w-4 h-4" />

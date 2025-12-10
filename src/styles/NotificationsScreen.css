@@ -283,3 +283,122 @@
   width: 1rem;
   height: 1rem;
 }
+/* DODAJ OVE KLASE NA KRAJ FAJLA */
+
+/* Action buttons styles */
+.notification-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 80px;
+  justify-content: center;
+}
+
+.accept-btn {
+  background: linear-gradient(135deg, #2bc154, #22a54f);
+  color: white;
+}
+
+.decline-btn {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+}
+
+.view-btn {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+}
+
+.join-btn {
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  color: white;
+}
+
+.action-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Add red notification icon */
+.notification-icon.red-red {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+}
+
+/* Update quick actions grid for 3 buttons */
+.quick-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .quick-actions-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .action-btn {
+    min-width: 70px;
+    font-size: 11px;
+    padding: 5px 10px;
+  }
+}
+
+/* Friend notification specific styles */
+.notification-friend-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.friend-avatar-mini {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.friend-level-badge {
+  background: rgba(34, 197, 94, 0.2);
+  color: rgb(74, 222, 128);
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+/* Points indicator */
+.points-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: rgb(234, 179, 8);
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.points-indicator svg {
+  width: 12px;
+  height: 12px;
+}

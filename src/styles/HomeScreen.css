@@ -1,91 +1,92 @@
+/* ISTI STILOVI ZA WEB I MOBILE - NEMA RAZLIKE */
+
 .home-screen {
   min-height: 100vh;
   background: linear-gradient(to bottom right, rgb(15 23 42), rgb(30 41 59), rgb(20 83 45));
-  padding-bottom: 6rem;
+  padding: 1rem 1rem 5.5rem 1rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 
+/* Header Section */
 .home-header {
-  padding: 3rem 1.5rem 1.5rem;
+  padding: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .home-header-content {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 2rem;
+  width: 100%;
+  margin-bottom: 1.5rem;
+}
+
+.home-user-info {
+  flex: 1;
 }
 
 .home-welcome {
   color: white;
-  font-size: 1.5rem;
-  line-height: 2rem;
+  font-size: 1.25rem;
+  line-height: 1.3;
+  margin: 0;
+  font-weight: 600;
 }
 
 .home-level {
   color: rgb(134 239 172);
+  font-size: 0.875rem;
   margin-top: 0.25rem;
+  font-weight: 500;
 }
 
+/* Navigation Buttons */
 .home-nav-buttons {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.home-nav-button,
+.home-profile-button {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 
 .home-nav-button {
-  width: 3rem;
-  height: 3rem;
-  border-radius: 9999px;
-  background: rgba(30 41 59 / 0.5);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(51 65 85 / 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color 0.3s;
+  background: rgba(30 41 59 / 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(51 65 85 / 0.6);
 }
 
 .home-nav-button:hover {
-  background: rgba(51 65 85 / 0.5);
+  background: rgba(51 65 85 / 0.7);
 }
 
 .home-profile-button {
-  width: 3rem;
-  height: 3rem;
-  border-radius: 9999px;
-  background: linear-gradient(to bottom right, rgb(34 197 94), rgb(22 163 74));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 20px 25px -5px rgba(34 197 94 / 0.3);
-  transition: box-shadow 0.3s;
+  background: linear-gradient(135deg, rgb(34 197 94), rgb(22 163 74));
+  box-shadow: 0 4px 12px rgba(34 197 94 / 0.4);
 }
 
 .home-profile-button:hover {
-  box-shadow: 0 20px 25px -5px rgba(34 197 94 / 0.5);
-}
-
-.home-stats-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-
-.home-stat-card {
-  background: rgba(30 41 59 / 0.5);
-  backdrop-filter: blur(16px);
-  border-radius: 1rem;
-  padding: 1.25rem;
-  border: 1px solid rgba(51 65 85 / 0.5);
-  box-shadow: 0 25px 50px -12px rgba(0 0 0 / 0.25);
+  transform: scale(1.05);
+  box-shadow: 0 6px 16px rgba(34 197 94 / 0.5);
 }
 
 .home-nav-button svg,
-.home-profile-button svg,
-.home-stat-icon svg,
-.home-cta-button svg {
-  width: 1.25rem;
-  height: 1.25rem;
+.home-profile-button svg {
+  width: 20px;
+  height: 20px;
 }
 
 .home-nav-button svg {
@@ -96,180 +97,408 @@
   color: white;
 }
 
-.home-stat-icon svg {
-  color: white;
+/* ============ STATS GRID LAYOUT ============ */
+/* Isti layout za web i mobile */
+.home-stats-grid {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
 }
 
+.top-stats-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.home-stat-card {
+  background: rgba(30 41 59 / 0.7);
+  backdrop-filter: blur(12px);
+  border-radius: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(51 65 85 / 0.4);
+  transition: all 0.3s ease;
+  width: 100%;
+  min-height: 85px;
+  box-sizing: border-box;
+}
+
+.home-stat-card.streak-card {
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.15), rgba(220, 38, 38, 0.1));
+  border: 1px solid rgba(249, 115, 22, 0.3);
+  min-height: 100px;
+}
+
+.home-stat-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(34, 197, 94, 0.3);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+/* Stat Card Content */
+.stat-card-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  height: 100%;
+  width: 100%;
+}
+
+.streak-content {
+  gap: 1rem;
+}
+
+/* Stat Icons */
 .home-stat-icon {
-  width: 3rem;
-  height: 3rem;
-  border-radius: 0.75rem;
+  width: 48px;
+  height: 48px;
+  border-radius: 0.875rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 0.75rem;
-  box-shadow: 0 10px 15px -3px rgba(0 0 0 / 0.1);
+  flex-shrink: 0;
+  position: relative;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
 }
 
 .home-stat-icon.green {
-  background: linear-gradient(to bottom right, rgb(34 197 94), rgb(5 150 105));
-}
-
-.home-stat-icon.yellow {
-  background: linear-gradient(to bottom right, rgb(234 179 8), rgb(217 119 6));
-}
-
-.home-stat-icon.blue {
-  background: linear-gradient(to bottom right, rgb(59 130 246), rgb(6 182 212));
+  background: linear-gradient(135deg, #16a34a, #22c55e);
+  color: white;
 }
 
 .home-stat-icon.purple {
-  background: linear-gradient(to bottom right, rgb(168 85 247), rgb(236 72 153));
+  background: linear-gradient(135deg, #8b5cf6, #a855f7);
+  color: white;
+}
+
+.home-stat-icon.orange {
+  background: linear-gradient(135deg, #f97316, #ea580c);
+  color: white;
+}
+
+.home-stat-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Flame efekat za streak */
+.flame-effect {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 20px;
+  height: 20px;
+}
+
+.flame {
+  position: absolute;
+  background: linear-gradient(to bottom, #ff6b00, #ff0000);
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  animation: flicker 1s infinite alternate;
+}
+
+.flame:nth-child(1) {
+  width: 8px;
+  height: 12px;
+  top: 0;
+  left: 6px;
+  animation-delay: 0s;
+}
+
+.flame:nth-child(2) {
+  width: 6px;
+  height: 10px;
+  top: 2px;
+  left: 0;
+  animation-delay: 0.2s;
+}
+
+.flame:nth-child(3) {
+  width: 6px;
+  height: 10px;
+  top: 2px;
+  left: 12px;
+  animation-delay: 0.4s;
+}
+
+@keyframes flicker {
+
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+
+  50% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+}
+
+/* Text Content */
+.stat-text-container {
+  flex: 1;
+  min-width: 0;
 }
 
 .home-stat-label {
   color: rgb(148 163 184);
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   margin-bottom: 0.25rem;
+  font-weight: 500;
+}
+
+.value-unit-container {
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
 }
 
 .home-stat-value {
   color: white;
   font-size: 1.5rem;
-  line-height: 2rem;
+  font-weight: 700;
+  line-height: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
 }
 
 .home-stat-unit {
-  color: rgb(134 239 172);
-  font-size: 0.875rem;
+  color: rgb(148 163 184);
+  font-size: 0.75rem;
+  font-weight: 400;
   margin-left: 0.25rem;
+}
+
+/* Streak dodatni elementi */
+.streak-info {
+  margin-top: 0.5rem;
+}
+
+.streak-badge {
+  background: rgba(249, 115, 22, 0.2);
+  color: #f97316;
+  font-size: 0.6875rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.streak-subtext {
+  color: rgb(148, 163, 184);
+  font-size: 0.6875rem;
+  margin-top: 0.2rem;
+}
+
+/* CTA Button */
+.cta-container {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-top: 0.5rem;
 }
 
 .home-cta-button {
   width: 100%;
-  background: linear-gradient(to right, rgb(34 197 94), rgb(22 163 74));
+  background: linear-gradient(135deg, rgb(34 197 94), rgb(22 163 74));
   color: white;
-  padding: 1.5rem 0;
+  padding: 1rem 1.5rem;
   border-radius: 1rem;
-  box-shadow: 0 10px 15px -3px rgba(34 197 94 / 0.3);
+  box-shadow: 0 8px 16px rgba(34 197 94 / 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
   border: none;
   cursor: pointer;
-  transition: background 0.3s;
+  transition: all 0.3s;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  box-sizing: border-box;
 }
 
 .home-cta-button:hover {
-  background: linear-gradient(to right, rgb(22 163 74), rgb(21 128 61));
+  transform: translateY(-2px);
+  box-shadow: 0 12px 20px rgba(34 197 94 / 0.4);
+  background: linear-gradient(135deg, rgb(22 163 74), rgb(21 128 61));
 }
 
+.home-cta-button svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* ============ SECTIONS ============ */
 .home-section {
-  padding: 0 1.5rem;
+  width: 100%;
   margin-top: 2rem;
+  box-sizing: border-box;
 }
 
 .home-section-title {
   color: white;
-  font-size: 1.25rem;
-  line-height: 1.75rem;
+  font-size: 1.125rem;
+  line-height: 1.4;
   margin-bottom: 1rem;
+  font-weight: 600;
 }
 
+/* Recent Activity */
 .home-activity-list {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  width: 100%;
 }
 
 .home-activity-item {
-  background: rgba(30 41 59 / 0.5);
-  backdrop-filter: blur(16px);
+  background: rgba(30 41 59 / 0.6);
+  backdrop-filter: blur(12px);
   border-radius: 0.75rem;
   padding: 1rem;
-  border: 1px solid rgba(51 65 85 / 0.5);
+  border: 1px solid rgba(51 65 85 / 0.4);
   display: flex;
   align-items: center;
   justify-content: space-between;
+  width: 100%;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.home-activity-item:hover {
+  border-color: rgba(34, 197, 94, 0.3);
+  transform: translateY(-1px);
+}
+
+.activity-text {
+  flex: 1;
+  min-width: 0;
+  margin-right: 0.5rem;
 }
 
 .home-activity-title {
   color: white;
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.4;
 }
 
 .home-activity-time {
   color: rgb(148 163 184);
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   margin-top: 0.25rem;
 }
 
 .home-activity-points {
   color: rgb(134 239 172);
+  font-weight: 600;
+  font-size: 0.75rem;
+  flex-shrink: 0;
 }
 
 /* Photo Challenge Activity Styles */
 .home-activity-item.photo-activity {
   border-left: 3px solid rgb(34 197 94);
-  background: rgba(34 197 94 / 0.05);
+  background: rgba(34 197 94 / 0.07);
 }
 
 .home-activity-item.pending-activity {
   border-left: 3px solid rgb(234 179 8);
-  background: rgba(234 179 8 / 0.05);
+  background: rgba(234 179 8 / 0.07);
 }
 
 .home-activity-item.create-activity {
   border-left: 3px solid rgb(59 130 246);
-  background: rgba(59 130 246 / 0.05);
+  background: rgba(59 130 246 / 0.07);
 }
 
 .pending-points {
   color: rgb(234 179 8) !important;
-  font-size: 0.75rem;
 }
 
+/* Quick Actions */
 .home-quick-actions {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1rem;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  width: 100%;
 }
 
 .home-quick-action {
-  background: rgba(59 130 246 / 0.2);
-  backdrop-filter: blur(16px);
+  background: rgba(59 130 246 / 0.15);
+  backdrop-filter: blur(12px);
   border-radius: 1rem;
-  padding: 1.5rem;
+  padding: 1.25rem 1rem;
   border: 1px solid rgba(59 130 246 / 0.3);
-  text-align: left;
   cursor: pointer;
-  transition: border-color 0.3s;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  height: 100%;
+  min-height: 100px;
+  box-sizing: border-box;
 }
 
 .home-quick-action:hover {
+  transform: translateY(-3px);
   border-color: rgba(96 165 250 / 0.5);
+  box-shadow: 0 8px 16px rgba(59, 130, 246, 0.2);
 }
 
 .home-quick-action.purple {
-  background: rgba(168 85 247 / 0.2);
+  background: rgba(168 85 247 / 0.15);
   border: 1px solid rgba(168 85 247 / 0.3);
 }
 
 .home-quick-action.purple:hover {
   border-color: rgba(196 181 253 / 0.5);
+  box-shadow: 0 8px 16px rgba(168, 85, 247, 0.2);
+}
+
+.quick-action-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
 }
 
 .home-quick-action-emoji {
-  font-size: 1.875rem;
-  margin-bottom: 0.5rem;
+  font-size: 1.75rem;
+  margin-bottom: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.home-quick-action-emoji svg {
+  width: 24px;
+  height: 24px;
+}
+
+.quick-action-text {
+  text-align: center;
 }
 
 .home-quick-action-title {
   color: white;
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
 }
 
 .home-quick-action-subtitle {
   color: rgb(148 163 184);
-  font-size: 0.875rem;
-  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  margin-top: 0.125rem;
+  margin: 0;
 }
+
