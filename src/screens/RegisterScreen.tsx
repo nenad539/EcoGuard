@@ -35,6 +35,7 @@ export function RegisterScreen() {
 
   setLoading(true);
   try {
+    // Pass metadata inside `options.data` (compatible with the project's supabase-js version)
     const { data, error } = await supabase.auth.signUp({
       email: formData.email,
       password: formData.password,
@@ -45,13 +46,29 @@ export function RegisterScreen() {
       },
     });
 
+   
+    try {
+      const userId = data?.user?.id;
+      if (userId) {
+        const { error: insertError } = await supabase.from('profiles').insert({
+          id: userId,
+          name: formData.name,
+          email: formData.email,
+          created_at: new Date().toISOString(),
+        });
+       
+      }
+    } catch (e) {
+      console.warn('Profile insert skipped or failed:', e);
+    }
+
     if (error) {
       console.error('Supabase signUp error:', error);
       alert(error.message || 'Greška prilikom registracije');
       return;
     }
 
-    // If confirmation is required you may want to navigate to login and tell user to check email
+  
     alert('Uspešno! Proverite email za potvrdu naloga ako je potrebno.');
     navigateTo('login');
   } catch (err: any) {

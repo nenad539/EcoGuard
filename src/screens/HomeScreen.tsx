@@ -14,77 +14,71 @@ export function HomeScreen() {
 
   
   const [userName, setUserName] = useState('');
-
-  const getUserName = async () => {
-    let { data: korisnik_profil, error } = await supabase
-      .from('korisnik_profil')
-      .select('korisnicko_ime');
-    
-    if (error) {
-      console.error('Error fetching user:', error);
-      return 'Korisnik';
-    }
-    
-    return korisnik_profil?.[0]?.korisnicko_ime || 'Korisnik';
-  };
-
-  useEffect(() => {
-    getUserName().then(name => setUserName(name));
-  }, []);
-
-
-
-  const getUserLevel = async () => {
-    let { data: korisnik_profil, error } = await supabase
-      .from('korisnik_profil')
-      .select('nivo');
-    
-    if (error) {
-      console.error('Error fetching user:', error);
-      return '0';
-    }
-    
-    return korisnik_profil?.[0]?.nivo || 'Korisnik';
-  };
   const [userLevel, setUserLevel] = useState('');
-  useEffect(() => {
-    getUserLevel().then(nivo => setUserLevel(nivo));
-  }, []);
-
-   const getUserReciklirano = async () => {
-    let { data: korisnik_profil, error } = await supabase
-      .from('korisnik_profil')
-      .select('reciklirano_stvari');
-    
-    if (error) {
-      console.error('Error fetching user:', error);
-      return '0';
-    }
-    
-    return korisnik_profil?.[0]?.reciklirano_stvari || 'Korisnik';
-  };
-  
   const [userReciklirano, setUserReciklirano] = useState('');
-  useEffect(() => {
-    getUserReciklirano().then(reciklirano => setUserReciklirano(reciklirano));
-  }, []);
-
-  const getUserPoints = async () => {
-    let { data: korisnik_profil, error } = await supabase
-      .from('korisnik_profil')
-      .select('ukupno_poena');
-    
-    if (error) {
-      console.error('Error fetching user:', error);
-      return '0';
-    }
-    
-    return korisnik_profil?.[0]?.ukupno_poena || '0';
-  };
-  
   const [userPoints, setUserPoints] = useState('');
+
+  // Load user data in two steps:
+  // 1) fetch only the id from `korisnik_profil` (the app previously fetched the whole row but we want to
+  //    first acquire the id to then fetch specific resources by id)
+  // 2) fetch the detailed fields for that id (name, nivo, reciklirano_stvari, ukupno_poena)
+  const loadUserData = async () => {
+    try {
+      // Step 1: prefer to read the authenticated user id via Supabase Auth
+      let userId: string | undefined;
+      try {
+        const { data: authData, error: authError } = await supabase.auth.getUser();
+        if (authError) {
+          console.warn('auth.getUser error (continuing to fallback):', authError.message || authError);
+        }
+        userId = authData?.user?.id;
+      } catch (e) {
+        console.warn('auth.getUser threw, will fallback to selecting first profile id', e);
+      }
+
+      // Fallback: if no authenticated user (e.g. during dev), fall back to selecting first id in table
+      if (!userId) {
+        const { data: idData, error: idError } = await supabase
+          .from('korisnik_profil')
+          .select('id')
+          .limit(1);
+
+        if (idError) {
+          console.error('Error fetching user id (fallback):', idError);
+          return;
+        }
+
+        userId = idData?.[0]?.id;
+      }
+
+      if (!userId) {
+        console.warn('No user id found for korisnik_profil');
+        return;
+      }
+
+      // Step 2: fetch required user fields by id
+      const { data: userData, error: userError } = await supabase
+        .from('korisnik_profil')
+        .select('korisnicko_ime, nivo, reciklirano_stvari, ukupno_poena')
+        .eq('id', userId)
+        .single();
+
+      if (userError) {
+        console.error('Error fetching user data by id:', userError);
+        return;
+      }
+
+      setUserName(userData?.korisnicko_ime || 'Korisnik');
+      setUserLevel(userData?.nivo || '0');
+      setUserReciklirano(userData?.reciklirano_stvari || '0');
+      setUserPoints(userData?.ukupno_poena || '0');
+    } catch (e) {
+      console.error('Unexpected error loading user data:', e);
+    }
+  };
+
   useEffect(() => {
-    getUserPoints().then(points => setUserPoints(points));
+    loadUserData();
   }, []);
 
 
