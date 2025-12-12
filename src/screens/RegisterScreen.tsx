@@ -35,7 +35,7 @@ export function RegisterScreen() {
 
   setLoading(true);
   try {
-    // Pass metadata inside `options.data` (compatible with the project's supabase-js version)
+    
     const { data, error } = await supabase.auth.signUp({
       email: formData.email,
       password: formData.password,
@@ -48,19 +48,22 @@ export function RegisterScreen() {
 
    
     try {
-      const userId = data?.user?.id;
-      if (userId) {
-        const { error: insertError } = await supabase.from('profiles').insert({
-          id: userId,
-          name: formData.name,
-          email: formData.email,
-          created_at: new Date().toISOString(),
-        });
-       
-      }
-    } catch (e) {
-      console.warn('Profile insert skipped or failed:', e);
+  const userId = data?.user?.id;
+  if (userId) {
+    const { error: updateError } = await supabase
+      .from("korisnik_profil")
+      .update({
+        korisnicko_ime: formData.name
+      })
+      .eq("id", userId);
+
+    if (updateError) {
+      console.error("Profile update error:", updateError);
     }
+  }
+} catch (e) {
+  console.warn("Profile update failed:", e);
+}
 
     if (error) {
       console.error('Supabase signUp error:', error);
