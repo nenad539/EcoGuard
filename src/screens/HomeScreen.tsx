@@ -77,41 +77,61 @@ export function HomeScreen() {
   }, []);
 
 
-  const getActivityPoints = async () => {
-    let { data: aktivnosti, error } = await supabase
-      .from('aktivnosti')
-      .select('poena_dodato');
-    
-    if (error) {
-      console.error('Error fetching user:', error);
-      return '20';
-    }
-    
-    return aktivnosti?.[0]?.poena_dodato || '0';
-  };
-  
-  const [poena_dodato, setActivityPoints] = useState('');
-  useEffect(() => {
-    getActivityPoints().then(poena_dodato => setActivityPoints(poena_dodato));
-  }, []);
+  // Consolidated recent activities fetch (single request)
+  const [activities, setActivities] = useState<any[]>([]);
 
+  const getRecentActivities = async () => {
+    try {
+      // Try the real timestamp column first (kreirano_u). If it doesn't exist,
+      // fall back to created_at, and finally to id desc as the last resort.
+      const tryOrder = async (col: string) => {
+        return supabase
+          .from('aktivnosti')
+          .select('id, opis, poena_dodato, kategorija, status')
+          .order(col, { ascending: false })
+          .limit(6);
+      };
 
-  const getActivityTitle = async () => {
-    let { data: aktivnosti, error } = await supabase
-      .from('aktivnosti')
-      .select('opis');
-    
-    if (error) {
-      console.error('Error fetching user:', error);
-      return '0';
+      let result = await tryOrder('kreirano_u');
+
+      if (result.error) {
+        // try created_at next
+        if (result.error.code === '42703' || /does not exist/i.test(String(result.error.message))) {
+          console.warn("aktivnosti.kreirano_u doesn't exist (or ordering failed), trying 'created_at'");
+          result = await tryOrder('created_at');
+        }
+      }
+
+      // If still error (created_at missing) fallback to ordering by id
+      if (result.error) {
+        if (result.error.code === '42703' || /does not exist/i.test(String(result.error.message))) {
+          console.warn("aktivnosti.created_at doesn't exist (or ordering failed), retrying order by 'id' desc");
+          const retry = await tryOrder('id');
+          if (retry.error) {
+            console.error('Error fetching aktivnosti (retry by id):', retry.error);
+            setActivities([]);
+            return;
+          }
+          console.debug('Fetched aktivnosti (retry by id):', retry.data?.length || 0, retry.data?.slice?.(0,3));
+          setActivities(retry.data ?? []);
+          return;
+        }
+
+        console.error('Error fetching aktivnosti:', result.error);
+        setActivities([]);
+        return;
+      }
+
+      console.debug('Fetched aktivnosti:', result.data?.length || 0, result.data?.slice?.(0,3));
+      setActivities(result.data ?? []);
+    } catch (e) {
+      console.error('Unexpected error fetching aktivnosti:', e);
+      setActivities([]);
     }
-    
-    return aktivnosti?.[0]?.opis || '20';
   };
-  
-  const [activityTitle, setActivityTitle] = useState('');
+
   useEffect(() => {
-    getActivityTitle().then(activityTitle => setActivityTitle(activityTitle));
+    getRecentActivities();
   }, []);
 
 
@@ -140,6 +160,20 @@ const stats = [
 
   
 
+
+  // Prepare activities for rendering: if we have fetched activities use them, else show fallback static items
+  const displayedActivities = (activities && activities.length > 0)
+    ? [
+        // map supabase rows to our UI shape for the first few items
+        ...activities.map((a: any) => ({ title: a.opis || 'Aktivnost', time: 'Prije nekoliko sati', points: a.poena_dodato ?? '0', type: a.status === 'pending' ? 'pending' : (a.kategorija === 'photo' ? 'photo' : 'standard' ) })),
+        // keep a couple of static examples after fetched items
+      ]
+    : [
+        { title: 'Reciklirano 5 PET flaša', time: 'Prije 2 sata', points: '+50', type: 'standard' },
+        { title: 'Kreiran novi foto izazov', time: 'Prije 4 sata', points: '+25', type: 'create' },
+        { title: 'Završen izazov "Bicikl vikendom"', time: 'Prije 1 dan', points: '+120', type: 'standard' },
+        { title: 'Fotografija na verifikaciji', time: 'Prije 2 dana', points: 'Na čekanju', type: 'pending' },
+      ];
 
   return (
     <div className="home-screen">
@@ -215,13 +249,7 @@ const stats = [
       <div className="home-section">
         <h2 className="home-section-title">Nedavne aktivnosti</h2>
         <div className="home-activity-list">
-          {[
-            { title: activityTitle, time: 'Prije 1 sat', points: poena_dodato, type: 'photo' },
-            { title: 'Reciklirano 5 PET flaša', time: 'Prije 2 sata', points: '+50', type: 'standard' },
-            { title: 'Kreiran novi foto izazov', time: 'Prije 4 sata', points: '+25', type: 'create' },
-            { title: 'Završen izazov "Bicikl vikendom"', time: 'Prije 1 dan', points: '+120', type: 'standard' },
-            { title: 'Fotografija na verifikaciji', time: 'Prije 2 dana', points: 'Na čekanju', type: 'pending' },
-          ].map((activity, index) => (
+          {displayedActivities.map((activity, index) => (
             <motion.div
               key={index}
               initial={{ opacity: 0, x: -20 }}

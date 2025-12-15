@@ -10,18 +10,47 @@ import '../styles/ProfileScreen.css';
 export function ProfileScreen() {
   const { userData, navigateTo } = useContext(NavigationContext);
 
+  const getUserId = async (): Promise<string | undefined> => {
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError) {
+        console.warn('auth.getUser error (fallback to table):', authError.message || authError);
+      }
+      const userId = authData?.user?.id;
+      if (userId) return userId;
+    } catch (e) {
+      console.warn('auth.getUser threw, will fallback to selecting first profile id', e);
+    }
+
+     try {
+      const { data: idData, error: idError } = await supabase.from('korisnik_profil').select('id').limit(1);
+      if (idError) {
+        console.error('Error fetching user id (fallback):', idError);
+        return undefined;
+      }
+      return idData?.[0]?.id;
+    } catch (e) {
+      console.error('Unexpected error fetching fallback id:', e);
+      return undefined;
+    }
+  };
+
 
 const getUserCompleted = async () => {
+    const userId = await getUserId();
+    if (!userId) return '0';
     let { data: korisnik_profil, error } = await supabase
       .from('korisnik_profil')
-      .select('izazova_zavrseno');
+      .select('izazova_zavrseno')
+      .eq('id', userId)
+      .single();
     
     if (error) {
       console.error('Error fetching user:', error);
       return '0';
     }
     
-    return korisnik_profil?.[0]?.izazova_zavrseno || '0';
+  return korisnik_profil?.izazova_zavrseno || '0';
   };
   const [userCompleted, setUserCompleted] = useState('');
   useEffect(() => {
@@ -30,16 +59,20 @@ const getUserCompleted = async () => {
 
 
   const getUserStreak = async () => {
+    const userId = await getUserId();
+    if (!userId) return '0';
     let { data: korisnik_profil, error } = await supabase
       .from('korisnik_profil')
-      .select('dnevna_serija');
+      .select('dnevna_serija')
+      .eq('id', userId)
+      .single();
     
     if (error) {
       console.error('Error fetching user:', error);
       return '0';
     }
     
-    return korisnik_profil?.[0]?.dnevna_serija || '0';
+  return korisnik_profil?.dnevna_serija || '0';
   };
   const [userStreak, setUserStreak] = useState('');
   useEffect(() => {
@@ -48,16 +81,20 @@ const getUserCompleted = async () => {
 
 
     const getUserPoints = async () => {
+      const userId = await getUserId();
+      if (!userId) return '0';
       let { data: korisnik_profil, error } = await supabase
         .from('korisnik_profil')
-        .select('ukupno_poena');
+        .select('ukupno_poena')
+        .eq('id', userId)
+        .single();
       
       if (error) {
         console.error('Error fetching user:', error);
         return '0';
       }
       
-      return korisnik_profil?.[0]?.ukupno_poena || '0';
+  return korisnik_profil?.ukupno_poena || '0';
     };
     
     const [userPoints, setUserPoints] = useState('');
@@ -67,16 +104,20 @@ const getUserCompleted = async () => {
 
 
     const getUserName = async () => {
+        const userId = await getUserId();
+        if (!userId) return 'Korisnik';
         let { data: korisnik_profil, error } = await supabase
           .from('korisnik_profil')
-          .select('korisnicko_ime');
+          .select('korisnicko_ime')
+          .eq('id', userId)
+          .single();
         
         if (error) {
           console.error('Error fetching user:', error);
           return '0';
         }
         
-        return korisnik_profil?.[0]?.korisnicko_ime || 'Korisnik';
+  return korisnik_profil?.korisnicko_ime || 'Korisnik';
       };
       const [userName, setUserName] = useState('');
       useEffect(() => {
@@ -85,20 +126,54 @@ const getUserCompleted = async () => {
 
 
        const getUserLevel = async () => {
+          const userId = await getUserId();
+          if (!userId) return '0';
           let { data: korisnik_profil, error } = await supabase
             .from('korisnik_profil')
-            .select('nivo');
+            .select('nivo')
+            .eq('id', userId)
+            .single();
           
           if (error) {
             console.error('Error fetching user:', error);
             return '0';
           }
           
-          return korisnik_profil?.[0]?.nivo || 'Korisnik';
+          return korisnik_profil?.nivo || 'Korisnik';
         };
         const [userLevel, setUserLevel] = useState('');
         useEffect(() => {
           getUserLevel().then(nivo => setUserLevel(nivo));
+        }, []);
+
+
+        // Consolidated recent activities for profile
+        const [activities, setActivities] = useState<any[]>([]);
+
+        const getRecentActivities = async () => {
+          try {
+            // try to fetch recent activities (single request)
+            const { data: aktivnosti, error } = await supabase
+              .from('aktivnosti')
+              .select('id, opis, poena_dodato, kategorija, status')
+              .order('created_at', { ascending: false })
+              .limit(6);
+
+            if (error) {
+              console.error('Error fetching aktivnosti for profile:', error);
+              setActivities([]);
+              return;
+            }
+
+            setActivities(aktivnosti ?? []);
+          } catch (e) {
+            console.error('Unexpected error fetching aktivnosti for profile:', e);
+            setActivities([]);
+          }
+        };
+
+        useEffect(() => {
+          getRecentActivities();
         }, []);
 
 

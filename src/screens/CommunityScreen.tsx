@@ -1,11 +1,12 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { motion } from "motion/react";
 import { BottomNav } from "../components/common/BottomNav";
+import { supabase } from "../supabase-client";
 import { Search, Trophy, Medal, Camera, CheckCircle } from "lucide-react";
 import "../styles/CommunityScreen.css";
 
 type User = {
-  id: number;
+  id: string | number;
   name: string;
   points: number;
   level: number;
@@ -21,109 +22,13 @@ export function CommunityScreen() {
   const [activeFilter, setActiveFilter] = useState<
     "all" | "bronze" | "silver" | "gold"
   >("all");
+  const [users, setUsers] = useState<User[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [usersError, setUsersError] = useState<string | null>(null);
 
-  const users: User[] = [
-    {
-      id: 1,
-      name: "Ana Petrović",
-      points: 5240,
-      level: 8,
-      badge: "gold",
-      rank: 1,
-      photoChallenges: 28,
-      challengesCompleted: 45,
-    },
-    {
-      id: 2,
-      name: "Nikola Jovanović",
-      points: 4890,
-      level: 7,
-      badge: "gold",
-      rank: 2,
-      photoChallenges: 24,
-      challengesCompleted: 42,
-    },
-    {
-      id: 3,
-      name: "Jelena Marković",
-      points: 4320,
-      level: 7,
-      badge: "gold",
-      rank: 3,
-      photoChallenges: 21,
-      challengesCompleted: 38,
-    },
-    {
-      id: 4,
-      name: "Stefan Ilić",
-      points: 3870,
-      level: 6,
-      badge: "silver",
-      rank: 4,
-      photoChallenges: 18,
-      challengesCompleted: 34,
-    },
-    {
-      id: 5,
-      name: "Milica Đorđević",
-      points: 3540,
-      level: 6,
-      badge: "silver",
-      rank: 5,
-      photoChallenges: 16,
-      challengesCompleted: 31,
-    },
-    {
-      id: 6,
-      name: "Luka Nikolić",
-      points: 3210,
-      level: 5,
-      badge: "silver",
-      rank: 6,
-      photoChallenges: 14,
-      challengesCompleted: 28,
-    },
-    {
-      id: 7,
-      name: "Tijana Stanković",
-      points: 2890,
-      level: 5,
-      badge: "silver",
-      rank: 7,
-      photoChallenges: 12,
-      challengesCompleted: 25,
-    },
-    {
-      id: 8,
-      name: "Marko Pavlović",
-      points: 2450,
-      level: 3,
-      badge: "bronze",
-      rank: 8,
-      photoChallenges: 10,
-      challengesCompleted: 22,
-    },
-    {
-      id: 9,
-      name: "Sara Simić",
-      points: 2120,
-      level: 4,
-      badge: "bronze",
-      rank: 9,
-      photoChallenges: 8,
-      challengesCompleted: 19,
-    },
-    {
-      id: 10,
-      name: "David Kostić",
-      points: 1980,
-      level: 4,
-      badge: "bronze",
-      rank: 10,
-      photoChallenges: 6,
-      challengesCompleted: 16,
-    },
-  ];
+  const [activities, setActivities] = useState<any[]>([]);
+  const [loadingActivities, setLoadingActivities] = useState(false);
+  const [activitiesError, setActivitiesError] = useState<string | null>(null);
 
   // Funkcija za filtriranje korisnika
   const filteredUsers = useMemo(() => {
@@ -139,7 +44,115 @@ export function CommunityScreen() {
 
       return matchesSearch && matchesFilter;
     });
-  }, [searchQuery, activeFilter]);
+  }, [searchQuery, activeFilter, users]);
+
+  // Helper to decide badge based on points (simple thresholds)
+  const badgeForPoints = (points: number) => {
+    if (points >= 5000) return "gold" as const;
+    if (points >= 3000) return "silver" as const;
+    return "bronze" as const;
+  };
+
+  // Load leaderboard (top 10 users)
+  const loadLeaderboard = async () => {
+    setLoadingUsers(true);
+    setUsersError(null);
+    try {
+      const { data, error } = await supabase
+        .from("korisnik_profil")
+        .select("id, korisnicko_ime, ukupno_poena, nivo")
+        .order("ukupno_poena", { ascending: false })
+        .limit(10);
+
+      if (error) {
+        console.error("Error loading leaderboard:", error);
+        setUsersError(String(error.message || error));
+        setUsers([]);
+        setLoadingUsers(false);
+        return;
+      }
+      console.debug('Loaded leaderboard rows:', (data || []).length, data?.slice?.(0,3));
+      const mapped: User[] = (data || []).map((row: any, idx: number) => ({
+        id: row.id,
+        name: row.korisnicko_ime || "Korisnik",
+        points: Number(row.ukupno_poena) || 0,
+        level: row.nivo || 0,
+        badge: badgeForPoints(Number(row.ukupno_poena) || 0),
+        rank: idx + 1,
+        photoChallenges: 0,
+        challengesCompleted: 0,
+      }));
+
+      setUsers(mapped);
+    } catch (e) {
+      console.error("Unexpected error loading leaderboard:", e);
+      setUsersError(String(e));
+      setUsers([]);
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  // Load recent activities (try kreirano_u, created_at, id fallback)
+  const loadActivities = async () => {
+    setLoadingActivities(true);
+    setActivitiesError(null);
+    try {
+      const tryOrder = async (col: string) =>
+        supabase
+          .from("aktivnosti")
+          .select("id, opis, poena_dodato, kategorija, status")
+          .order(col, { ascending: false })
+          .limit(6);
+
+      let result = await tryOrder("kreirano_u");
+
+      if (result.error) {
+        if (result.error.code === "42703" || /does not exist/i.test(String(result.error.message))) {
+          console.warn("aktivnosti.kreirano_u missing, trying created_at");
+          result = await tryOrder("created_at");
+        }
+      }
+
+      if (result.error) {
+        if (result.error.code === "42703" || /does not exist/i.test(String(result.error.message))) {
+          console.warn("aktivnosti.created_at missing, falling back to id");
+          const retry = await tryOrder("id");
+          if (retry.error) {
+            console.error("Error fetching activities (retry by id):", retry.error);
+            setActivitiesError(String(retry.error.message || retry.error));
+            setActivities([]);
+            setLoadingActivities(false);
+            return;
+          }
+          console.debug("Fetched activities (retry by id):", retry.data?.length || 0);
+          setActivities(retry.data || []);
+          setLoadingActivities(false);
+          return;
+        }
+
+        console.error("Error fetching activities:", result.error);
+        setActivitiesError(String(result.error.message || result.error));
+        setActivities([]);
+        setLoadingActivities(false);
+        return;
+      }
+
+      console.debug("Fetched activities:", result.data?.length || 0);
+      setActivities(result.data || []);
+    } catch (e) {
+      console.error("Unexpected error fetching activities:", e);
+      setActivitiesError(String(e));
+      setActivities([]);
+    } finally {
+      setLoadingActivities(false);
+    }
+  };
+
+  useEffect(() => {
+    loadLeaderboard();
+    loadActivities();
+  }, []);
 
   const getBadgeColor = (badge: string) => {
     switch (badge) {
@@ -261,71 +274,85 @@ export function CommunityScreen() {
       {/* Top 3 Podium - UVIJEK prikazuje prva 3 mjesta */}
       <div className="community-leaderboard">
         <div className="community-podium">
-          {/* 2nd Place */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="community-podium-item second"
-          >
-            <div className="community-podium-rank second">
-              <Medal className="w-4 h-4" />
-            </div>
-            <div className="community-podium-avatar">
-              {users[1].name
-                .split(" ")
-                .map((n) => n[0])
-                .join("")}
-            </div>
-            <p className="community-podium-name">
-              {users[1].name.split(" ")[0]}
-            </p>
-            <p className="community-podium-points">{users[1].points} pts</p>
-          </motion.div>
+              {
+                // Defensive rendering: users may be empty while loading.
+                // Pick first/second/third if available, otherwise render placeholders.
+              }
+              {(() => {
+                const first = users[0];
+                const second = users[1];
+                const third = users[2];
 
-          {/* 1st Place */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="community-podium-item first"
-          >
-            <div className="community-podium-rank first">
-              <Trophy className="w-4 h-4" />
-            </div>
-            <div className="community-podium-avatar">
-              {users[0].name
-                .split(" ")
-                .map((n) => n[0])
-                .join("")}
-            </div>
-            <p className="community-podium-name">
-              {users[0].name.split(" ")[0]}
-            </p>
-            <p className="community-podium-points">{users[0].points} pts</p>
-          </motion.div>
+                return (
+                  <>
+                    {/* 2nd Place */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.2 }}
+                      className="community-podium-item second"
+                    >
+                      <div className="community-podium-rank second">
+                        <Medal className="w-4 h-4" />
+                      </div>
+                      <div className="community-podium-avatar">
+                        {(second?.name ?? "Korisnik")
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")}
+                      </div>
+                      <p className="community-podium-name">
+                        {(second?.name ?? "Korisnik").split(" ")[0]}
+                      </p>
+                      <p className="community-podium-points">{second?.points ?? "—"} pts</p>
+                    </motion.div>
 
-          {/* 3rd Place */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="community-podium-item third"
-          >
-            <div className="community-podium-rank third">
-              <Medal className="w-4 h-4" />
-            </div>
-            <div className="community-podium-avatar">
-              {users[2].name
-                .split(" ")
-                .map((n) => n[0])
-                .join("")}
-            </div>
-            <p className="community-podium-name">
-              {users[2].name.split(" ")[0]}
-            </p>
-            <p className="community-podium-points">{users[2].points} pts</p>
-          </motion.div>
+                    {/* 1st Place */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.1 }}
+                      className="community-podium-item first"
+                    >
+                      <div className="community-podium-rank first">
+                        <Trophy className="w-4 h-4" />
+                      </div>
+                      <div className="community-podium-avatar">
+                        {(first?.name ?? "Korisnik")
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")}
+                      </div>
+                      <p className="community-podium-name">
+                        {(first?.name ?? "Korisnik").split(" ")[0]}
+                      </p>
+                      <p className="community-podium-points">{first?.points ?? "—"} pts</p>
+                    </motion.div>
+
+                    {/* 3rd Place */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.3 }}
+                      className="community-podium-item third"
+                    >
+                      <div className="community-podium-rank third">
+                        <Medal className="w-4 h-4" />
+                      </div>
+                      <div className="community-podium-avatar">
+                        {(third?.name ?? "Korisnik")
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")}
+                      </div>
+                      <p className="community-podium-name">
+                        {(third?.name ?? "Korisnik").split(" ")[0]}
+                      </p>
+                      <p className="community-podium-points">{third?.points ?? "—"} pts</p>
+                    </motion.div>
+                  </>
+                );
+              })()}
         </div>
 
         {/* Leaderboard List - SVI korisnici (uključujući top 3) */}
