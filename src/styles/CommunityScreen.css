@@ -197,24 +197,11 @@
   backdrop-filter: blur(16px);
   border-radius: 1rem;
   padding: 1rem;
-  border: 1px solid rgba(192, 192, 192) ;
+  border: 1px solid rgba(51 65 85 / 0.5);
   display: flex;
   align-items: center;
   gap: 0.75rem;
 }
-
-.border-gold {
-  border-color: #facc15 !important; /* yellow-500 */
-}
-
-.border-silver {
-  border-color: #94a3b8 !important; /* slate-400 */
-}
-
-.border-bronze {
-  border-color: #b45309 !important; /* amber-600 */
-}
-
 
 .community-user-rank {
   width: 2rem;
@@ -317,14 +304,14 @@
   line-height: 1;
 }
 
-/* .community-user-item {
+.community-user-item {
   background: rgba(30, 41, 59, 0.5);
   backdrop-filter: blur(16px);
   border-radius: 0.75rem;
   padding: 1rem;
   border: 1px solid rgba(71, 85, 105, 0.5);
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-} */
+}
 
 .community-user-item-top {
   border-color: rgba(34, 197, 94, 0.5);
