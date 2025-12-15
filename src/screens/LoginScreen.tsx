@@ -28,12 +28,11 @@ export function LoginScreen() {
 
       if (error) {
         console.error('Supabase login error:', error);
-        // show the server message when available
         alert(error.message || 'Greška prilikom prijave');
         return;
       }
 
-      // successful login
+     
       navigateTo('home');
     } catch (err: any) {
       console.error('Unexpected login error:', err);

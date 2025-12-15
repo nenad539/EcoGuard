@@ -47,23 +47,43 @@ export function RegisterScreen() {
     });
 
    
-    try {
-  const userId = data?.user?.id;
-  if (userId) {
-    const { error: updateError } = await supabase
-      .from("korisnik_profil")
-      .update({
-        korisnicko_ime: formData.name
-      })
-      .eq("id", userId);
+//     try {
+//   const userId = data?.user?.id;
+//   if (userId) {
+//     const { error: updateError } = await supabase
+//       .from("korisnik_profil")
+//       .update({
+//         korisnicko_ime: formData.name
+//       })
+//       .eq("id", userId);
 
-    if (updateError) {
-      console.error("Profile update error:", updateError);
-    }
-  }
+//     if (updateError) {
+//       console.error("Profile update error:", updateError);
+//     }
+//   }
+// } catch (e) {
+//   console.warn("Profile update failed:", e);
+// }
+
+try {
+  const userId = data?.user?.id;
+  console.log("DEBUG userId:", userId);
+
+  
+
+  const { data: updData, error: updateError } = await supabase
+    .from("korisnik_profil")
+    .update({ korisnicko_ime: formData.name })
+    .eq("id", userId)
+    .select();
+
+  console.log("DEBUG update result:", updData);
+  console.log("DEBUG update error:", updateError);
+
 } catch (e) {
   console.warn("Profile update failed:", e);
 }
+
 
     if (error) {
       console.error('Supabase signUp error:', error);

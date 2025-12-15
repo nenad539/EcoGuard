@@ -18,14 +18,9 @@ export function HomeScreen() {
   const [userReciklirano, setUserReciklirano] = useState('');
   const [userPoints, setUserPoints] = useState('');
 
-  // Load user data in two steps:
-  // 1) fetch only the id from `korisnik_profil` (the app previously fetched the whole row but we want to
-  //    first acquire the id to then fetch specific resources by id)
-  // 2) fetch the detailed fields for that id (name, nivo, reciklirano_stvari, ukupno_poena)
-  const loadUserData = async () => {
+   const loadUserData = async () => {
     try {
-      // Step 1: prefer to read the authenticated user id via Supabase Auth
-      let userId: string | undefined;
+       let userId: string | undefined;
       try {
         const { data: authData, error: authError } = await supabase.auth.getUser();
         if (authError) {
@@ -36,7 +31,7 @@ export function HomeScreen() {
         console.warn('auth.getUser threw, will fallback to selecting first profile id', e);
       }
 
-      // Fallback: if no authenticated user (e.g. during dev), fall back to selecting first id in table
+     
       if (!userId) {
         const { data: idData, error: idError } = await supabase
           .from('korisnik_profil')
@@ -56,7 +51,7 @@ export function HomeScreen() {
         return;
       }
 
-      // Step 2: fetch required user fields by id
+     
       const { data: userData, error: userError } = await supabase
         .from('korisnik_profil')
         .select('korisnicko_ime, nivo, reciklirano_stvari, ukupno_poena')
