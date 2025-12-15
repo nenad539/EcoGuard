@@ -1,4 +1,5 @@
 import React, { useState, useEffect, createContext, useContext } from 'react';
+import { supabase } from './supabase-client';
 import { SplashScreen } from './screens/SplashScreen';
 import { OnboardingScreen } from './screens/OnboardingScreen';
 import { LoginScreen } from './screens/LoginScreen';
@@ -97,6 +98,44 @@ export default function App() {
       return () => clearTimeout(timer);
     }
   }, [currentScreen]);
+
+  // On app mount check Supabase auth state. If a user session exists, go to home.
+  useEffect(() => {
+    let mounted = true;
+
+    const checkUser = async () => {
+      try {
+        const { data, error } = await supabase.auth.getUser();
+        if (error) {
+          console.warn('auth.getUser on mount error:', error);
+        }
+        const userId = data?.user?.id;
+        if (mounted && userId) {
+          setCurrentScreen('home');
+        }
+      } catch (e) {
+        console.warn('Error checking auth on mount:', e);
+      }
+    };
+
+    checkUser();
+
+    // Subscribe to auth state changes to keep navigation in sync.
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      // When user signs out, navigate to login. When signed in, navigate to home.
+      if (event === 'SIGNED_OUT') {
+        setCurrentScreen('login');
+      } else if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+        setCurrentScreen('home');
+      }
+    });
+
+    return () => {
+      mounted = false;
+      // Unsubscribe
+      try { listener?.subscription?.unsubscribe(); } catch (e) {}
+    };
+  }, []);
 
   const navigateTo = (screen: Screen) => {
     setCurrentScreen(screen);

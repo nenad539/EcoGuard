@@ -325,7 +325,18 @@ const getUserCompleted = async () => {
       {/* Logout */}
       <div className="profile-logout">
         <button
-          onClick={() => navigateTo('login')}
+          onClick={async () => {
+            try {
+              const { error } = await supabase.auth.signOut();
+              if (error) {
+                console.error('Error signing out:', error);
+              }
+            } catch (e) {
+              console.error('Unexpected error during sign out:', e);
+            } finally {
+              navigateTo('login');
+            }
+          }}
           className="profile-logout-button"
         >
           <LogOut className="w-4 h-4" />
