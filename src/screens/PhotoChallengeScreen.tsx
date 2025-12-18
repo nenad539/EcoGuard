@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { BottomNav } from '../components/common/BottomNav';
 import { 
@@ -8,15 +8,13 @@ import {
   Users, 
   MapPin, 
   CheckCircle2, 
-  Star,
-  Award,
-  Clock,
-  Target,
   Recycle,
   TreePine,
-  Droplet
+  Droplet,
+  Clock
 } from 'lucide-react';
 import { PhotoSubmission } from '../components/PhotoSubmission';
+import { supabase } from '../supabase-client';
 import '../styles/PhotoChallengeScreen.css';
 
 type PhotoChallenge = {
@@ -51,6 +49,18 @@ export function PhotoChallengeScreen() {
   const [activeTab, setActiveTab] = useState<'regular' | 'photo' | 'create'>('regular');
   const [showSubmissionModal, setShowSubmissionModal] = useState(false);
   const [selectedChallenge, setSelectedChallenge] = useState<PhotoChallenge | null>(null);
+  const [photoChallenges, setPhotoChallenges] = useState<PhotoChallenge[]>([]);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [creatingChallenge, setCreatingChallenge] = useState({
+    title: '',
+    description: '',
+    points: 100,
+    location: '',
+    category: 'cleanup' as 'cleanup' | 'recycling' | 'nature' | 'awareness',
+    difficulty: 'easy' as 'easy' | 'medium' | 'hard',
+  });
+
+  const REGULAR_CHALLENGES_PER_PAGE = 5;
 
   const regularChallenges: RegularChallenge[] = [
     {
@@ -88,49 +98,46 @@ export function PhotoChallengeScreen() {
     },
   ];
 
-  const photoChallenges: PhotoChallenge[] = [
-    {
-      id: 1,
-      title: 'Očisti gradski park',
-      description: 'Fotografiši smeće u parku i pokušaj da ga pokupiš',
-      points: 150,
-      location: 'Nikšić, Crna Gora',
-      author: 'Ana Petrović',
-      completions: 12,
-      difficulty: 'medium',
-      category: 'cleanup',
-      status: 'available',
-      timeLimit: '7 dana',
-      createdAt: '2024-11-01',
-    },
-    {
-      id: 2,
-      title: 'Razdvojeno bacanje otpada',
-      description: 'Fotografiši pravilno razvrstan otpad u kontejnerima',
-      points: 100,
-      location: 'Budva, Crna Gora',
-      author: 'Stefan Ilić',
-      completions: 8,
-      difficulty: 'easy',
-      category: 'recycling',
-      status: 'completed',
-      createdAt: '2024-10-28',
-    },
-    {
-      id: 3,
-      title: 'Zeleni kutak u gradu',
-      description: 'Fotografiši lepo uređen zeleni prostor i podigni svest',
-      points: 80,
-      location: 'Beograd, Srbija',
-      author: 'Milica Đorđević',
-      completions: 15,
-      difficulty: 'easy',
-      category: 'nature',
-      status: 'available',
-      timeLimit: '5 dana',
-      createdAt: '2024-10-30',
-    },
-  ];
+  useEffect(() => {
+    if (activeTab === 'photo') {
+      fetchPhotoChallenges();
+    }
+  }, [activeTab]);
+
+  const fetchPhotoChallenges = async () => {
+    let { data, error } = await supabase
+      .from('photoChallenge')
+      .select('*')
+      .order('id', { ascending: true });
+    
+    if (error) {
+      console.error('Error fetching photo challenges:', error);
+      return;
+    }
+
+    if (data) {
+      // Mark all as available
+      const availableData = data.map((c) => ({ ...c, status: 'available' as const }));
+      setPhotoChallenges(availableData);
+      setCurrentPage(0);
+    }
+  };
+
+  const handlePhotoSubmission = (challenge: PhotoChallenge) => {
+    setSelectedChallenge(challenge);
+    setShowSubmissionModal(true);
+  };
+
+  const handleSubmissionComplete = (submission: any) => {
+    setShowSubmissionModal(false);
+    setSelectedChallenge(null);
+    console.log('Photo submission completed:', submission);
+  };
+
+  const handleSubmissionCancel = () => {
+    setShowSubmissionModal(false);
+    setSelectedChallenge(null);
+  };
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
@@ -151,25 +158,43 @@ export function PhotoChallengeScreen() {
     }
   };
 
-  const getProgressPercentage = (progress: number, total: number) => {
-    return Math.round((progress / total) * 100);
+  const paginatedPhotoChallenges = () => {
+    const start = currentPage * REGULAR_CHALLENGES_PER_PAGE;
+    const end = start + REGULAR_CHALLENGES_PER_PAGE;
+    return photoChallenges.slice(start, end);
   };
 
-  const handlePhotoSubmission = (challenge: PhotoChallenge) => {
-    setSelectedChallenge(challenge);
-    setShowSubmissionModal(true);
+  const nextPage = () => {
+    if ((currentPage + 1) * REGULAR_CHALLENGES_PER_PAGE < photoChallenges.length) {
+      setCurrentPage(currentPage + 1);
+    }
   };
 
-  const handleSubmissionComplete = (submission: any) => {
-    setShowSubmissionModal(false);
-    setSelectedChallenge(null);
-    // Update challenge status or show success message
-    console.log('Photo submission completed:', submission);
+  const prevPage = () => {
+    if (currentPage > 0) {
+      setCurrentPage(currentPage - 1);
+    }
   };
 
-  const handleSubmissionCancel = () => {
-    setShowSubmissionModal(false);
-    setSelectedChallenge(null);
+  const handleCreateChallenge = async () => {
+    const { title, description, points, location, category, difficulty } = creatingChallenge;
+    const { data, error } = await supabase.from('photoChallenge').insert([{
+      title, description, points, location, category, difficulty, author: 'test-user', completions: 0, status: 'available', createdAt: new Date().toISOString()
+    }]);
+
+    if (error) {
+      console.error('Error creating challenge:', error);
+    } else {
+      fetchPhotoChallenges();
+      setCreatingChallenge({
+        title: '',
+        description: '',
+        points: 100,
+        location: '',
+        category: 'cleanup',
+        difficulty: 'easy'
+      });
+    }
   };
 
   return (
@@ -181,7 +206,7 @@ export function PhotoChallengeScreen() {
           animate={{ opacity: 1, y: 0 }}
           className="photo-challenge-title"
         >
-          Izazovi <svg xmlns="http://www.w3.org/2000/svg" width={30} height={30} viewBox="0 0 24 24"><path fill="#2bc154" d="M7 21v-2h4v-3.1q-1.225-.275-2.187-1.037T7.4 12.95q-1.875-.225-3.137-1.637T3 8V7q0-.825.588-1.412T5 5h2V3h10v2h2q.825 0 1.413.588T21 7v1q0 1.9-1.263 3.313T16.6 12.95q-.45 1.15-1.412 1.913T13 15.9V19h4v2zm0-10.2V7H5v1q0 .95.55 1.713T7 10.8m10 0q.9-.325 1.45-1.088T19 8V7h-2z"></path></svg>
+          Izazovi
         </motion.h1>
         <p className="photo-challenge-subtitle">
           Osvoj poene kroz različite aktivnosti
@@ -244,7 +269,7 @@ export function PhotoChallengeScreen() {
                     <div className="progress-bar">
                       <div 
                         className="progress-fill"
-                        style={{ width: `${getProgressPercentage(challenge.progress, challenge.total)}%` }}
+                        style={{ width: `${Math.round((challenge.progress / challenge.total) * 100)}%` }}
                       />
                     </div>
                     <span className="progress-text">
@@ -272,7 +297,11 @@ export function PhotoChallengeScreen() {
             animate={{ opacity: 1, y: 0 }}
             className="photo-challenges"
           >
-            {photoChallenges.map((challenge, index) => {
+            <div className="photo-challenges-navigation">
+              <button onClick={prevPage} disabled={currentPage === 0} className="nav-arrow">&lt;</button>
+              <button onClick={nextPage} disabled={(currentPage + 1) * REGULAR_CHALLENGES_PER_PAGE >= photoChallenges.length} className="nav-arrow">&gt;</button>
+            </div>
+            {paginatedPhotoChallenges().map((challenge, index) => {
               const CategoryIcon = getCategoryIcon(challenge.category);
               return (
                 <motion.div
@@ -354,6 +383,8 @@ export function PhotoChallengeScreen() {
                   type="text" 
                   placeholder="Unesite naslov..."
                   className="form-input"
+                  value={creatingChallenge.title}
+                  onChange={(e) => setCreatingChallenge({...creatingChallenge, title: e.target.value})}
                 />
               </div>
               
@@ -363,6 +394,8 @@ export function PhotoChallengeScreen() {
                   placeholder="Opišite šta treba uraditi..."
                   className="form-textarea"
                   rows={4}
+                  value={creatingChallenge.description}
+                  onChange={(e) => setCreatingChallenge({...creatingChallenge, description: e.target.value})}
                 />
               </div>
               
@@ -373,6 +406,8 @@ export function PhotoChallengeScreen() {
                     type="text" 
                     placeholder="Gde se odvija?"
                     className="form-input"
+                    value={creatingChallenge.location}
+                    onChange={(e) => setCreatingChallenge({...creatingChallenge, location: e.target.value})}
                   />
                 </div>
                 <div className="form-group">
@@ -381,6 +416,8 @@ export function PhotoChallengeScreen() {
                     type="number" 
                     placeholder="100"
                     className="form-input"
+                    value={creatingChallenge.points}
+                    onChange={(e) => setCreatingChallenge({...creatingChallenge, points: Number(e.target.value)})}
                   />
                 </div>
               </div>
@@ -388,7 +425,11 @@ export function PhotoChallengeScreen() {
               <div className="form-row">
                 <div className="form-group">
                   <label>Kategorija</label>
-                  <select className="form-select">
+                  <select 
+                    className="form-select"
+                    value={creatingChallenge.category}
+                    onChange={(e) => setCreatingChallenge({...creatingChallenge, category: e.target.value as any})}
+                  >
                     <option value="cleanup">Čišćenje</option>
                     <option value="recycling">Recikliranje</option>
                     <option value="nature">Priroda</option>
@@ -397,7 +438,11 @@ export function PhotoChallengeScreen() {
                 </div>
                 <div className="form-group">
                   <label>Težina</label>
-                  <select className="form-select">
+                  <select 
+                    className="form-select"
+                    value={creatingChallenge.difficulty}
+                    onChange={(e) => setCreatingChallenge({...creatingChallenge, difficulty: e.target.value as any})}
+                  >
                     <option value="easy">Lako</option>
                     <option value="medium">Srednje</option>
                     <option value="hard">Teško</option>
@@ -405,7 +450,7 @@ export function PhotoChallengeScreen() {
                 </div>
               </div>
               
-              <button className="create-challenge-btn">
+              <button className="create-challenge-btn" onClick={handleCreateChallenge}>
                 <Plus className="btn-icon" />
                 Objavi Izazov
               </button>
