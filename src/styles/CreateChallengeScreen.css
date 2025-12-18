@@ -1,0 +1,487 @@
+/* Create Challenge Screen Styles */
+.create-challenge-screen {
+   min-height: 100vh;
+   background: linear-gradient(to bottom right, rgb(15 23 42), rgb(30 41 59), rgb(20 83 45));
+   padding: 1rem 1rem 5.5rem 1rem;
+   width: 100%;
+   box-sizing: border-box;
+}
+
+/* Header */
+.create-challenge-header {
+   padding: 0;
+   width: 100%;
+   box-sizing: border-box;
+   margin-bottom: 1.5rem;
+}
+
+.create-header-content {
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+   width: 100%;
+   margin-bottom: 0.5rem;
+}
+
+.create-header-text {
+   flex: 1;
+}
+
+.create-challenge-title {
+   color: white;
+   font-size: 1.5rem;
+   line-height: 1.3;
+   margin: 0;
+   font-weight: 600;
+}
+
+.create-challenge-title svg {
+   display: inline-block;
+}
+
+.create-challenge-subtitle {
+   color: rgb(134 239 172);
+   margin-top: 0.25rem;
+   font-size: 0.875rem;
+}
+
+/* Close button */
+.close-challenge-button {
+   width: 44px;
+   height: 44px;
+   border-radius: 50%;
+   background: rgba(255 255 255 / 0.1);
+   color: white;
+   border: 1px solid rgba(255 255 255 / 0.2);
+   cursor: pointer;
+   transition: all 0.3s ease;
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   flex-shrink: 0;
+   margin-left: 0.5rem;
+}
+
+.close-challenge-button:hover {
+   background: rgba(255 255 255 / 0.2);
+   transform: rotate(90deg);
+}
+
+/* Form */
+.create-challenge-form {
+   display: flex;
+   flex-direction: column;
+   gap: 1.5rem;
+   width: 100%;
+   max-width: 600px;
+   margin: 0 auto;
+}
+
+.form-section {
+   display: flex;
+   flex-direction: column;
+   gap: 0.5rem;
+}
+
+.form-row {
+   display: flex;
+   gap: 1rem;
+}
+
+.form-row .form-section {
+   flex: 1;
+}
+
+.form-label {
+   color: rgb(226 232 240);
+   font-size: 0.875rem;
+   font-weight: 500;
+}
+
+.form-input {
+   width: 100%;
+   padding: 0.75rem 1rem;
+   background: rgba(30 41 59 / 0.8);
+   border: 1px solid rgba(51 65 85 / 0.6);
+   border-radius: 0.75rem;
+   color: white;
+   font-size: 0.875rem;
+   transition: all 0.3s ease;
+}
+
+.form-input:focus {
+   outline: none;
+   border-color: rgb(34 197 94);
+   box-shadow: 0 0 0 3px rgba(34 197 94 / 0.1);
+}
+
+.form-input::placeholder {
+   color: rgb(100 116 139);
+}
+
+.form-textarea {
+   width: 100%;
+   padding: 0.75rem 1rem;
+   background: rgba(30 41 59 / 0.8);
+   border: 1px solid rgba(51 65 85 / 0.6);
+   border-radius: 0.75rem;
+   color: white;
+   font-size: 0.875rem;
+   resize: vertical;
+   min-height: 80px;
+   transition: all 0.3s ease;
+}
+
+.form-textarea:focus {
+   outline: none;
+   border-color: rgb(34 197 94);
+   box-shadow: 0 0 0 3px rgba(34 197 94 / 0.1);
+}
+
+/* Challenge Type Grid */
+.challenge-type-grid {
+   display: grid;
+   grid-template-columns: repeat(3, 1fr);
+   gap: 0.75rem;
+}
+
+.challenge-type-btn {
+   display: flex;
+   flex-direction: column;
+   align-items: center;
+   gap: 0.5rem;
+   padding: 1rem 0.5rem;
+   background: rgba(30 41 59 / 0.6);
+   border: 1px solid rgba(51 65 85 / 0.4);
+   border-radius: 0.75rem;
+   color: rgb(148 163 184);
+   cursor: pointer;
+   transition: all 0.3s ease;
+}
+
+.challenge-type-btn.active {
+   background: rgba(34 197 94 / 0.15);
+   border-color: rgba(34 197 94 / 0.4);
+   color: rgb(74 222 128);
+}
+
+.challenge-type-btn:hover:not(.active) {
+   background: rgba(51 65 85 / 0.4);
+   border-color: rgba(51 65 85 / 0.6);
+}
+
+/* Category Grid */
+.category-grid {
+   display: grid;
+   grid-template-columns: repeat(3, 1fr);
+   gap: 0.75rem;
+}
+
+.category-btn {
+   display: flex;
+   flex-direction: column;
+   align-items: center;
+   gap: 0.5rem;
+   padding: 0.75rem 0.5rem;
+   background: rgba(30 41 59 / 0.6);
+   border: 1px solid rgba(51 65 85 / 0.4);
+   border-radius: 0.75rem;
+   color: rgb(148 163 184);
+   cursor: pointer;
+   transition: all 0.3s ease;
+}
+
+.category-btn.active {
+   background: rgba(34 197 94 / 0.15);
+   border-color: rgba(34 197 94 / 0.4);
+}
+
+.category-icon {
+   width: 44px;
+   height: 44px;
+   border-radius: 0.75rem;
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   background: linear-gradient(135deg, var(--tw-gradient-stops));
+}
+
+.category-icon svg {
+   color: white;
+   width: 1.5rem;
+   height: 1.5rem;
+}
+
+/* Input with Icon */
+.input-with-icon {
+   position: relative;
+}
+
+.input-icon {
+   position: absolute;
+   left: 1rem;
+   top: 50%;
+   transform: translateY(-50%);
+   width: 1rem;
+   height: 1rem;
+   color: rgb(148 163 184);
+}
+
+.input-with-icon .form-input {
+   padding-left: 2.75rem;
+}
+
+/* Photo Upload */
+.photo-upload-area {
+   position: relative;
+   padding: 2rem;
+   background: rgba(30 41 59 / 0.6);
+   border: 2px dashed rgba(51 65 85 / 0.6);
+   border-radius: 0.75rem;
+   display: flex;
+   flex-direction: column;
+   align-items: center;
+   gap: 0.75rem;
+   cursor: pointer;
+   transition: all 0.3s ease;
+}
+
+.photo-upload-area:hover {
+   border-color: rgba(34 197 94 / 0.4);
+   background: rgba(34 197 94 / 0.1);
+}
+
+.upload-icon {
+   width: 2rem;
+   height: 2rem;
+   color: rgb(148 163 184);
+}
+
+.photo-upload-area span {
+   color: rgb(148 163 184);
+   font-size: 0.875rem;
+}
+
+.file-input {
+   position: absolute;
+   width: 100%;
+   height: 100%;
+   opacity: 0;
+   cursor: pointer;
+}
+
+/* Group Members */
+.group-members-input {
+   display: flex;
+   flex-direction: column;
+   gap: 0.75rem;
+}
+
+.input-with-button {
+   display: flex;
+   gap: 0.5rem;
+}
+
+.input-with-button .form-input {
+   flex: 1;
+}
+
+.add-member-btn {
+   padding: 0 1rem;
+   background: rgba(34 197 94 / 0.2);
+   border: 1px solid rgba(34 197 94 / 0.4);
+   border-radius: 0.75rem;
+   color: rgb(74 222 128);
+   cursor: pointer;
+   transition: all 0.3s ease;
+   display: flex;
+   align-items: center;
+   justify-content: center;
+}
+
+.add-member-btn:hover {
+   background: rgba(34 197 94 / 0.3);
+}
+
+.group-members-list {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 0.5rem;
+}
+
+.group-member-tag {
+   display: flex;
+   align-items: center;
+   gap: 0.5rem;
+   padding: 0.5rem 0.75rem;
+   background: rgba(30 41 59 / 0.8);
+   border: 1px solid rgba(51 65 85 / 0.6);
+   border-radius: 9999px;
+   color: white;
+   font-size: 0.875rem;
+}
+
+.remove-member-btn {
+   width: 1.25rem;
+   height: 1.25rem;
+   border-radius: 50%;
+   background: rgba(239 68 68 / 0.2);
+   border: none;
+   color: rgb(248 113 113);
+   cursor: pointer;
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   transition: all 0.3s ease;
+}
+
+.remove-member-btn:hover {
+   background: rgba(239 68 68 / 0.3);
+}
+
+/* Advanced Options */
+.advanced-toggle-btn {
+   display: flex;
+   align-items: center;
+   gap: 0.5rem;
+   padding: 0.75rem;
+   background: rgba(30 41 59 / 0.6);
+   border: 1px solid rgba(51 65 85 / 0.4);
+   border-radius: 0.75rem;
+   color: rgb(148 163 184);
+   cursor: pointer;
+   transition: all 0.3s ease;
+   width: 100%;
+}
+
+.advanced-toggle-btn:hover {
+   background: rgba(51 65 85 / 0.4);
+   border-color: rgba(51 65 85 / 0.6);
+}
+
+.advanced-options {
+   display: flex;
+   flex-direction: column;
+   gap: 1rem;
+   overflow: hidden;
+}
+
+.checkbox-label {
+   display: flex;
+   align-items: center;
+   gap: 0.75rem;
+   cursor: pointer;
+   user-select: none;
+}
+
+.form-checkbox {
+   width: 1.125rem;
+   height: 1.125rem;
+   border: 2px solid rgba(51 65 85 / 0.6);
+   border-radius: 0.375rem;
+   background: transparent;
+   cursor: pointer;
+}
+
+.form-checkbox:checked {
+   background-color: rgb(34 197 94);
+   border-color: rgb(34 197 94);
+}
+
+/* Form Actions */
+.form-actions {
+   display: flex;
+   gap: 1rem;
+   margin-top: 1rem;
+}
+
+.cancel-btn {
+   flex: 1;
+   padding: 0.875rem 1rem;
+   background: rgba(255 255 255 / 0.1);
+   border: 1px solid rgba(255 255 255 / 0.2);
+   border-radius: 0.75rem;
+   color: white;
+   font-weight: 500;
+   cursor: pointer;
+   transition: all 0.3s ease;
+}
+
+.cancel-btn:hover {
+   background: rgba(255 255 255 / 0.2);
+}
+
+.submit-btn {
+   flex: 2;
+   padding: 0.875rem 1rem;
+   background: linear-gradient(135deg, rgb(34 197 94), rgb(22 163 74));
+   border: none;
+   border-radius: 0.75rem;
+   color: white;
+   font-weight: 500;
+   cursor: pointer;
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   gap: 0.5rem;
+   transition: all 0.3s ease;
+}
+
+.submit-btn:hover {
+   transform: translateY(-2px);
+   box-shadow: 0 8px 20px rgba(34 197 94 / 0.3);
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+   .create-challenge-screen {
+      padding: 1rem 0.75rem 5.5rem 0.75rem;
+   }
+
+   .create-challenge-title {
+      font-size: 1.25rem;
+   }
+
+   .challenge-type-grid,
+   .category-grid {
+      grid-template-columns: repeat(3, 1fr);
+   }
+
+   .form-row {
+      flex-direction: column;
+      gap: 1rem;
+   }
+
+   .form-row .half {
+      width: 100%;
+   }
+
+   .form-actions {
+      flex-direction: column;
+   }
+
+   .cancel-btn,
+   .submit-btn {
+      width: 100%;
+   }
+}
+
+@media (max-width: 480px) {
+
+   .challenge-type-grid,
+   .category-grid {
+      grid-template-columns: 1fr;
+   }
+
+   .challenge-type-btn,
+   .category-btn {
+      flex-direction: row;
+      justify-content: flex-start;
+      padding: 0.75rem 1rem;
+   }
+}
+
+/* Utility Classes */
+.half {
+   flex: 1;
+}
