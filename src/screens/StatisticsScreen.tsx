@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { BottomNav } from "../components/common/BottomNav";
 import {
@@ -16,12 +16,108 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { TrendingUp, Award, Target, Search } from "lucide-react";
+import { supabase } from "../supabase-client";
 
 export function StatisticsScreen() {
   const [timeFilter, setTimeFilter] = useState<"day" | "week" | "month">(
     "week"
   );
   const [searchQuery, setSearchQuery] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // user-backed stats
+  const [recikliranoStvari, setRecikliranoStvari] = useState<number | null>(null);
+  const [ustedjenaEnergija, setUstedjenaEnergija] = useState<number | null>(null);
+  const [smanjenCo2, setSmanjenCo2] = useState<number | null>(null);
+  const [izazovaZavrseno, setIzazovaZavrseno] = useState<number | null>(null);
+  const [dnevnaSerija, setDnevnaSerija] = useState<number | null>(null);
+  const [ukupnoPoena, setUkupnoPoena] = useState<number | null>(null);
+  const [rank, setRank] = useState<number | null>(null);
+
+  const getUserId = async (): Promise<string | undefined> => {
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError) {
+        console.warn('auth.getUser error (statistics):', authError.message || authError);
+      }
+      const userId = authData?.user?.id;
+      if (userId) return userId;
+    } catch (e) {
+      console.warn('auth.getUser threw (statistics), will fallback to selecting first profile id', e);
+    }
+
+    try {
+      const { data: idData, error: idError } = await supabase.from('korisnik_profil').select('id').limit(1);
+      if (idError) {
+        console.error('Error fetching user id (statistics fallback):', idError);
+        return undefined;
+      }
+      return idData?.[0]?.id;
+    } catch (e) {
+      console.error('Unexpected error fetching fallback id (statistics):', e);
+      return undefined;
+    }
+  };
+
+  // load user metrics and compute rank on mount / when needed
+  useEffect(() => {
+    let mounted = true;
+    const loadStats = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const userId = await getUserId();
+        if (!userId) {
+          setError('No user id');
+          setLoading(false);
+          return;
+        }
+
+        // Fetch profile fields
+        const { data: profile, error: profileError } = await supabase
+          .from('korisnik_profil')
+          .select('reciklirano_stvari, ustedjena_energija, smanjen_co2, izazova_zavrseno, dnevna_serija, ukupno_poena')
+          .eq('id', userId)
+          .single();
+
+        if (profileError) {
+          console.error('Error loading profile for statistics:', profileError);
+          setError(profileError.message || String(profileError));
+        } else if (mounted && profile) {
+          setRecikliranoStvari(profile.reciklirano_stvari ?? null);
+          setUstedjenaEnergija(profile.ustedjena_energija ?? null);
+          setSmanjenCo2(profile.smanjen_co2 ?? null);
+          setIzazovaZavrseno(profile.izazova_zavrseno ?? null);
+          setDnevnaSerija(profile.dnevna_serija ?? null);
+          setUkupnoPoena(profile.ukupno_poena ?? null);
+        }
+
+        // Compute rank by fetching ordered leaderboard and finding index
+        const { data: leaderboard, error: lbError } = await supabase
+          .from('korisnik_profil')
+          .select('id, ukupno_poena')
+          .order('ukupno_poena', { ascending: false });
+
+        if (lbError) {
+          console.error('Error loading leaderboard for rank:', lbError);
+        } else if (leaderboard && mounted) {
+          const idx = leaderboard.findIndex((r: any) => r.id === userId);
+          if (idx >= 0) setRank(idx + 1);
+          console.debug('Loaded leaderboard rows:', leaderboard.length, 'user rank:', idx >= 0 ? idx + 1 : 'not found');
+        }
+      } catch (e) {
+        console.error('Unexpected error loading statistics:', e);
+        setError(String(e));
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    loadStats();
+
+    return () => { mounted = false; };
+  }, []);
 
   // Podaci za različite vremenske periode
   const getDailyData = (filter: "day" | "week" | "month") => {
@@ -211,8 +307,23 @@ export function StatisticsScreen() {
   const dailyData = getDailyData(timeFilter);
   const co2Data = getCo2Data(timeFilter);
   const categoryData = getCategoryData(timeFilter);
-  const achievements = getAchievements(timeFilter);
+  const achievementsFromFn = getAchievements(timeFilter);
   const summaryStats = getSummaryStats(timeFilter);
+
+  // Replace the Rang value in summaryStats with the computed rank when available
+  const displayedSummaryStats = summaryStats.map((stat) => {
+    if (stat.label === 'Rang') {
+      return { ...stat, value: rank ? `#${rank}` : stat.value };
+    }
+    return stat;
+  });
+
+  // If we have user-backed metrics, derive achievements from them, otherwise keep demo
+  const achievements = {
+    streak: dnevnaSerija != null ? `${dnevnaSerija} dana 🔥` : achievementsFromFn.streak,
+    challenges: izazovaZavrseno != null ? `${izazovaZavrseno} završenih` : achievementsFromFn.challenges,
+    points: ukupnoPoena != null ? `${ukupnoPoena} pts` : achievementsFromFn.points,
+  };
 
   const totalPoints = categoryData.reduce((acc, item) => acc + item.value, 0);
 
@@ -243,6 +354,12 @@ export function StatisticsScreen() {
         <p className="text-green-300">
           Tvoj napredak u oktobru: +18% u odnosu na septembar
         </p>
+        {loading && (
+          <p className="text-slate-400 text-sm mt-2">Učitavam statistiku...</p>
+        )}
+        {error && (
+          <p className="text-red-400 text-sm mt-2">Greška: {error}</p>
+        )}
       </div>
 
       {/* Search Bar */}
@@ -286,7 +403,7 @@ export function StatisticsScreen() {
       {/* Summary Cards */}
       <div className="px-6 mb-6">
         <div className="grid grid-cols-3 gap-3">
-          {summaryStats.map((stat, index) => (
+          {displayedSummaryStats.map((stat, index) => (
             <motion.div
               key={stat.label}
               initial={{ opacity: 0, scale: 0.9 }}

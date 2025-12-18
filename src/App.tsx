@@ -5,6 +5,8 @@ import { OnboardingScreen } from './screens/OnboardingScreen';
 import { LoginScreen } from './screens/LoginScreen';
 import { RegisterScreen } from './screens/RegisterScreen';
 import { HomeScreen } from './screens/HomeScreen';
+import { CreateChallengeScreen } from './screens/CreateChallengeScreen';
+import { FriendSystemScreen } from './screens/FriendSystemScreen';
 import { ChallengesScreen } from './screens/ChallengesScreen';
 import { StatisticsScreen } from './screens/StatisticsScreen';
 import { CommunityScreen } from './screens/CommunityScreen';
@@ -25,7 +27,9 @@ export type Screen =
   | 'challenges'
   | 'statistics'
   | 'community'
+  | 'friends'
   | 'profile'
+  | 'createChallenge'
   | 'settings'
   | 'notifications'
   | 'ecoTips'
@@ -41,7 +45,8 @@ export type ThemeContextType = {
 
 export type NavigationContextType = {
   currentScreen: Screen;
-  navigateTo: (screen: Screen) => void;
+  navigateTo: (screen: Screen, sub?: string) => void;
+  setChallengeData?: (data: any) => void;
   userData: {
     name: string;
     level: number;
@@ -60,6 +65,7 @@ export const ThemeContext = createContext<ThemeContextType>({
 export const NavigationContext = React.createContext<NavigationContextType>({
   currentScreen: 'splash',
   navigateTo: () => {},
+  setChallengeData: () => {},
   userData: {
     name: 'Marko',
     level: 3,
@@ -83,14 +89,13 @@ export default function App() {
     energySaved: 85,
     co2Reduced: 42,
   });
+  const [challengeData, setChallengeData] = useState<any | null>(null);
 
   useEffect(() => {
-    // Apply theme to document
     document.documentElement.className = theme;
   }, [theme]);
 
   useEffect(() => {
-    // Auto-navigate from splash to onboarding after 2.5 seconds
     if (currentScreen === 'splash') {
       const timer = setTimeout(() => {
         setCurrentScreen('onboarding');
@@ -99,7 +104,7 @@ export default function App() {
     }
   }, [currentScreen]);
 
-  // On app mount check Supabase auth state. If a user session exists, go to home.
+  
   useEffect(() => {
     let mounted = true;
 
@@ -141,6 +146,11 @@ export default function App() {
     setCurrentScreen(screen);
   };
 
+  // Extended navigateTo that accepts optional sub-route (ignored by default)
+  const navigateToExtended = (screen: Screen, _sub?: string) => {
+    setCurrentScreen(screen);
+  };
+
   const toggleTheme = () => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
   };
@@ -152,7 +162,8 @@ export default function App() {
 
   const navigationContext: NavigationContextType = {
     currentScreen,
-    navigateTo,
+    navigateTo: navigateToExtended,
+    setChallengeData,
     userData,
   };
 
@@ -165,6 +176,8 @@ export default function App() {
           {currentScreen === 'login' && <LoginScreen />}
           {currentScreen === 'register' && <RegisterScreen />}
           {currentScreen === 'home' && <HomeScreen />}
+          {currentScreen === 'friends' && <FriendSystemScreen />}
+          {currentScreen === 'createChallenge' && <CreateChallengeScreen />}
           {currentScreen === 'challenges' && <ChallengesScreen />}
           {currentScreen === 'statistics' && <StatisticsScreen />}
           {currentScreen === 'community' && <CommunityScreen />}

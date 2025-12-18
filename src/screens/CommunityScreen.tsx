@@ -33,12 +33,11 @@ export function CommunityScreen() {
   // Funkcija za filtriranje korisnika
   const filteredUsers = useMemo(() => {
     return users.filter((user) => {
-      // Filtriraj po pretrazi
       const matchesSearch = user.name
         .toLowerCase()
         .includes(searchQuery.toLowerCase());
 
-      // Filtriraj po filteru
+      
       const matchesFilter =
         activeFilter === "all" || user.badge === activeFilter;
 
@@ -46,14 +45,14 @@ export function CommunityScreen() {
     });
   }, [searchQuery, activeFilter, users]);
 
-  // Helper to decide badge based on points (simple thresholds)
+//Ovo je za sad dok nemamo bedzeve
   const badgeForPoints = (points: number) => {
     if (points >= 5000) return "gold" as const;
     if (points >= 3000) return "silver" as const;
     return "bronze" as const;
   };
 
-  // Load leaderboard (top 10 users)
+  
   const loadLeaderboard = async () => {
     setLoadingUsers(true);
     setUsersError(null);
@@ -93,7 +92,7 @@ export function CommunityScreen() {
     }
   };
 
-  // Load recent activities (try kreirano_u, created_at, id fallback)
+  
   const loadActivities = async () => {
     setLoadingActivities(true);
     setActivitiesError(null);
@@ -187,10 +186,10 @@ export function CommunityScreen() {
     return null;
   };
 
-  // Top 3 korisnici (uvijek prva 3 mjesta)
+ 
   const topThreeUsers = users.filter((user) => user.rank <= 3);
 
-  // Filtriraj korisnike za listu (svi koji odgovaraju filterima)
+  
   const listUsers = useMemo(() => {
     // Ako nema filtera, vrati sve korisnike
     if (activeFilter === "all" && searchQuery === "") {
