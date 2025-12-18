@@ -161,7 +161,7 @@ export function HomeScreen() {
               <Bell />
             </button>
             <button
-              onClick={() => navigateTo("friends")}
+              onClick={() => navigateTo("profile")}
               className="home-profile-button"
               aria-label="Prijatelji"
             >

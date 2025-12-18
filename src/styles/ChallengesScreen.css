@@ -19,6 +19,52 @@
   color: rgb(134 239 172);
 }
 
+.daily-challenge-card {
+  margin-top: 1rem;
+  background: rgba(17 24 39 / 0.5);
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(51 65 85 / 0.5);
+}
+
+.daily-challenge-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.daily-challenge-title {
+  color: white;
+  font-size: 1rem;
+  margin: 0 0 0.25rem 0;
+}
+
+.daily-challenge-desc {
+  color: rgb(148 163 184);
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.daily-challenge-right {
+  color: rgb(74 222 128);
+  font-weight: 600;
+}
+
+.daily-challenge-empty {
+  color: rgb(148 163 184);
+}
+
+.fetch-error {
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(220 38 38 / 0.06);
+  border: 1px solid rgba(220 38 38 / 0.2);
+  color: rgb(220 38 38);
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+}
+
 .challenges-list {
   padding: 0 1.5rem;
   display: flex;
