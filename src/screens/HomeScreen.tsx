@@ -33,6 +33,52 @@ export function HomeScreen() {
     return korisnik_profil?.[0]?.korisnicko_ime || "Korisnik";
   };
 
+  const updateAndGetStreak = async () => {
+  const { data: authData } = await supabase.auth.getUser();
+  const userId = authData?.user?.id;
+  if (!userId) return 0;
+
+  const today = new Date();
+  const todayDate = today.toISOString().split("T")[0];
+
+  const { data, error } = await supabase
+    .from("korisnik_profil")
+    .select("dnevna_serija, posljednji_login")
+    .eq("id", userId)
+    .single();
+
+  if (error || !data) {
+    console.error("Streak fetch error:", error);
+    return 0;
+  }
+
+  let newStreak = data.dnevna_serija ?? 0;
+
+  if (!data.posljednji_login) {
+    newStreak = 1;
+  } else {
+    const lastLogin = new Date(data.posljednji_login);
+    const diffDays =
+      (today.setHours(0, 0, 0, 0) -
+        lastLogin.setHours(0, 0, 0, 0)) /
+      86400000;
+
+    if (diffDays === 1) newStreak += 1;
+    else if (diffDays > 1) newStreak = 1;
+  }
+
+  await supabase
+    .from("korisnik_profil")
+    .update({
+      dnevna_serija: newStreak,
+      posljednji_login: todayDate,
+    })
+    .eq("id", userId);
+
+  return newStreak;
+};
+
+
   const getUserLevel = async () => {
     let { data: korisnik_profil, error } = await supabase
       .from("korisnik_profil")
@@ -98,9 +144,7 @@ export function HomeScreen() {
     return aktivnosti?.[0]?.opis || "20";
   };
 
-  const getUserStreak = async () => {
-    return "7";
-  };
+  
 
   const getCurrentUserId = async () => {
   const { data, error } = await supabase.auth.getUser();
@@ -110,6 +154,13 @@ export function HomeScreen() {
   }
   return data.user?.id;
 };
+
+
+useEffect(() => {
+  updateAndGetStreak().then((streak) => {
+    setUserStreak(String(streak));
+  });
+}, []);
 
 
   useEffect(() => {
