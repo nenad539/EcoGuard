@@ -102,16 +102,40 @@ export function HomeScreen() {
     return "7";
   };
 
-  useEffect(() => {
-    getUserName().then((name) => setUserName(name));
-    getUserLevel().then((nivo) => setUserLevel(nivo));
-    getUserReciklirano().then((reciklirano) => setUserReciklirano(reciklirano));
-    getUserPoints().then((points) => setUserPoints(points));
-    getActivityPoints().then((poena_dodato) => setActivityPoints(poena_dodato));
-    getActivityTitle().then((activityTitle) => setActivityTitle(activityTitle));
-    getUserStreak().then((streak) => setUserStreak(streak));
-  }, []);
+  const getCurrentUserId = async () => {
+  const { data, error } = await supabase.auth.getUser();
+  if (error) {
+    console.error("Auth error:", error);
+    return null;
+  }
+  return data.user?.id;
+};
 
+
+  useEffect(() => {
+  const loadData = async () => {
+    const userId = await getCurrentUserId();
+    if (!userId) return;
+
+    const { data, error } = await supabase
+      .from("korisnik_profil")
+      .select("korisnicko_ime, nivo, reciklirano_stvari, ukupno_poena")
+      .eq("id", userId)
+      .single();
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    setUserName(data.korisnicko_ime);
+    setUserLevel(data.nivo);
+    setUserReciklirano(data.reciklirano_stvari);
+    setUserPoints(data.ukupno_poena);
+  };
+
+  loadData();
+}, []);
   const stats = [
     {
       icon: Recycle,
