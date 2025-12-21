@@ -15,7 +15,14 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { TrendingUp, Award, Target, Search } from "lucide-react";
+import {
+  TrendingUp,
+  Award,
+  Target,
+  Recycle,
+  Droplet,
+  Battery,
+} from "lucide-react";
 import { supabase } from "../supabase-client";
 
 export function StatisticsScreen() {
@@ -27,8 +34,12 @@ export function StatisticsScreen() {
   const [error, setError] = useState<string | null>(null);
 
   // user-backed stats
-  const [recikliranoStvari, setRecikliranoStvari] = useState<number | null>(null);
-  const [ustedjenaEnergija, setUstedjenaEnergija] = useState<number | null>(null);
+  const [recikliranoStvari, setRecikliranoStvari] = useState<number | null>(
+    null
+  );
+  const [ustedjenaEnergija, setUstedjenaEnergija] = useState<number | null>(
+    null
+  );
   const [smanjenCo2, setSmanjenCo2] = useState<number | null>(null);
   const [izazovaZavrseno, setIzazovaZavrseno] = useState<number | null>(null);
   const [dnevnaSerija, setDnevnaSerija] = useState<number | null>(null);
@@ -37,25 +48,35 @@ export function StatisticsScreen() {
 
   const getUserId = async (): Promise<string | undefined> => {
     try {
-      const { data: authData, error: authError } = await supabase.auth.getUser();
+      const { data: authData, error: authError } =
+        await supabase.auth.getUser();
       if (authError) {
-        console.warn('auth.getUser error (statistics):', authError.message || authError);
+        console.warn(
+          "auth.getUser error (statistics):",
+          authError.message || authError
+        );
       }
       const userId = authData?.user?.id;
       if (userId) return userId;
     } catch (e) {
-      console.warn('auth.getUser threw (statistics), will fallback to selecting first profile id', e);
+      console.warn(
+        "auth.getUser threw (statistics), will fallback to selecting first profile id",
+        e
+      );
     }
 
     try {
-      const { data: idData, error: idError } = await supabase.from('korisnik_profil').select('id').limit(1);
+      const { data: idData, error: idError } = await supabase
+        .from("korisnik_profil")
+        .select("id")
+        .limit(1);
       if (idError) {
-        console.error('Error fetching user id (statistics fallback):', idError);
+        console.error("Error fetching user id (statistics fallback):", idError);
         return undefined;
       }
       return idData?.[0]?.id;
     } catch (e) {
-      console.error('Unexpected error fetching fallback id (statistics):', e);
+      console.error("Unexpected error fetching fallback id (statistics):", e);
       return undefined;
     }
   };
@@ -69,20 +90,22 @@ export function StatisticsScreen() {
       try {
         const userId = await getUserId();
         if (!userId) {
-          setError('No user id');
+          setError("No user id");
           setLoading(false);
           return;
         }
 
         // Fetch profile fields
         const { data: profile, error: profileError } = await supabase
-          .from('korisnik_profil')
-          .select('reciklirano_stvari, ustedjena_energija, smanjen_co2, izazova_zavrseno, dnevna_serija, ukupno_poena')
-          .eq('id', userId)
+          .from("korisnik_profil")
+          .select(
+            "reciklirano_stvari, ustedjena_energija, smanjen_co2, izazova_zavrseno, dnevna_serija, ukupno_poena"
+          )
+          .eq("id", userId)
           .single();
 
         if (profileError) {
-          console.error('Error loading profile for statistics:', profileError);
+          console.error("Error loading profile for statistics:", profileError);
           setError(profileError.message || String(profileError));
         } else if (mounted && profile) {
           setRecikliranoStvari(profile.reciklirano_stvari ?? null);
@@ -95,19 +118,24 @@ export function StatisticsScreen() {
 
         // Compute rank by fetching ordered leaderboard and finding index
         const { data: leaderboard, error: lbError } = await supabase
-          .from('korisnik_profil')
-          .select('id, ukupno_poena')
-          .order('ukupno_poena', { ascending: false });
+          .from("korisnik_profil")
+          .select("id, ukupno_poena")
+          .order("ukupno_poena", { ascending: false });
 
         if (lbError) {
-          console.error('Error loading leaderboard for rank:', lbError);
+          console.error("Error loading leaderboard for rank:", lbError);
         } else if (leaderboard && mounted) {
           const idx = leaderboard.findIndex((r: any) => r.id === userId);
           if (idx >= 0) setRank(idx + 1);
-          console.debug('Loaded leaderboard rows:', leaderboard.length, 'user rank:', idx >= 0 ? idx + 1 : 'not found');
+          console.debug(
+            "Loaded leaderboard rows:",
+            leaderboard.length,
+            "user rank:",
+            idx >= 0 ? idx + 1 : "not found"
+          );
         }
       } catch (e) {
-        console.error('Unexpected error loading statistics:', e);
+        console.error("Unexpected error loading statistics:", e);
         setError(String(e));
       } finally {
         if (mounted) setLoading(false);
@@ -116,7 +144,9 @@ export function StatisticsScreen() {
 
     loadStats();
 
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   // Podaci za različite vremenske periode
@@ -151,26 +181,27 @@ export function StatisticsScreen() {
     }
   };
 
-  const getCo2Data = (filter: "day" | "week" | "month") => {
+  // Zamjena za CO2 - Reciklaža u kilogramima
+  const getRecyclingData = (filter: "day" | "week" | "month") => {
     switch (filter) {
       case "day":
         return [
-          { period: "Jutro", co2: 4 },
-          { period: "Podne", co2: 8 },
-          { period: "Veče", co2: 6 },
+          { period: "Jutro", kg: 1.2 },
+          { period: "Podne", kg: 2.5 },
+          { period: "Veče", kg: 1.8 },
         ];
       case "week":
         return [
-          { week: "Sed 1", co2: 12 },
-          { week: "Sed 2", co2: 15 },
-          { week: "Sed 3", co2: 18 },
-          { week: "Sed 4", co2: 22 },
+          { week: "Sed 1", kg: 5.2 },
+          { week: "Sed 2", kg: 6.8 },
+          { week: "Sed 3", kg: 7.5 },
+          { week: "Sed 4", kg: 9.1 },
         ];
       case "month":
         return [
-          { month: "Sep", co2: 45 },
-          { month: "Okt", co2: 38 },
-          { month: "Nov", co2: 32 },
+          { month: "Sep", kg: 28.5 },
+          { month: "Okt", kg: 32.1 },
+          { month: "Nov", kg: 35.7 },
         ];
       default:
         return [];
@@ -181,24 +212,24 @@ export function StatisticsScreen() {
     switch (filter) {
       case "day":
         return [
-          { name: "Reciklaža", value: 40, color: "#16A34A" },
-          { name: "Transport", value: 30, color: "#4ADE80" },
-          { name: "Energija", value: 20, color: "#22C55E" },
-          { name: "Voda", value: 10, color: "#86EFAC" },
+          { name: "Reciklaža", value: 40, color: "#16A34A", icon: Recycle },
+          { name: "Energija", value: 25, color: "#4ADE80", icon: Battery },
+          { name: "Voda", value: 20, color: "#22C55E", icon: Droplet },
+          { name: "Čišćenje", value: 15, color: "#86EFAC", icon: Award },
         ];
       case "week":
         return [
-          { name: "Reciklaža", value: 35, color: "#16A34A" },
-          { name: "Transport", value: 28, color: "#4ADE80" },
-          { name: "Energija", value: 20, color: "#22C55E" },
-          { name: "Voda", value: 17, color: "#86EFAC" },
+          { name: "Reciklaža", value: 38, color: "#16A34A", icon: Recycle },
+          { name: "Energija", value: 22, color: "#4ADE80", icon: Battery },
+          { name: "Voda", value: 18, color: "#22C55E", icon: Droplet },
+          { name: "Čišćenje", value: 22, color: "#86EFAC", icon: Award },
         ];
       case "month":
         return [
-          { name: "Reciklaža", value: 32, color: "#16A34A" },
-          { name: "Transport", value: 25, color: "#4ADE80" },
-          { name: "Energija", value: 23, color: "#22C55E" },
-          { name: "Voda", value: 20, color: "#86EFAC" },
+          { name: "Reciklaža", value: 35, color: "#16A34A", icon: Recycle },
+          { name: "Energija", value: 25, color: "#4ADE80", icon: Battery },
+          { name: "Voda", value: 20, color: "#22C55E", icon: Droplet },
+          { name: "Čišćenje", value: 20, color: "#86EFAC", icon: Award },
         ];
       default:
         return [];
@@ -252,8 +283,8 @@ export function StatisticsScreen() {
           },
           {
             icon: Target,
-            label: "Cilj",
-            value: "45%",
+            label: "Reciklirano",
+            value: "2.5 kg",
             color: "from-blue-500 to-cyan-600",
           },
         ];
@@ -272,9 +303,9 @@ export function StatisticsScreen() {
             color: "from-yellow-500 to-orange-600",
           },
           {
-            icon: Target,
-            label: "Cilj",
-            value: "85%",
+            icon: Recycle,
+            label: "Reciklirano",
+            value: "6.8 kg",
             color: "from-blue-500 to-cyan-600",
           },
         ];
@@ -293,9 +324,9 @@ export function StatisticsScreen() {
             color: "from-yellow-500 to-orange-600",
           },
           {
-            icon: Target,
-            label: "Cilj",
-            value: "92%",
+            icon: Recycle,
+            label: "Reciklirano",
+            value: "28.1 kg",
             color: "from-blue-500 to-cyan-600",
           },
         ];
@@ -305,27 +336,35 @@ export function StatisticsScreen() {
   };
 
   const dailyData = getDailyData(timeFilter);
-  const co2Data = getCo2Data(timeFilter);
+  const recyclingData = getRecyclingData(timeFilter);
   const categoryData = getCategoryData(timeFilter);
   const achievementsFromFn = getAchievements(timeFilter);
   const summaryStats = getSummaryStats(timeFilter);
 
   // Replace the Rang value in summaryStats with the computed rank when available
   const displayedSummaryStats = summaryStats.map((stat) => {
-    if (stat.label === 'Rang') {
+    if (stat.label === "Rang") {
       return { ...stat, value: rank ? `#${rank}` : stat.value };
+    }
+    if (stat.label === "Reciklirano" && recikliranoStvari !== null) {
+      return { ...stat, value: `${recikliranoStvari} kg` };
     }
     return stat;
   });
 
   // If we have user-backed metrics, derive achievements from them, otherwise keep demo
   const achievements = {
-    streak: dnevnaSerija != null ? `${dnevnaSerija} dana 🔥` : achievementsFromFn.streak,
-    challenges: izazovaZavrseno != null ? `${izazovaZavrseno} završenih` : achievementsFromFn.challenges,
-    points: ukupnoPoena != null ? `${ukupnoPoena} pts` : achievementsFromFn.points,
+    streak:
+      dnevnaSerija != null
+        ? `${dnevnaSerija} dana 🔥`
+        : achievementsFromFn.streak,
+    challenges:
+      izazovaZavrseno != null
+        ? `${izazovaZavrseno} završenih`
+        : achievementsFromFn.challenges,
+    points:
+      ukupnoPoena != null ? `${ukupnoPoena} pts` : achievementsFromFn.points,
   };
-
-  const totalPoints = categoryData.reduce((acc, item) => acc + item.value, 0);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-green-900 pb-24">
@@ -357,24 +396,7 @@ export function StatisticsScreen() {
         {loading && (
           <p className="text-slate-400 text-sm mt-2">Učitavam statistiku...</p>
         )}
-        {error && (
-          <p className="text-red-400 text-sm mt-2">Greška: {error}</p>
-        )}
-      </div>
-
-      {/* Search Bar */}
-      <div className="px-6 mb-4">
-        <div className="relative">
-         
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery("")}
-              className="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white"
-            >
-              ✕
-            </button>
-          )}
-        </div>
+        {error && <p className="text-red-400 text-sm mt-2">Greška: {error}</p>}
       </div>
 
       {/* Filter Buttons */}
@@ -473,7 +495,7 @@ export function StatisticsScreen() {
         </div>
       </motion.div>
 
-      {/* Weekly CO2 Reduction Chart */}
+      {/* Reciklaža Chart */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -481,15 +503,16 @@ export function StatisticsScreen() {
         className="px-6 mb-6"
       >
         <div className="bg-slate-800/50 backdrop-blur-lg rounded-2xl p-5 border border-slate-700/50">
-          <h3 className="text-white text-lg mb-4">
+          <h3 className="text-white text-lg mb-4 flex items-center gap-2">
+            <Recycle className="w-5 h-5" />
             {timeFilter === "day"
-              ? "Dnevno smanjenje CO₂"
+              ? "Dnevna reciklaža"
               : timeFilter === "week"
-              ? "Sedmično smanjenje CO₂"
-              : "Mjesečno smanjenje CO₂"}
+              ? "Sedmična reciklaža"
+              : "Mjesečna reciklaža"}
           </h3>
           <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={co2Data}>
+            <BarChart data={recyclingData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
               <XAxis
                 dataKey={
@@ -509,15 +532,15 @@ export function StatisticsScreen() {
                   borderRadius: "8px",
                   color: "#fff",
                 }}
-                formatter={(value) => [`${value} kg`, "CO₂"]}
+                formatter={(value) => [`${value} kg`, "Reciklirano"]}
               />
-              <Bar dataKey="co2" fill="#4ADE80" radius={[8, 8, 0, 0]} />
+              <Bar dataKey="kg" fill="#4ADE80" radius={[8, 8, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
       </motion.div>
 
-      {/* Eco Points by Category */}
+      {/* Poeni po kategorijama */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -605,6 +628,47 @@ export function StatisticsScreen() {
                   : "mjeseca"}
               </span>
               <span className="text-green-400">{achievements.points}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Dodatni pokazatelji */}
+      <div className="px-6 mb-6">
+        <div className="bg-slate-800/50 backdrop-blur-lg rounded-2xl p-5 border border-slate-700/50">
+          <h3 className="text-white text-lg mb-4">Ostali pokazatelji</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-300">Reciklirano stvari</span>
+                <span className="text-green-400 font-medium">
+                  {recikliranoStvari !== null
+                    ? `${recikliranoStvari} kom`
+                    : "---"}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-300">Ušteđena energija</span>
+                <span className="text-green-400 font-medium">
+                  {ustedjenaEnergija !== null
+                    ? `${ustedjenaEnergija} kWh`
+                    : "---"}
+                </span>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-300">Završeni izazovi</span>
+                <span className="text-green-400 font-medium">
+                  {izazovaZavrseno !== null ? `${izazovaZavrseno}` : "---"}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-300">Ukupno poena</span>
+                <span className="text-green-400 font-medium">
+                  {ukupnoPoena !== null ? `${ukupnoPoena}` : "---"}
+                </span>
+              </div>
             </div>
           </div>
         </div>

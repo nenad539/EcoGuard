@@ -151,18 +151,13 @@ export function CreateChallengeScreen() {
 
     console.log("Challenge created:", newChallenge);
 
-    // Navigiraj na Photo Challenges sa aktivnim foto tabom
-    if (challengeType === "photo") {
-      // Ako je foto izazov, idi na foto tab
-      navigateTo("challenges", "photo");
-    } else {
-      // Ako je regular ili grupni, idi na regular tab
-      navigateTo("challenges", "regular");
-    }
+    // Vrati se na Photo Challenges screen
+    navigateTo("photoChallenge");
   };
 
   const handleCancel = () => {
-    navigateTo("challenges");
+    // Vrati se na Photo Challenges screen
+    navigateTo("photoChallenge");
   };
 
   return (
@@ -219,7 +214,7 @@ export function CreateChallengeScreen() {
               }`}
             >
               <Trophy className="w-5 h-5" />
-              <span>Standardni</span>
+              <span>Laki</span>
             </button>
             <button
               type="button"
@@ -229,7 +224,7 @@ export function CreateChallengeScreen() {
               }`}
             >
               <Camera className="w-5 h-5" />
-              <span>Foto Izazov</span>
+              <span>Teški</span>
             </button>
             <button
               type="button"
@@ -351,7 +346,7 @@ export function CreateChallengeScreen() {
           </div>
         </div>
 
-        {/* Photo Upload for Photo Challenges */}
+        {/* Photo Upload for Teški Challenges */}
         {challengeType === "photo" && (
           <div className="form-section">
             <label className="form-label">
@@ -365,7 +360,7 @@ export function CreateChallengeScreen() {
           </div>
         )}
 
-        {/* Group Members for Group Challenges */}
+        {/* Group Members for Grupni Challenges */}
         {challengeType === "group" && (
           <div className="form-section">
             <label className="form-label">Članovi grupe</label>

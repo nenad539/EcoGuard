@@ -197,3 +197,73 @@
 .login-register-button:hover {
   color: rgb(134 239 172);
 }
+/* Forgot Password styles */
+.login-back-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #666;
+  background: none;
+  border: none;
+  padding: 8px 0;
+  margin-bottom: 20px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: color 0.2s;
+}
+
+.login-back-button:hover {
+  color: #4CAF50;
+}
+
+.login-form-subtitle {
+  color: #666;
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.login-error-message {
+  color: #dc3545;
+  font-size: 12px;
+  margin-top: 4px;
+  padding: 4px 8px;
+  background-color: rgba(220, 53, 69, 0.1);
+  border-radius: 4px;
+}
+
+.login-reset-success {
+  text-align: center;
+}
+
+.login-success-icon {
+  color: #4CAF50;
+  margin-bottom: 20px;
+}
+
+.login-success-icon svg {
+  animation: success-appear 0.6s ease-out;
+}
+
+@keyframes success-appear {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+
+  50% {
+    transform: scale(1.1);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Animation for form transitions */
+.login-form-container {
+  position: relative;
+  min-height: 400px;
+}
