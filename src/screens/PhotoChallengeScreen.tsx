@@ -23,15 +23,17 @@ type PhotoChallenge = {
   description: string;
   points: number;
   location: string;
-  author: string;
-  completions: number;
-  difficulty: 'easy' | 'medium' | 'hard';
   category: 'cleanup' | 'recycling' | 'nature' | 'awareness';
-  image?: string;
+  difficulty: 'easy' | 'medium' | 'hard';
+  createdBy: string;
+  completions: number;
+  image?: string | null;
+  timeLimit?: string | null;
+
   status: 'available' | 'completed' | 'pending';
-  timeLimit?: string;
   createdAt: string;
 };
+
 
 type RegularChallenge = {
   id: number;
@@ -176,26 +178,59 @@ export function PhotoChallengeScreen() {
     }
   };
 
-  const handleCreateChallenge = async () => {
-    const { title, description, points, location, category, difficulty } = creatingChallenge;
-    const { data, error } = await supabase.from('photoChallenge').insert([{
-      title, description, points, location, category, difficulty, author: 'test-user', completions: 0, status: 'available', createdAt: new Date().toISOString()
-    }]);
+  const now = new Date().toISOString();
+const inOneWeek = new Date(Date.now() + 7*24*60*60*1000).toISOString();
 
-    if (error) {
-      console.error('Error creating challenge:', error);
-    } else {
-      fetchPhotoChallenges();
-      setCreatingChallenge({
-        title: '',
-        description: '',
-        points: 100,
-        location: '',
-        category: 'cleanup',
-        difficulty: 'easy'
-      });
-    }
-  };
+
+  const handleCreateChallenge = async () => {
+  const { title, description, points, location, category, difficulty } = creatingChallenge;
+
+  const { data: auth } = await supabase.auth.getUser();
+  const userId = auth.user?.id;
+
+  if (!userId) {
+    console.error('User not authenticated');
+    return;
+  }
+  const { data: { user } } = await supabase.auth.getUser();
+if (!user) {
+  console.error("User must be logged in!");
+  return;
+}
+
+
+  const { error } = await supabase.from('photoChallenge').insert([
+    
+    {
+      title,
+      description,
+      points,
+      location,
+      category,
+      difficulty,
+      startAt: now,
+  endAt: inOneWeek,
+      completions: 0,
+      status: 'available',
+    },
+  ]);
+
+  if (error) {
+    console.error('Error creating challenge:', error);
+    return;
+  }
+
+  fetchPhotoChallenges();
+  setCreatingChallenge({
+    title: '',
+    description: '',
+    points: 100,
+    location: '',
+    category: 'cleanup',
+    difficulty: 'easy',
+  });
+};
+
 
   return (
     <div className="photo-challenge-screen">
@@ -345,7 +380,7 @@ export function PhotoChallengeScreen() {
                   </div>
                   
                   <div className="photo-challenge-card-footer">
-                    <span className="author">by {challenge.author}</span>
+                    <span className="author">by {challenge.createdBy}</span>
                     {challenge.status === 'completed' ? (
                       <span className="status-completed">
                         <CheckCircle2 className="status-icon" />
