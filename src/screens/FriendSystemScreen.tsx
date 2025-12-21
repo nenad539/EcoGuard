@@ -5,7 +5,6 @@ import {
   Search,
   Users,
   MessageCircle,
-  ChevronRight,
   Filter,
   Star,
   Flame,
@@ -37,19 +36,8 @@ type Group = {
   ecoPoints: number;
 };
 
-type Activity = {
-  id: number;
-  userName: string;
-  action: string;
-  time: string;
-  points: number;
-  type: "challenge" | "photo" | "group" | "friend";
-};
-
 export function FriendSystemScreen() {
-  const [activeTab, setActiveTab] = useState<"friends" | "groups" | "activity">(
-    "friends"
-  );
+  const [activeTab, setActiveTab] = useState<"friends" | "groups">("friends");
   const [searchQuery, setSearchQuery] = useState("");
 
   const friends: Friend[] = [
@@ -232,54 +220,10 @@ export function FriendSystemScreen() {
     },
   ];
 
-  const activities: Activity[] = [
-    {
-      id: 1,
-      userName: "Ana Petrović",
-      action: 'završila izazov "Bicikl na posao"',
-      time: "Prije 2 sata",
-      points: 150,
-      type: "challenge",
-    },
-    {
-      id: 2,
-      userName: "Nikola Jovanović",
-      action: "dodao novu fotografiju reciklaže",
-      time: "Prije 3 sata",
-      points: 75,
-      type: "photo",
-    },
-    {
-      id: 3,
-      userName: "Eko Biciklisti",
-      action: "organizovali grupnu vožnju",
-      time: "Juče",
-      points: 200,
-      type: "group",
-    },
-    {
-      id: 4,
-      userName: "Jelena Marković",
-      action: "dostigla novi rekord u streak-u",
-      time: "Prije 1 dan",
-      points: 100,
-      type: "friend",
-    },
-    {
-      id: 5,
-      userName: "Urban Gardeners",
-      action: 'dodali novi izazov "Posadi drvo"',
-      time: "Prije 2 dana",
-      points: 100,
-      type: "group",
-    },
-  ];
-
   const [friendList, setFriendList] = useState<Friend[]>(friends);
   const [suggestedList, setSuggestedList] =
     useState<Friend[]>(suggestedFriends);
   const [groupList, setGroupList] = useState<Group[]>(groups);
-  const [activityList] = useState<Activity[]>(activities);
 
   const handleAddFriend = (friendId: number) => {
     setSuggestedList((prev) =>
@@ -287,7 +231,6 @@ export function FriendSystemScreen() {
         friend.id === friendId ? { ...friend, isFriend: true } : friend
       )
     );
-    // Ovdje bi poslao notifikaciju (preko notifikacija screena)
   };
 
   const handleJoinGroup = (groupId: number) => {
@@ -309,11 +252,11 @@ export function FriendSystemScreen() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "online":
-        return "#22c55e"; // green-500
+        return "#22c55e";
       case "away":
-        return "#f59e0b"; // amber-500
+        return "#f59e0b";
       case "offline":
-        return "#6b7280"; // gray-500
+        return "#6b7280";
       default:
         return "#6b7280";
     }
@@ -364,12 +307,6 @@ export function FriendSystemScreen() {
       group.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const filteredActivities = activityList.filter(
-    (activity) =>
-      activity.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      activity.action.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
   return (
     <div className="friend-system-screen">
       {/* Header - Sličan kao HomeScreen */}
@@ -402,7 +339,7 @@ export function FriendSystemScreen() {
           </div>
         </div>
 
-        {/* Tabs - Poboljšani izgled */}
+        {/* Tabs - Bez "Aktivnosti" taba */}
         <div className="friend-tabs">
           <button
             onClick={() => setActiveTab("friends")}
@@ -419,13 +356,6 @@ export function FriendSystemScreen() {
             <Users className="friend-tab-icon" />
             <span>Grupe</span>
             <span className="tab-count">{groupList.length}</span>
-          </button>
-          <button
-            onClick={() => setActiveTab("activity")}
-            className={`friend-tab ${activeTab === "activity" ? "active" : ""}`}
-          >
-            <Star className="friend-tab-icon" />
-            <span>Aktivnosti</span>
           </button>
         </div>
       </div>
@@ -658,130 +588,6 @@ export function FriendSystemScreen() {
                         </button>
                       )}
                     </div>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === "activity" && (
-          <div className="activity-container">
-            <div className="friend-section">
-              <h3 className="friend-section-title">Aktivnosti prijatelja</h3>
-              <div className="activity-list">
-                {filteredActivities.map((activity, index) => (
-                  <motion.div
-                    key={`activity-${activity.id}`}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className="activity-card"
-                  >
-                    <div className="activity-type">
-                      {activity.type === "challenge" && (
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width={24}
-                          height={24}
-                          viewBox="0 0 384 512"
-                        >
-                          <path
-                            fill="#2bc154"
-                            d="M378.31 378.49L298.42 288h30.63c9.01 0 16.98-5 20.78-13.06c3.8-8.04 2.55-17.26-3.28-24.05L268.42 160h28.89c9.1 0 17.3-5.35 20.86-13.61c3.52-8.13 1.86-17.59-4.24-24.08L203.66 4.83c-6.03-6.45-17.28-6.45-23.32 0L70.06 122.31c-6.1 6.49-7.75 15.95-4.24 24.08C69.38 154.65 77.59 160 86.69 160h28.89l-78.14 90.91c-5.81 6.78-7.06 15.99-3.27 24.04C37.97 283 45.93 288 54.95 288h30.63L5.69 378.49c-6 6.79-7.36 16.09-3.56 24.26c3.75 8.05 12 13.25 21.01 13.25H160v24.45l-30.29 48.4c-5.32 10.64 2.42 23.16 14.31 23.16h95.96c11.89 0 19.63-12.52 14.31-23.16L224 440.45V416h136.86c9.01 0 17.26-5.2 21.01-13.25c3.8-8.17 2.44-17.47-3.56-24.26"
-                          ></path>
-                        </svg>
-                      )}
-                      {activity.type === "photo" && (
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width={24}
-                          height={24}
-                          viewBox="0 0 384 512"
-                        >
-                          <path
-                            fill="#2bc154"
-                            d="M378.31 378.49L298.42 288h30.63c9.01 0 16.98-5 20.78-13.06c3.8-8.04 2.55-17.26-3.28-24.05L268.42 160h28.89c9.1 0 17.3-5.35 20.86-13.61c3.52-8.13 1.86-17.59-4.24-24.08L203.66 4.83c-6.03-6.45-17.28-6.45-23.32 0L70.06 122.31c-6.1 6.49-7.75 15.95-4.24 24.08C69.38 154.65 77.59 160 86.69 160h28.89l-78.14 90.91c-5.81 6.78-7.06 15.99-3.27 24.04C37.97 283 45.93 288 54.95 288h30.63L5.69 378.49c-6 6.79-7.36 16.09-3.56 24.26c3.75 8.05 12 13.25 21.01 13.25H160v24.45l-30.29 48.4c-5.32 10.64 2.42 23.16 14.31 23.16h95.96c11.89 0 19.63-12.52 14.31-23.16L224 440.45V416h136.86c9.01 0 17.26-5.2 21.01-13.25c3.8-8.17 2.44-17.47-3.56-24.26"
-                          ></path>
-                        </svg>
-                      )}
-                      {activity.type === "group" && (
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width={24}
-                          height={24}
-                          viewBox="0 0 512 512"
-                        >
-                          <circle
-                            cx={152}
-                            cy={184}
-                            r={72}
-                            fill="#2bc154"
-                          ></circle>
-                          <path
-                            fill="#2bc154"
-                            d="M234 296c-28.16-14.3-59.24-20-82-20c-44.58 0-136 27.34-136 82v42h150v-16.07c0-19 8-38.05 22-53.93c11.17-12.68 26.81-24.45 46-34"
-                          ></path>
-                          <path
-                            fill="#2bc154"
-                            d="M340 288c-52.07 0-156 32.16-156 96v48h312v-48c0-63.84-103.93-96-156-96"
-                          ></path>
-                          <circle
-                            cx={340}
-                            cy={168}
-                            r={88}
-                            fill="#2bc154"
-                          ></circle>
-                        </svg>
-                      )}
-                      {activity.type === "friend" && (
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width={24}
-                          height={24}
-                          viewBox="0 0 512 512"
-                        >
-                          <circle
-                            cx={152}
-                            cy={184}
-                            r={72}
-                            fill="#2bc154"
-                          ></circle>
-                          <path
-                            fill="#2bc154"
-                            d="M234 296c-28.16-14.3-59.24-20-82-20c-44.58 0-136 27.34-136 82v42h150v-16.07c0-19 8-38.05 22-53.93c11.17-12.68 26.81-24.45 46-34"
-                          ></path>
-                          <path
-                            fill="#2bc154"
-                            d="M340 288c-52.07 0-156 32.16-156 96v48h312v-48c0-63.84-103.93-96-156-96"
-                          ></path>
-                          <circle
-                            cx={340}
-                            cy={168}
-                            r={88}
-                            fill="#2bc154"
-                          ></circle>
-                        </svg>
-                      )}
-                    </div>
-
-                    <div className="activity-content">
-                      <div className="activity-header">
-                        <h4 className="activity-user">{activity.userName}</h4>
-                        <span className="activity-time">{activity.time}</span>
-                      </div>
-
-                      <p className="activity-action">{activity.action}</p>
-
-                      {activity.points > 0 && (
-                        <div className="activity-points">
-                          <Star className="w-3 h-3" />
-                          <span>+{activity.points} poena</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <ChevronRight className="activity-chevron" />
                   </motion.div>
                 ))}
               </div>

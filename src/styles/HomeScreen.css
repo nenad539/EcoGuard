@@ -71,6 +71,71 @@
   margin-bottom: 1.5rem;
 }
 
+/* Streak widget - zauzima 2 kolone */
+.home-streak-card {
+  grid-column: 1 / -1;
+  /* Zauzima obje kolone */
+  background: rgba(30 41 59 / 0.5);
+  backdrop-filter: blur(16px);
+  border-radius: 1rem;
+  padding: 1.25rem;
+  border: 1px solid rgba(51 65 85 / 0.5);
+  box-shadow: 0 25px 50px -12px rgba(0 0 0 / 0.25);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.home-streak-icon {
+  width: 4rem;
+  height: 4rem;
+  border-radius: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(to bottom right, rgb(249 115 22), rgb(234 88 12));
+  box-shadow: 0 10px 15px -3px rgba(249 115 22 / 0.3);
+  flex-shrink: 0;
+}
+
+.home-streak-icon svg {
+  width: 2rem;
+  height: 2rem;
+  color: white;
+}
+
+.home-streak-content {
+  flex: 1;
+}
+
+.home-streak-label {
+  color: rgb(148 163 184);
+  font-size: 0.875rem;
+  margin-bottom: 0.25rem;
+}
+
+.home-streak-value {
+  color: white;
+  font-size: 1.75rem;
+  line-height: 2.25rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+}
+
+.home-streak-unit {
+  color: rgb(253 186 116);
+  font-size: 1rem;
+  margin-left: 0.25rem;
+}
+
+.home-streak-subtext {
+  color: rgb(253 186 116);
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+}
+
+/* Standardne stat kartice (prve dvije) */
 .home-stat-card {
   background: rgba(30 41 59 / 0.5);
   backdrop-filter: blur(16px);
@@ -272,4 +337,241 @@
   color: rgb(148 163 184);
   font-size: 0.875rem;
   margin-top: 0.25rem;
+}
+/* NOVI LAYOUT STYLES */
+.home-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+/* Streak card koji zauzima obje kolone */
+.home-streak-card {
+  grid-column: 1 / -1;
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.1), rgba(234, 88, 12, 0.05));
+  backdrop-filter: blur(16px);
+  border-radius: 1rem;
+  padding: 1.25rem;
+  border: 1px solid rgba(249, 115, 22, 0.3);
+  box-shadow: 0 25px 50px -12px rgba(249, 115, 22, 0.15);
+}
+
+.streak-card-content {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+/* Streak ikona sa efektom */
+.home-streak-icon {
+  position: relative;
+  width: 4rem;
+  height: 4rem;
+  border-radius: 1rem;
+  background: linear-gradient(to bottom right, rgb(249, 115, 22), rgb(234, 88, 12));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 15px -3px rgba(249, 115, 22, 0.4);
+  flex-shrink: 0;
+}
+
+.streak-flame {
+  width: 2rem;
+  height: 2rem;
+  color: white;
+  z-index: 2;
+}
+
+.flame-effect {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 24px;
+  height: 24px;
+}
+
+.flame {
+  position: absolute;
+  background: linear-gradient(to bottom, rgb(255, 107, 0), rgb(255, 200, 0));
+  border-radius: 50%;
+  animation: flamePulse 1.5s infinite;
+}
+
+.flame:nth-child(1) {
+  width: 10px;
+  height: 10px;
+  top: 0;
+  right: 8px;
+  animation-delay: 0s;
+}
+
+.flame:nth-child(2) {
+  width: 8px;
+  height: 8px;
+  top: 5px;
+  right: 0;
+  animation-delay: 0.5s;
+}
+
+.flame:nth-child(3) {
+  width: 6px;
+  height: 6px;
+  top: 10px;
+  right: 12px;
+  animation-delay: 1s;
+}
+
+@keyframes flamePulse {
+
+  0%,
+  100% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+/* Streak text container */
+.streak-text-container {
+  flex: 1;
+}
+
+.home-streak-label {
+  color: rgb(148, 163, 184);
+  font-size: 0.875rem;
+  margin-bottom: 0.25rem;
+}
+
+.streak-value-container {
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+}
+
+.home-streak-value {
+  color: white;
+  font-size: 1.75rem;
+  line-height: 2.25rem;
+  font-weight: 600;
+}
+
+.home-streak-unit {
+  color: rgb(253, 186, 116);
+  font-size: 1rem;
+  margin-left: 0.25rem;
+  font-weight: 500;
+}
+
+/* Streak dodatne informacije */
+.streak-info {
+  margin-top: 0.5rem;
+}
+
+.streak-badge {
+  display: inline-block;
+  background: rgba(249, 115, 22, 0.2);
+  color: rgb(253, 186, 116);
+  padding: 0.35rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid rgba(249, 115, 22, 0.3);
+}
+
+.streak-subtext {
+  color: rgb(253, 186, 116);
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+  font-style: italic;
+}
+
+/* Poboljšani stat card layout */
+.stat-card-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.stat-text-container {
+  flex: 1;
+}
+
+.value-unit-container {
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+}
+
+/* CTA Container */
+.cta-container {
+  margin-top: 1.5rem;
+}
+
+/* Quick Actions poboljšanja */
+.quick-action-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.quick-action-text {
+  text-align: left;
+}
+
+.home-quick-action-emoji svg {
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+}
+
+/* Responsive adjustements */
+@media (max-width: 640px) {
+  .home-stats-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .streak-card-content {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .home-streak-icon {
+    width: 3.5rem;
+    height: 3.5rem;
+  }
+
+  .home-streak-value {
+    font-size: 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .stat-card-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+    text-align: left;
+  }
+
+  .streak-card-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+    text-align: left;
+  }
+
+  .streak-info {
+    width: 100%;
+    text-align: left;
+  }
+
+  .home-streak-icon {
+    align-self: flex-start;
+  }
 }

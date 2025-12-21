@@ -3,7 +3,7 @@ import { supabase } from "../supabase-client";
 import { motion } from "motion/react";
 import { NavigationContext } from "../App";
 import { BottomNav } from "../components/common/BottomNav";
-import { Recycle, Zap, CloudRain, Star, Bell, User, Flame } from "lucide-react";
+import { Recycle, Star, Bell, Flame } from "lucide-react";
 import "../styles/HomeScreen.css";
 
 export function HomeScreen() {
@@ -34,50 +34,48 @@ export function HomeScreen() {
   };
 
   const updateAndGetStreak = async () => {
-  const { data: authData } = await supabase.auth.getUser();
-  const userId = authData?.user?.id;
-  if (!userId) return 0;
+    const { data: authData } = await supabase.auth.getUser();
+    const userId = authData?.user?.id;
+    if (!userId) return 0;
 
-  const today = new Date();
-  const todayDate = today.toISOString().split("T")[0];
+    const today = new Date();
+    const todayDate = today.toISOString().split("T")[0];
 
-  const { data, error } = await supabase
-    .from("korisnik_profil")
-    .select("dnevna_serija, posljednji_login")
-    .eq("id", userId)
-    .single();
+    const { data, error } = await supabase
+      .from("korisnik_profil")
+      .select("dnevna_serija, posljednji_login")
+      .eq("id", userId)
+      .single();
 
-  if (error || !data) {
-    console.error("Streak fetch error:", error);
-    return 0;
-  }
+    if (error || !data) {
+      console.error("Streak fetch error:", error);
+      return 0;
+    }
 
-  let newStreak = data.dnevna_serija ?? 0;
+    let newStreak = data.dnevna_serija ?? 0;
 
-  if (!data.posljednji_login) {
-    newStreak = 1;
-  } else {
-    const lastLogin = new Date(data.posljednji_login);
-    const diffDays =
-      (today.setHours(0, 0, 0, 0) -
-        lastLogin.setHours(0, 0, 0, 0)) /
-      86400000;
+    if (!data.posljednji_login) {
+      newStreak = 1;
+    } else {
+      const lastLogin = new Date(data.posljednji_login);
+      const diffDays =
+        (today.setHours(0, 0, 0, 0) - lastLogin.setHours(0, 0, 0, 0)) /
+        86400000;
 
-    if (diffDays === 1) newStreak += 1;
-    else if (diffDays > 1) newStreak = 1;
-  }
+      if (diffDays === 1) newStreak += 1;
+      else if (diffDays > 1) newStreak = 1;
+    }
 
-  await supabase
-    .from("korisnik_profil")
-    .update({
-      dnevna_serija: newStreak,
-      posljednji_login: todayDate,
-    })
-    .eq("id", userId);
+    await supabase
+      .from("korisnik_profil")
+      .update({
+        dnevna_serija: newStreak,
+        posljednji_login: todayDate,
+      })
+      .eq("id", userId);
 
-  return newStreak;
-};
-
+    return newStreak;
+  };
 
   const getUserLevel = async () => {
     let { data: korisnik_profil, error } = await supabase
@@ -144,73 +142,45 @@ export function HomeScreen() {
     return aktivnosti?.[0]?.opis || "20";
   };
 
-  
-
   const getCurrentUserId = async () => {
-  const { data, error } = await supabase.auth.getUser();
-  if (error) {
-    console.error("Auth error:", error);
-    return null;
-  }
-  return data.user?.id;
-};
-
-
-useEffect(() => {
-  updateAndGetStreak().then((streak) => {
-    setUserStreak(String(streak));
-  });
-}, []);
-
-
-  useEffect(() => {
-  const loadData = async () => {
-    const userId = await getCurrentUserId();
-    if (!userId) return;
-
-    const { data, error } = await supabase
-      .from("korisnik_profil")
-      .select("korisnicko_ime, nivo, reciklirano_stvari, ukupno_poena")
-      .eq("id", userId)
-      .single();
-
+    const { data, error } = await supabase.auth.getUser();
     if (error) {
-      console.error(error);
-      return;
+      console.error("Auth error:", error);
+      return null;
     }
-
-    setUserName(data.korisnicko_ime);
-    setUserLevel(data.nivo);
-    setUserReciklirano(data.reciklirano_stvari);
-    setUserPoints(data.ukupno_poena);
+    return data.user?.id;
   };
 
-  loadData();
-}, []);
-  const stats = [
-    {
-      icon: Recycle,
-      label: "Reciklirano",
-      value: userReciklirano,
-      unit: "stvari",
-      color: "green",
-    },
-    {
-      icon: Star,
-      label: "Ukupni poeni",
-      value: userPoints,
-      unit: "poena",
-      color: "purple",
-    },
-    {
-      icon: Flame,
-      label: "Streak",
-      value: userStreak,
-      unit: "dana",
-      color: "orange",
-      isStreak: true,
-    },
-  ];
+  useEffect(() => {
+    updateAndGetStreak().then((streak) => {
+      setUserStreak(String(streak));
+    });
+  }, []);
+
+  useEffect(() => {
+    const loadData = async () => {
+      const userId = await getCurrentUserId();
+      if (!userId) return;
+
+      const { data, error } = await supabase
+        .from("korisnik_profil")
+        .select("korisnicko_ime, nivo, reciklirano_stvari, ukupno_poena")
+        .eq("id", userId)
+        .single();
+
+      if (error) {
+        console.error(error);
+        return;
+      }
+
+      setUserName(data.korisnicko_ime);
+      setUserLevel(data.nivo);
+      setUserReciklirano(data.reciklirano_stvari);
+      setUserPoints(data.ukupno_poena);
+    };
+
+    loadData();
+  }, []);
 
   return (
     <div className="home-screen">
@@ -236,7 +206,7 @@ useEffect(() => {
               <Bell />
             </button>
             <button
-              onClick={() => navigateTo("profile")}
+              onClick={() => navigateTo("friends")} // OVO JE PROMIJENJENO - SADA IDE NA FRIENDS
               className="home-profile-button"
               aria-label="Prijatelji"
             >
@@ -255,77 +225,75 @@ useEffect(() => {
           </div>
         </div>
 
-        {/* Stats Grid - ISTI LAYOUT ZA WEB I MOBILE */}
+        {/* Stats Grid - NOVI LAYOUT */}
         <div className="home-stats-grid">
-          {/* Prva dva stat karta jedan do drugog */}
-          <div className="top-stats-row">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.1 }}
-              className="home-stat-card"
-            >
-              <div className="stat-card-content">
-                <div className="home-stat-icon green">
-                  <Recycle />
-                </div>
-                <div className="stat-text-container">
-                  <p className="home-stat-label">Reciklirano</p>
-                  <div className="value-unit-container">
-                    <p className="home-stat-value">
-                      {userReciklirano}
-                      <span className="home-stat-unit">stvari</span>
-                    </p>
-                  </div>
+          {/* Prva dva widgeta jedan do drugog */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.1 }}
+            className="home-stat-card"
+          >
+            <div className="stat-card-content">
+              <div className="home-stat-icon green">
+                <Recycle />
+              </div>
+              <div className="stat-text-container">
+                <p className="home-stat-label">Reciklirano</p>
+                <div className="value-unit-container">
+                  <p className="home-stat-value">
+                    {userReciklirano}
+                    <span className="home-stat-unit">stvari</span>
+                  </p>
                 </div>
               </div>
-            </motion.div>
+            </div>
+          </motion.div>
 
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.2 }}
-              className="home-stat-card"
-            >
-              <div className="stat-card-content">
-                <div className="home-stat-icon purple">
-                  <Star />
-                </div>
-                <div className="stat-text-container">
-                  <p className="home-stat-label">Ukupni poeni</p>
-                  <div className="value-unit-container">
-                    <p className="home-stat-value">
-                      {userPoints}
-                      <span className="home-stat-unit">poena</span>
-                    </p>
-                  </div>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.2 }}
+            className="home-stat-card"
+          >
+            <div className="stat-card-content">
+              <div className="home-stat-icon purple">
+                <Star />
+              </div>
+              <div className="stat-text-container">
+                <p className="home-stat-label">Ukupni poeni</p>
+                <div className="value-unit-container">
+                  <p className="home-stat-value">
+                    {userPoints}
+                    <span className="home-stat-unit">poena</span>
+                  </p>
                 </div>
               </div>
-            </motion.div>
-          </div>
+            </div>
+          </motion.div>
 
-          {/* Streak kartica koja zauzima cijeli sljedeći red */}
+          {/* Streak widget koji zauzima cijeli red */}
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.3 }}
-            className="home-stat-card streak-card"
+            className="home-streak-card"
           >
-            <div className="stat-card-content streak-content">
-              <div className="home-stat-icon orange">
-                <Flame />
+            <div className="streak-card-content">
+              <div className="home-streak-icon">
+                <Flame className="streak-flame" />
                 <div className="flame-effect">
                   <div className="flame"></div>
                   <div className="flame"></div>
                   <div className="flame"></div>
                 </div>
               </div>
-              <div className="stat-text-container">
-                <p className="home-stat-label">Streak</p>
-                <div className="value-unit-container">
-                  <p className="home-stat-value">
+              <div className="streak-text-container">
+                <p className="home-streak-label">Dnevna serija</p>
+                <div className="streak-value-container">
+                  <p className="home-streak-value">
                     {userStreak}
-                    <span className="home-stat-unit">dana</span>
+                    <span className="home-streak-unit">dana</span>
                   </p>
                 </div>
                 <div className="streak-info">
@@ -450,7 +418,7 @@ useEffect(() => {
             </div>
           </button>
           <button
-            onClick={() => navigateTo("community")}
+            onClick={() => navigateTo("community")} // OVO JE OSTALO ZAJEDNICA
             className="home-quick-action purple"
           >
             <div className="quick-action-content">
@@ -474,7 +442,8 @@ useEffect(() => {
                 </svg>
               </div>
               <div className="quick-action-text">
-                <p className="home-quick-action-title">Zajednica</p>
+                <p className="home-quick-action-title">Zajednica</p>{" "}
+                {/* OVO OSTALO ZAJEDNICA */}
                 <p className="home-quick-action-subtitle">Rang lista</p>
               </div>
             </div>
