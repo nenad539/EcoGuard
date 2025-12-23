@@ -8,17 +8,24 @@ import "../styles/HomeScreen.css";
 
 export function HomeScreen() {
   const { userData, navigateTo } = useContext(NavigationContext);
-  const SUPABASE_URL = "https://htmzdusvwcwkebghcdnb.supabase.co";
-  const supabaseAnonkey =
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh0bXpkdXN2d2N3a2ViZ2hjZG5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ3OTQ5NDMsImV4cCI6MjA4MDM3MDk0M30.25yoZoNAruxcJBSnw5ulk6EM3LKTtPixQZJWrTSc-A0";
+
+  const ACTIVITY_TABLE = "aktivnosti";
 
   const [userName, setUserName] = useState("");
   const [userLevel, setUserLevel] = useState("");
   const [userReciklirano, setUserReciklirano] = useState("");
   const [userPoints, setUserPoints] = useState("");
-  const [poena_dodato, setActivityPoints] = useState("");
-  const [activityTitle, setActivityTitle] = useState("");
   const [userStreak, setUserStreak] = useState("7");
+  const [activities, setActivities] = useState<
+    {
+      id: string;
+      opis: string;
+      poena_dodato: number | null;
+      kategorija: string | null;
+      status: string | null;
+      kreirano_u: string | null;
+    }[]
+  >([]);
 
   const getUserName = async () => {
     let { data: korisnik_profil, error } = await supabase
@@ -116,32 +123,6 @@ export function HomeScreen() {
     return korisnik_profil?.[0]?.ukupno_poena || "0";
   };
 
-  const getActivityPoints = async () => {
-    let { data: aktivnosti, error } = await supabase
-      .from("aktivnosti")
-      .select("poena_dodato");
-
-    if (error) {
-      console.error("Error fetching user:", error);
-      return "20";
-    }
-
-    return aktivnosti?.[0]?.poena_dodato || "0";
-  };
-
-  const getActivityTitle = async () => {
-    let { data: aktivnosti, error } = await supabase
-      .from("aktivnosti")
-      .select("opis");
-
-    if (error) {
-      console.error("Error fetching user:", error);
-      return "0";
-    }
-
-    return aktivnosti?.[0]?.opis || "20";
-  };
-
   const getCurrentUserId = async () => {
     const { data, error } = await supabase.auth.getUser();
     if (error) {
@@ -180,6 +161,29 @@ export function HomeScreen() {
     };
 
     loadData();
+  }, []);
+
+  useEffect(() => {
+    const loadActivities = async () => {
+      const userId = await getCurrentUserId();
+      if (!userId) return;
+
+      const { data, error } = await supabase
+        .from(ACTIVITY_TABLE)
+        .select("id, opis, poena_dodato, kategorija, status, kreirano_u")
+        .eq("korisnik_id", userId)
+        .order("kreirano_u", { ascending: false })
+        .limit(5);
+
+      if (error) {
+        console.error("Error fetching activities:", error);
+        return;
+      }
+
+      setActivities(data ?? []);
+    };
+
+    loadActivities();
   }, []);
 
   return (
@@ -326,66 +330,56 @@ export function HomeScreen() {
       <div className="home-section">
         <h2 className="home-section-title">Nedavne aktivnosti</h2>
         <div className="home-activity-list">
-          {[
-            {
-              title: activityTitle,
-              time: "Prije 1 sat",
-              points: poena_dodato,
-              type: "photo",
-            },
-            {
-              title: "Reciklirano 5 PET flaša",
-              time: "Prije 2 sata",
-              points: "+50",
-              type: "standard",
-            },
-            {
-              title: "Kreiran novi foto izazov",
-              time: "Prije 4 sata",
-              points: "+25",
-              type: "create",
-            },
-            {
-              title: 'Završen izazov "Bicikl vikendom"',
-              time: "Prije 1 dan",
-              points: "+120",
-              type: "standard",
-            },
-            {
-              title: "Fotografija na verifikaciji",
-              time: "Prije 2 dana",
-              points: "Na čekanju",
-              type: "pending",
-            },
-          ].map((activity, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.5 + index * 0.1 }}
-              className={`home-activity-item ${
-                activity.type === "photo"
-                  ? "photo-activity"
-                  : activity.type === "pending"
-                  ? "pending-activity"
-                  : activity.type === "create"
-                  ? "create-activity"
-                  : ""
-              }`}
-            >
-              <div className="activity-text">
-                <p className="home-activity-title">{activity.title}</p>
-                <p className="home-activity-time">{activity.time}</p>
-              </div>
-              <div
-                className={`home-activity-points ${
-                  activity.type === "pending" ? "pending-points" : ""
-                }`}
-              >
-                {activity.points}
-              </div>
-            </motion.div>
-          ))}
+          {activities.length === 0 ? (
+            <p className="home-activity-empty">Još nema aktivnosti.</p>
+          ) : (
+            activities.map((activity, index) => {
+              const type =
+                activity.status === "pending"
+                  ? "pending"
+                  : activity.kategorija === "photo"
+                  ? "photo"
+                  : activity.kategorija === "create"
+                  ? "create"
+                  : "standard";
+              const timeText = activity.kreirano_u
+                ? new Date(activity.kreirano_u).toLocaleString()
+                : "Nedavno";
+              return (
+                <motion.div
+                  key={activity.id ?? index}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.5 + index * 0.1 }}
+                  className={`home-activity-item ${
+                    type === "photo"
+                      ? "photo-activity"
+                      : type === "pending"
+                      ? "pending-activity"
+                      : type === "create"
+                      ? "create-activity"
+                      : ""
+                  }`}
+                >
+                  <div className="activity-text">
+                    <p className="home-activity-title">{activity.opis}</p>
+                    <p className="home-activity-time">{timeText}</p>
+                  </div>
+                  <div
+                    className={`home-activity-points ${
+                      type === "pending" ? "pending-points" : ""
+                    }`}
+                  >
+                    {activity.status === "pending"
+                      ? "Na čekanju"
+                      : activity.poena_dodato != null
+                      ? `+${activity.poena_dodato}`
+                      : "+0"}
+                  </div>
+                </motion.div>
+              );
+            })
+          )}
         </div>
       </div>
 

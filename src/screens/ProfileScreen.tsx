@@ -17,13 +17,23 @@ import "../styles/ProfileScreen.css";
 
 export function ProfileScreen() {
   const { userData, navigateTo } = useContext(NavigationContext);
+  const ACTIVITY_TABLE = "aktivnosti";
 
   const [userStreak, setUserStreak] = useState<string>("0");
   const [userCompleted, setUserCompleted] = useState("");
   const [userPoints, setUserPoints] = useState("");
   const [userName, setUserName] = useState("");
   const [userLevel, setUserLevel] = useState("");
-  const [activities, setActivities] = useState<any[]>([]);
+  const [activities, setActivities] = useState<
+    {
+      id: string;
+      opis: string;
+      poena_dodato: number | null;
+      kategorija: string | null;
+      status: string | null;
+      kreirano_u: string | null;
+    }[]
+  >([]);
 
   const updateAndGetStreak = async (): Promise<number> => {
     const { data: authData } = await supabase.auth.getUser();
@@ -134,6 +144,25 @@ export function ProfileScreen() {
     return korisnik_profil?.ukupno_poena || "0";
   };
 
+  const fetchActivities = async () => {
+    const userId = await getUserId();
+    if (!userId) return;
+
+    const { data, error } = await supabase
+      .from(ACTIVITY_TABLE)
+      .select("id, opis, poena_dodato, kategorija, status, kreirano_u")
+      .eq("korisnik_id", userId)
+      .order("kreirano_u", { ascending: false })
+      .limit(10);
+
+    if (error) {
+      console.error("Error fetching activities:", error);
+      return;
+    }
+
+    setActivities(data ?? []);
+  };
+
   const getUserName = async () => {
     const userId = await getUserId();
     if (!userId) return "Korisnik";
@@ -171,11 +200,18 @@ export function ProfileScreen() {
   // Consolidated recent activities for profile
   const getRecentActivities = async () => {
     try {
+      const userId = await getUserId();
+      if (!userId) {
+        setActivities([]);
+        return;
+      }
+
       const { data: aktivnosti, error } = await supabase
-        .from("aktivnosti")
-        .select("id, opis, poena_dodato, kategorija, status")
-        .order("created_at", { ascending: false })
-        .limit(6);
+        .from(ACTIVITY_TABLE)
+        .select("id, opis, poena_dodato, kategorija, status, kreirano_u")
+        .eq("korisnik_id", userId)
+        .order("kreirano_u", { ascending: false })
+        .limit(10);
 
       if (error) {
         console.error("Error fetching aktivnosti for profile:", error);
@@ -393,10 +429,12 @@ export function ProfileScreen() {
       <div className="profile-activity">
         <h3 className="profile-section-title">Nedavne aktivnosti</h3>
         <div className="profile-activity-list">
-          {activities.length > 0 ? (
+          {activities.length === 0 ? (
+            <p className="profile-activity-empty">Još nema aktivnosti.</p>
+          ) : (
             activities.map((activity, index) => (
               <motion.div
-                key={activity.id}
+                key={activity.id ?? index}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.1 }}
@@ -404,49 +442,18 @@ export function ProfileScreen() {
               >
                 <div className="profile-activity-content">
                   <p className="profile-activity-action">{activity.opis}</p>
-                  <p className="profile-activity-date">{activity.kategorija}</p>
+                  <p className="profile-activity-date">
+                    {activity.kategorija ?? "Aktivnost"} ·{" "}
+                    {activity.kreirano_u
+                      ? new Date(activity.kreirano_u).toLocaleString()
+                      : "Nedavno"}
+                  </p>
                 </div>
                 <div className="profile-activity-points">
-                  +{activity.poena_dodato}
+                  +{activity.poena_dodato ?? 0}
                 </div>
               </motion.div>
             ))
-          ) : (
-            <>
-              {[
-                {
-                  action: 'Završen izazov "Bicikl vikendom"',
-                  date: "Prije 1 dan",
-                  points: "+120",
-                },
-                {
-                  action: "Reciklirano 10 staklenih flaša",
-                  date: "Prije 2 dana",
-                  points: "+80",
-                },
-                {
-                  action: "Posađeno stablo u gradskom parku",
-                  date: "Prije 5 dana",
-                  points: "+200",
-                },
-              ].map((activity, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="profile-activity-item"
-                >
-                  <div className="profile-activity-content">
-                    <p className="profile-activity-action">{activity.action}</p>
-                    <p className="profile-activity-date">{activity.date}</p>
-                  </div>
-                  <div className="profile-activity-points">
-                    {activity.points}
-                  </div>
-                </motion.div>
-              ))}
-            </>
           )}
         </div>
       </div>

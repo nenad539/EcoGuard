@@ -41,7 +41,7 @@ export function SplashScreen() {
         transition={{ delay: 0.3, duration: 0.6 }}
         className="splash-title"
       >
-        GroWithUs
+        GrowWithUs
       </motion.h1>
 
       <motion.p

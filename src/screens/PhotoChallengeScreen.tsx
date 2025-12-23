@@ -59,6 +59,7 @@ const REGULAR_COMPLETION_TABLE_CANDIDATES = [
 
 const PHOTO_COMPLETION_TABLE = 'photo_challenge_completions';
 const PHOTO_COMPLETION_ID_FIELD = 'photo_challenge_id';
+const ACTIVITY_TABLE = 'aktivnosti';
 
 const iconMap: Record<string, React.ElementType> = {
   recycle: Recycle,
@@ -207,6 +208,38 @@ export function PhotoChallengeScreen({
     }
   };
 
+  const logActivity = async ({
+    opis,
+    poena = 0,
+    kategorija,
+    status,
+    putanja_slike,
+    lokacija
+  }: {
+    opis: string;
+    poena?: number;
+    kategorija?: string;
+    status?: string;
+    putanja_slike?: string | null;
+    lokacija?: string | null;
+  }) => {
+    if (!userId) return;
+    try {
+      await supabase.from(ACTIVITY_TABLE).insert({
+        korisnik_id: userId,
+        opis,
+        poena_dodato: poena,
+        kategorija: kategorija ?? null,
+        status: status ?? null,
+        putanja_slike: putanja_slike ?? null,
+        lokacija: lokacija ?? null,
+        kreirano_u: new Date().toISOString()
+      });
+    } catch (e) {
+      console.error("Activity log failed:", e);
+    }
+  };
+
   const fetchRegularChallenges = async () => {
     if (!userId) return;
     setRegularLoading(true);
@@ -314,12 +347,19 @@ export function PhotoChallengeScreen({
     );
 
     await awardPoints(points);
+    await logActivity({
+      opis: `Završen izazov #${challengeId}`,
+      poena: points,
+      kategorija: "regular",
+      status: "completed"
+    });
   };
 
   const completePhotoChallenge = async (
     challengeId: number,
     points: number,
-    submission?: { photo?: string; description?: string; location?: string }
+    submission?: { photo?: string; description?: string; location?: string },
+    challengeTitle?: string
   ) => {
     if (!userId) return;
     if (photoCompletedIds.includes(challengeId)) return;
@@ -360,6 +400,17 @@ export function PhotoChallengeScreen({
         c.id === challengeId ? { ...c, status: "pending" as const } : c
       )
     );
+
+    await logActivity({
+      opis: challengeTitle
+        ? `Poslan foto izazov: ${challengeTitle}`
+        : `Poslan foto izazov #${challengeId}`,
+      poena: 0,
+      kategorija: "photo",
+      status: "pending",
+      putanja_slike: submission?.photo ?? null,
+      lokacija: submission?.location ?? null
+    });
   };
 
   useEffect(() => {
@@ -437,6 +488,15 @@ export function PhotoChallengeScreen({
     for (const item of toAward) {
       const pts = pointsMap[item.completionKey] ?? 0;
       await awardPoints(pts);
+
+      // Log approval activity even if marking points_awarded fails
+      await logActivity({
+        opis: `Foto izazov odobren #${item.completionKey}`,
+        poena: pts,
+        kategorija: "photo",
+        status: "approved"
+      });
+
       const { error: markErr } = await supabase
         .from(PHOTO_COMPLETION_TABLE)
         .update({ points_awarded: true })
@@ -484,7 +544,7 @@ export function PhotoChallengeScreen({
     setSelectedChallenge(null);
     console.log("Photo submission completed:", submission);
     if (challenge) {
-      await completePhotoChallenge(challenge.id, challenge.points, submission);
+      await completePhotoChallenge(challenge.id, challenge.points, submission, challenge.title);
     }
   };
 
@@ -509,13 +569,13 @@ export function PhotoChallengeScreen({
   const getDifficultyText = (difficulty: string) => {
     switch (difficulty) {
       case "easy":
-        return "Laki";
+        return "Teški";
       case "medium":
-        return "Srednji";
+        return "Teški";
       case "hard":
         return "Teški";
       default:
-        return "Laki";
+        return "Teški";
     }
   };
 

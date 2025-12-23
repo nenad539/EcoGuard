@@ -28,6 +28,16 @@
   flex-direction: column;
 }
 
+.submission-error {
+  background: rgba(220, 38, 38, 0.12);
+  color: rgb(248, 113, 113);
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  padding: 0.75rem 1rem;
+  margin: 1rem 1.25rem 0 1.25rem;
+  border-radius: 0.75rem;
+  font-size: 0.9rem;
+}
+
 .photo-submission-header {
   padding: 1.5rem;
   border-bottom: 1px solid rgba(51, 65, 85, 0.5);

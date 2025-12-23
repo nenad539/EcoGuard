@@ -28,17 +28,36 @@ export function PhotoSubmission({
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageCapture = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setError(null);
     const file = event.target.files?.[0];
-    if (file) {
+    if (!file) {
+      setError('Nije odabrana fotografija. Pokušajte ponovo.');
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      setError('Odaberite važeću sliku.');
+      return;
+    }
+
+    try {
       const reader = new FileReader();
       reader.onload = (e) => {
-        setCapturedPhoto(e.target?.result as string);
+        if (!e.target?.result) {
+          setError('Greška prilikom čitanja fotografije. Pokušajte ponovo.');
+          return;
+        }
+        setCapturedPhoto(e.target.result as string);
         setSubmissionStep('details');
       };
+      reader.onerror = () => setError('Greška prilikom čitanja fotografije. Pokušajte ponovo.');
       reader.readAsDataURL(file);
+    } catch (e) {
+      console.error('Capture read error:', e);
+      setError('Greška prilikom čitanja fotografije. Pokušajte ponovo.');
     }
   };
 
@@ -47,9 +66,13 @@ export function PhotoSubmission({
   };
 
   const handleSubmit = async () => {
-    if (!capturedPhoto) return;
+    if (!capturedPhoto) {
+      setError('Dodajte fotografiju prije slanja.');
+      return;
+    }
     
     setIsSubmitting(true);
+    setError(null);
     
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 2000));
@@ -82,6 +105,8 @@ export function PhotoSubmission({
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
       >
+        {error && <div className="submission-error">{error}</div>}
+
         <div className="photo-submission-header">
           <div>
             <h3>Prihvati izazov</h3>
