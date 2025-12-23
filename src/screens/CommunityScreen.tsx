@@ -23,6 +23,10 @@ export function CommunityScreen() {
     "all" | "bronze" | "silver" | "gold"
   >("all");
   const [users, setUsers] = useState<User[]>([]);
+  const [bronzeUsers, setBronzeUsers] = useState<User[]>([]);
+  const [bronzeOffset, setBronzeOffset] = useState(10);
+  const [bronzeHasMore, setBronzeHasMore] = useState(true);
+  const [loadingBronze, setLoadingBronze] = useState(false);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [usersError, setUsersError] = useState<string | null>(null);
 
@@ -32,7 +36,8 @@ export function CommunityScreen() {
 
   // Funkcija za filtriranje korisnika
   const filteredUsers = useMemo(() => {
-    return users.filter((user) => {
+    const pool = activeFilter === "bronze" ? [...users, ...bronzeUsers] : users;
+    return pool.filter((user) => {
       const matchesSearch = user.name
         .toLowerCase()
         .includes(searchQuery.toLowerCase());
@@ -43,19 +48,30 @@ export function CommunityScreen() {
 
       return matchesSearch && matchesFilter;
     });
-  }, [searchQuery, activeFilter, users]);
+  }, [searchQuery, activeFilter, users, bronzeUsers]);
 
-//Ovo je za sad dok nemamo bedzeve
-  const badgeForPoints = (points: number) => {
-    if (points >= 5000) return "gold" as const;
-    if (points >= 3000) return "silver" as const;
+  const badgeForRank = (rank: number) => {
+    if (rank <= 5) return "gold" as const;
+    if (rank <= 10) return "silver" as const;
     return "bronze" as const;
+  };
+
+  const levelLabelFromPoints = (pts: number) => {
+    if (pts >= 5000) return "Legenda prirode";
+    if (pts >= 2500) return "Eko heroj";
+    if (pts >= 1000) return "Eko borac";
+    if (pts >= 500) return "Aktivan član";
+    if (pts >= 100) return "Početnik";
+    return "Rookie";
   };
 
   
   const loadLeaderboard = async () => {
     setLoadingUsers(true);
     setUsersError(null);
+    setBronzeUsers([]);
+    setBronzeOffset(10);
+    setBronzeHasMore(true);
     try {
       const { data, error } = await supabase
         .from("korisnik_profil")
@@ -71,16 +87,33 @@ export function CommunityScreen() {
         return;
       }
       console.debug('Loaded leaderboard rows:', (data || []).length, data?.slice?.(0,3));
-      const mapped: User[] = (data || []).map((row: any, idx: number) => ({
-        id: row.id,
-        name: row.korisnicko_ime || "Korisnik",
-        points: Number(row.ukupno_poena) || 0,
-        level: row.nivo || 0,
-        badge: badgeForPoints(Number(row.ukupno_poena) || 0),
-        rank: idx + 1,
-        photoChallenges: 0,
-        challengesCompleted: 0,
-      }));
+      const mapped: User[] = (data || []).map((row: any, idx: number) => {
+        const pts = Number(row.ukupno_poena) || 0;
+        return {
+          id: row.id,
+          name: row.korisnicko_ime || "Korisnik",
+          points: pts,
+          level: row.nivo || 0,
+          badge: badgeForRank(idx + 1),
+          rank: idx + 1,
+          photoChallenges: 0,
+          challengesCompleted: 0,
+        };
+      });
+
+      // Update badges in DB (best-effort)
+      const updates = mapped.map((user) =>
+        supabase
+          .from("korisnik_profil")
+          .update({ trenutni_bedz: user.badge })
+          .eq("id", user.id)
+      );
+      Promise.allSettled(updates).then((results) => {
+        const failures = results.filter((r) => r.status === "rejected");
+        if (failures.length) {
+          console.warn("Some badge updates failed:", failures.length);
+        }
+      });
 
       setUsers(mapped);
     } catch (e) {
@@ -89,6 +122,53 @@ export function CommunityScreen() {
       setUsers([]);
     } finally {
       setLoadingUsers(false);
+    }
+  };
+
+  const loadMoreBronze = async () => {
+    if (loadingBronze || !bronzeHasMore) return;
+    setLoadingBronze(true);
+    try {
+      const PAGE = 10;
+      const { data, error } = await supabase
+        .from("korisnik_profil")
+        .select("id, korisnicko_ime, ukupno_poena, nivo")
+        .order("ukupno_poena", { ascending: false })
+        .range(bronzeOffset, bronzeOffset + PAGE - 1);
+
+      if (error) {
+        console.error("Error loading bronze users:", error);
+        setLoadingBronze(false);
+        return;
+      }
+
+      const mapped: User[] = (data || []).map((row: any, idx: number) => {
+        const pts = Number(row.ukupno_poena) || 0;
+        const rank = bronzeOffset + idx + 1;
+        return {
+          id: row.id,
+          name: row.korisnicko_ime || "Korisnik",
+          points: pts,
+          level: row.nivo || 0,
+          badge: badgeForRank(rank),
+          rank,
+          photoChallenges: 0,
+          challengesCompleted: 0,
+        };
+      });
+
+      if (mapped.length < PAGE) {
+        setBronzeHasMore(false);
+      }
+
+      if (mapped.length) {
+        setBronzeUsers((prev) => [...prev, ...mapped]);
+        setBronzeOffset(bronzeOffset + mapped.length);
+      }
+    } catch (e) {
+      console.error("Unexpected error loading bronze users:", e);
+    } finally {
+      setLoadingBronze(false);
     }
   };
 
@@ -364,7 +444,7 @@ export function CommunityScreen() {
               transition={{ delay: user.rank * 0.05 }}
               className={`community-user-item ${
                 user.rank <= 3 ? "community-user-item-top" : ""
-              }`}
+              } community-badge-${user.badge}`}
             >
               <div className="community-user-content">
                 {/* Avatar */}
@@ -389,7 +469,7 @@ export function CommunityScreen() {
                   </div>
                   <div className="community-user-stats">
                     <span className="community-user-level">
-                      Level {user.level}
+                      {levelLabelFromPoints(user.points)}
                     </span>
                     <div className="community-user-stat-items">
                       <div className="community-user-stat">
@@ -424,6 +504,18 @@ export function CommunityScreen() {
               </div>
             </motion.div>
           ))}
+
+          {activeFilter === "bronze" && bronzeHasMore && (
+            <div className="community-load-more">
+              <button
+                className="community-reset-btn"
+                onClick={loadMoreBronze}
+                disabled={loadingBronze}
+              >
+                {loadingBronze ? "Učitavanje..." : "Prikaži više"}
+              </button>
+            </div>
+          )}
 
           {/* Poruka ako nema rezultata */}
           {listUsers.length === 0 && (

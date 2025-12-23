@@ -203,6 +203,26 @@
   gap: 0.75rem;
 }
 
+.community-user-item.community-badge-gold {
+  border-color: rgba(251 191 36 / 0.5);
+  background: rgba(251 191 36 / 0.08);
+}
+
+.community-user-item.community-badge-silver {
+  border-color: rgba(156 163 175 / 0.5);
+  background: rgba(156 163 175 / 0.08);
+}
+
+.community-user-item.community-badge-bronze {
+  border-color: rgba(205 127 50 / 0.5);
+  background: rgba(205 127 50 / 0.08);
+}
+
+.community-load-more {
+  text-align: center;
+  margin-top: 0.5rem;
+}
+
 .community-user-rank {
   width: 2rem;
   height: 2rem;

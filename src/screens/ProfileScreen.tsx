@@ -24,6 +24,7 @@ export function ProfileScreen() {
   const [userPoints, setUserPoints] = useState("");
   const [userName, setUserName] = useState("");
   const [userLevel, setUserLevel] = useState("");
+  const [userBadge, setUserBadge] = useState<string>("bronze");
   const [activities, setActivities] = useState<
     {
       id: string;
@@ -185,13 +186,17 @@ export function ProfileScreen() {
     if (!userId) return "0";
     let { data: korisnik_profil, error } = await supabase
       .from("korisnik_profil")
-      .select("nivo")
+      .select("nivo, trenutni_bedz")
       .eq("id", userId)
       .single();
 
     if (error) {
       console.error("Error fetching user:", error);
       return "0";
+    }
+
+    if (korisnik_profil?.trenutni_bedz) {
+      setUserBadge(korisnik_profil.trenutni_bedz);
     }
 
     return korisnik_profil?.nivo || "Korisnik";
@@ -254,6 +259,15 @@ export function ProfileScreen() {
   }, []);
 
   const points = Number(userPoints || 0);
+
+  const levelLabelFromPoints = (pts: number) => {
+    if (pts >= 5000) return "Legenda prirode";
+    if (pts >= 2500) return "Eko heroj";
+    if (pts >= 1000) return "Eko borac";
+    if (pts >= 500) return "Aktivan član";
+    if (pts >= 100) return "Početnik";
+    return "Rookie";
+  };
 
   const achievements = [
     {
@@ -336,9 +350,15 @@ export function ProfileScreen() {
               <h2 className="profile-name">{userName}</h2>
               <div className="profile-badges">
                 <span className="profile-badge profile-badge-level">
-                  Eco Čuvar Lv.{userLevel}
+                  {levelLabelFromPoints(points)}
                 </span>
-                <span className="profile-badge profile-badge-rank">Bronza</span>
+                <span className="profile-badge profile-badge-rank">
+                  {userBadge === "gold"
+                    ? "Gold"
+                    : userBadge === "silver"
+                    ? "Silver"
+                    : "Bronze"}
+                </span>
               </div>
             </div>
           </div>

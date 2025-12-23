@@ -3,7 +3,7 @@ import { supabase } from "../supabase-client";
 import { motion } from "motion/react";
 import { NavigationContext } from "../App";
 import { BottomNav } from "../components/common/BottomNav";
-import { Recycle, Star, Bell, Flame } from "lucide-react";
+import { Recycle, Star, Bell, Flame, Medal } from "lucide-react";
 import "../styles/HomeScreen.css";
 
 export function HomeScreen() {
@@ -15,6 +15,7 @@ export function HomeScreen() {
   const [userLevel, setUserLevel] = useState("");
   const [userReciklirano, setUserReciklirano] = useState("");
   const [userPoints, setUserPoints] = useState("");
+  const [userBadge, setUserBadge] = useState<string>("bronze");
   const [userStreak, setUserStreak] = useState("7");
   const [activities, setActivities] = useState<
     {
@@ -26,6 +27,15 @@ export function HomeScreen() {
       kreirano_u: string | null;
     }[]
   >([]);
+
+  const levelLabelFromPoints = (pts: number) => {
+    if (pts >= 5000) return "Legenda prirode";
+    if (pts >= 2500) return "Eko heroj";
+    if (pts >= 1000) return "Eko borac";
+    if (pts >= 500) return "Aktivan član";
+    if (pts >= 100) return "Početnik";
+    return "Rookie";
+  };
 
   const getUserName = async () => {
     let { data: korisnik_profil, error } = await supabase
@@ -113,11 +123,15 @@ export function HomeScreen() {
   const getUserPoints = async () => {
     let { data: korisnik_profil, error } = await supabase
       .from("korisnik_profil")
-      .select("ukupno_poena");
+      .select("ukupno_poena, trenutni_bedz");
 
     if (error) {
       console.error("Error fetching user:", error);
       return "0";
+    }
+
+    if (korisnik_profil?.[0]?.trenutni_bedz) {
+      setUserBadge(korisnik_profil[0].trenutni_bedz);
     }
 
     return korisnik_profil?.[0]?.ukupno_poena || "0";
@@ -145,7 +159,7 @@ export function HomeScreen() {
 
       const { data, error } = await supabase
         .from("korisnik_profil")
-        .select("korisnicko_ime, nivo, reciklirano_stvari, ukupno_poena")
+        .select("korisnicko_ime, nivo, reciklirano_stvari, ukupno_poena, trenutni_bedz")
         .eq("id", userId)
         .single();
 
@@ -158,6 +172,9 @@ export function HomeScreen() {
       setUserLevel(data.nivo);
       setUserReciklirano(data.reciklirano_stvari);
       setUserPoints(data.ukupno_poena);
+      if (data.trenutni_bedz) {
+        setUserBadge(data.trenutni_bedz);
+      }
     };
 
     loadData();
@@ -199,7 +216,9 @@ export function HomeScreen() {
             >
               Dobro došao nazad, {userName}
             </motion.h1>
-            <p className="home-level">Eco Čuvar Lv.{userLevel}</p>
+            <p className="home-level">
+              {levelLabelFromPoints(Number(userPoints || 0))}
+            </p>
           </div>
           <div className="home-nav-buttons">
             <button
@@ -236,18 +255,35 @@ export function HomeScreen() {
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.1 }}
-            className="home-stat-card"
+            className={`home-stat-card ${
+              userBadge === "gold"
+                ? "home-badge-gold"
+                : userBadge === "silver"
+                ? "home-badge-silver"
+                : "home-badge-bronze"
+            }`}
           >
             <div className="stat-card-content">
-              <div className="home-stat-icon green">
-                <Recycle />
+              <div
+                className={`home-stat-icon ${
+                  userBadge === "gold"
+                    ? "badge-gold"
+                    : userBadge === "silver"
+                    ? "badge-silver"
+                    : "badge-bronze"
+                }`}
+              >
+                <Medal />
               </div>
               <div className="stat-text-container">
-                <p className="home-stat-label">Reciklirano</p>
+                <p className="home-stat-label">Bedž</p>
                 <div className="value-unit-container">
                   <p className="home-stat-value">
-                    {userReciklirano}
-                    <span className="home-stat-unit">stvari</span>
+                    {userBadge === "gold"
+                      ? "Gold"
+                      : userBadge === "silver"
+                      ? "Silver"
+                      : "Bronze"}
                   </p>
                 </div>
               </div>

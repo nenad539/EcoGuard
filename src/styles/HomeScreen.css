@@ -180,6 +180,36 @@
   background: linear-gradient(to bottom right, rgb(34 197 94), rgb(5 150 105));
 }
 
+.home-stat-icon.badge-gold {
+  background: linear-gradient(to bottom right, rgb(251 191 36), rgb(245 158 11));
+  box-shadow: 0 10px 15px -3px rgba(251 191 36 / 0.25);
+}
+
+.home-stat-icon.badge-silver {
+  background: linear-gradient(to bottom right, rgb(156 163 175), rgb(107 114 128));
+  box-shadow: 0 10px 15px -3px rgba(156 163 175 / 0.25);
+}
+
+.home-stat-icon.badge-bronze {
+  background: linear-gradient(to bottom right, rgb(205 127 50), rgb(180 83 9));
+  box-shadow: 0 10px 15px -3px rgba(205 127 50 / 0.25);
+}
+
+.home-stat-card.home-badge-gold {
+  border-color: rgba(251 191 36 / 0.4);
+  background: rgba(251 191 36 / 0.06);
+}
+
+.home-stat-card.home-badge-silver {
+  border-color: rgba(156 163 175 / 0.4);
+  background: rgba(156 163 175 / 0.06);
+}
+
+.home-stat-card.home-badge-bronze {
+  border-color: rgba(205 127 50 / 0.4);
+  background: rgba(205 127 50 / 0.06);
+}
+
 .home-stat-icon.yellow {
   background: linear-gradient(to bottom right, rgb(234 179 8), rgb(217 119 6));
 }
