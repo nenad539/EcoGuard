@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { BottomNav } from "../components/common/BottomNav";
 import {
@@ -50,10 +50,46 @@ interface PhotoChallengeScreenProps {
   navigateToCreate?: () => void;
 }
 
+const REGULAR_COMPLETION_TABLE_CANDIDATES = [
+  import.meta.env.VITE_REGULAR_COMPLETION_TABLE,
+  'regular_challenge_completions',
+  'regularChallengeCompletion',
+  'user_regular_challenges'
+].filter(Boolean) as string[];
+
+const PHOTO_COMPLETION_TABLE = 'photo_challenge_completions';
+const PHOTO_COMPLETION_ID_FIELDS = ['challenge_id', 'photo_challenge_id', 'photoId', 'photo_challenge'];
+
+const iconMap: Record<string, React.ElementType> = {
+  recycle: Recycle,
+  tree: TreePine,
+  droplet: Droplet,
+  default: Recycle,
+};
+
+
+
 export function PhotoChallengeScreen({
   navigateToCreate,
 }: PhotoChallengeScreenProps) {
   const [activeTab, setActiveTab] = useState<"regular" | "photo">("regular");
+  const [userId, setUserId] = useState<string | null>(null);
+  const [regularCompletionTable, setRegularCompletionTable] = useState<string | null>(null);
+  const resolvingTable = useRef<boolean>(false);
+  const [regularCompletionMap, setRegularCompletionMap] = useState<
+    Record<number, { challenge_id: number; completed_at: string }>
+  >({});
+  const [regularLoading, setRegularLoading] = useState(false);
+  const [regularError, setRegularError] = useState<string | null>(null);
+  const [regularChallengesDb, setRegularChallengesDb] = useState<RegularChallenge[]>([]);
+  const [regularCompletedIds, setRegularCompletedIds] = useState<number[]>([]);
+  const [photoCompletionMap, setPhotoCompletionMap] = useState<
+    Record<number, { completionKey: number; completed_at: string }>
+  >({});
+  const [photoCompletedIds, setPhotoCompletedIds] = useState<number[]>([]);
+  const [photoLoading, setPhotoLoading] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [photoCompletionIdField, setPhotoCompletionIdField] = useState<string>('challenge_id');
   const [showSubmissionModal, setShowSubmissionModal] = useState(false);
   const [selectedChallenge, setSelectedChallenge] =
     useState<PhotoChallenge | null>(null);
@@ -62,49 +98,277 @@ export function PhotoChallengeScreen({
 
   const REGULAR_CHALLENGES_PER_PAGE = 5;
 
-  const regularChallenges: RegularChallenge[] = [
-    {
-      id: 1,
-      title: "Recikliraj 10 flaša",
-      description: "Sakupi i recikliraj 10 plastičnih flaša",
-      progress: 7,
-      total: 10,
-      points: 100,
-      icon: Recycle,
-      status: "active",
-      gradient: "from-green-500 to-emerald-600",
-    },
-    {
-      id: 2,
-      title: "Posadi drvo",
-      description: "Posadi jedno drvo u svom okruženju",
-      progress: 1,
-      total: 1,
-      points: 200,
-      icon: TreePine,
-      status: "completed",
-      gradient: "from-green-600 to-lime-600",
-    },
-    {
-      id: 3,
-      title: "Smanji potrošnju vode",
-      description: "Uštedi 50L vode ove sedmice",
-      progress: 32,
-      total: 50,
-      points: 120,
-      icon: Droplet,
-      status: "active",
-      gradient: "from-cyan-500 to-blue-600",
-    },
-  ];
+  useEffect(() => {
+    let mounted = true;
+    const fetchUser = async () => {
+      try {
+        const { data: authData, error: authError } = await supabase.auth.getUser();
+        if (authError) {
+          console.warn("auth.getUser error (regular challenges):", authError.message || authError);
+        }
+        const currentUserId = authData?.user?.id;
+        if (mounted && currentUserId) {
+          setUserId(currentUserId);
+          return;
+        }
+      } catch (e) {
+        console.warn("auth.getUser threw (regular challenges):", e);
+      }
+
+      try {
+        const { data: idData, error: idError } = await supabase
+          .from("korisnik_profil")
+          .select("id")
+          .limit(1);
+        if (idError) {
+          console.error("Error fetching fallback user id (regular challenges):", idError);
+          return;
+        }
+        if (mounted && idData?.[0]?.id) {
+          setUserId(idData[0].id);
+        }
+      } catch (e) {
+        console.error("Unexpected error fetching fallback id (regular challenges):", e);
+      }
+    };
+
+    fetchUser();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const resolveRegularCompletionTable = async (): Promise<string | null> => {
+    if (regularCompletionTable) return regularCompletionTable;
+    if (resolvingTable.current) return null;
+
+    resolvingTable.current = true;
+    let table: string | null = null;
+
+    for (const candidate of REGULAR_COMPLETION_TABLE_CANDIDATES) {
+      const { error } = await supabase
+        .from(candidate as any)
+        .select("challenge_id")
+        .limit(1);
+      if (error?.code === "PGRST205") {
+        continue;
+      }
+      table = candidate;
+      break;
+    }
+
+    if (table) {
+      setRegularCompletionTable(table);
+    }
+    resolvingTable.current = false;
+    return table;
+  };
+
+  const awardPoints = async (points: number) => {
+    if (!userId) return;
+
+    // Try the shared add_points RPC
+    const { error: addPointsError } = await supabase.rpc("add_points", {
+      uid: userId,
+      pts: points,
+    });
+
+    if (!addPointsError) return;
+
+    // Try alternative RPC used previously
+    const { error: altRpcError } = await supabase.rpc("add_points_korisnik", {
+      pts: points,
+    });
+
+    if (!altRpcError) return;
+
+    // Fallback: manual increment of ukupno_poena
+    const { data: profile, error: fetchError } = await supabase
+      .from("korisnik_profil")
+      .select("ukupno_poena")
+      .eq("id", userId)
+      .single();
+
+    if (fetchError) {
+      console.error("Failed to read points for fallback update (regular):", fetchError);
+      return;
+    }
+
+    const currentPoints = profile?.ukupno_poena ?? 0;
+    const { error: updateError } = await supabase
+      .from("korisnik_profil")
+      .update({ ukupno_poena: currentPoints + points })
+      .eq("id", userId);
+
+    if (updateError) {
+      console.error("Fallback points update failed (regular):", updateError);
+    }
+  };
+
+  const fetchRegularChallenges = async () => {
+    if (!userId) return;
+    setRegularLoading(true);
+    setRegularError(null);
+
+    const table = await resolveRegularCompletionTable();
+    if (!table) {
+      setRegularError("Nismo pronašli tabelu za završene izazove (regular).");
+      setRegularLoading(false);
+      return;
+    }
+
+    const { data: ch, error: chErr } = await supabase
+      .from("regular_challenges")
+      .select("id, title, description, points, icon_key, category")
+      .order("id", { ascending: true });
+
+    if (chErr) {
+      console.error("Error fetching regular challenges:", chErr);
+      setRegularError("Greška pri učitavanju izazova.");
+      setRegularLoading(false);
+      return;
+    }
+
+    const { data: comp, error: compErr } = await supabase
+      .from(table as any)
+      .select("challenge_id, completed_at")
+      .eq("user_id", userId);
+
+    if (compErr) {
+      console.error("Error fetching regular completions:", compErr);
+      setRegularError("Greška pri učitavanju završenih izazova.");
+      setRegularLoading(false);
+      return;
+    }
+
+    const completedIds = (comp ?? []).map((x) => x.challenge_id);
+    setRegularCompletedIds(completedIds);
+    setRegularCompletionMap(
+      (comp ?? []).reduce<Record<number, { challenge_id: number; completed_at: string }>>(
+        (acc, item) => {
+          acc[item.challenge_id] = item;
+          return acc;
+        },
+        {}
+      )
+    );
+
+    const mapped: RegularChallenge[] = (ch ?? []).map((c: any) => {
+      const Icon = iconMap[c.icon_key] ?? iconMap.default;
+      const isCompleted = completedIds.includes(c.id);
+
+      return {
+        id: c.id,
+        title: c.title,
+        description: c.description,
+        progress: isCompleted ? 1 : 0,
+        total: 1,
+        points: c.points,
+        icon: Icon,
+        status: isCompleted ? "completed" : "available",
+        gradient: "from-green-500 to-emerald-600",
+      };
+    });
+
+    setRegularChallengesDb(mapped);
+    setRegularLoading(false);
+  };
+
+  const completeRegularChallenge = async (challengeId: number, points: number) => {
+    if (!userId) return;
+    const table = regularCompletionTable || (await resolveRegularCompletionTable());
+    if (!table) {
+      setRegularError("Nismo pronašli tabelu za završene izazove (regular).");
+      return;
+    }
+
+    if (regularCompletedIds.includes(challengeId)) return;
+
+    const payload = {
+      user_id: userId,
+      challenge_id: challengeId,
+      completed_at: new Date().toISOString(),
+    };
+
+    const { error: insErr } = await supabase
+      .from(table as any)
+      .upsert(payload, { onConflict: "user_id,challenge_id" });
+
+    if (insErr) {
+      console.error("Error completing regular challenge:", insErr);
+      setRegularError("Greška pri završavanju izazova.");
+      return;
+    }
+
+    setRegularCompletedIds((prev) => [...prev, challengeId]);
+    setRegularCompletionMap((prev) => ({
+      ...prev,
+      [challengeId]: { challenge_id: challengeId, completed_at: payload.completed_at },
+    }));
+    setRegularChallengesDb((prev) =>
+      prev.map((c) =>
+        c.id === challengeId ? { ...c, status: "completed", progress: 1 } : c
+      )
+    );
+
+    await awardPoints(points);
+  };
+
+  const completePhotoChallenge = async (challengeId: number, points: number) => {
+    if (!userId) return;
+    if (photoCompletedIds.includes(challengeId)) return;
+
+    // Ensure we have a valid id field; if not, fall back to default
+    const idField = photoCompletionIdField || PHOTO_COMPLETION_ID_FIELDS[0] || 'challenge_id';
+
+    const payload = {
+      user_id: userId,
+      [idField]: challengeId,
+      completed_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase
+      .from(PHOTO_COMPLETION_TABLE)
+      .upsert(payload, { onConflict: "user_id,challenge_id" });
+
+    if (error) {
+      console.error("Error completing photo challenge:", error);
+      setPhotoError("Greška pri završavanju foto izazova.");
+      return;
+    }
+
+    setPhotoCompletedIds((prev) => [...prev, challengeId]);
+    setPhotoCompletionMap((prev) => ({
+      ...prev,
+      [challengeId]: { completionKey: challengeId, completed_at: payload.completed_at },
+    }));
+    setPhotoChallenges((prev) =>
+      prev.map((c) =>
+        c.id === challengeId ? { ...c, status: "completed" as const } : c
+      )
+    );
+
+    await awardPoints(points);
+  };
 
   useEffect(() => {
-    if (activeTab === "photo") {
+    if (activeTab === "regular") {
+      fetchRegularChallenges();
+    }
+  }, [activeTab, userId]);
+
+
+  useEffect(() => {
+    if (activeTab === "photo" && userId) {
       fetchPhotoChallenges();
     }
-  }, [activeTab]);
+  }, [activeTab, userId]);
 
   const fetchPhotoChallenges = async () => {
+    if (!userId) return;
+    setPhotoLoading(true);
+    setPhotoError(null);
+
     let { data, error } = await supabase
       .from("photoChallenge")
       .select("*")
@@ -112,17 +376,60 @@ export function PhotoChallengeScreen({
 
     if (error) {
       console.error("Error fetching photo challenges:", error);
+      setPhotoError("Greška pri učitavanju foto izazova.");
+      setPhotoLoading(false);
       return;
     }
 
-    if (data) {
-      const availableData = data.map((c) => ({
-        ...c,
-        status: "available" as const,
-      }));
-      setPhotoChallenges(availableData);
-      setCurrentPage(0);
+    let comp: any[] | null = null;
+    let compErr = null;
+
+    for (const field of PHOTO_COMPLETION_ID_FIELDS) {
+      const { data: tryData, error: tryErr } = await supabase
+        .from(PHOTO_COMPLETION_TABLE)
+        .select(`${field}, completed_at`)
+        .eq("user_id", userId);
+
+      if (tryErr?.code === "42703") {
+        // column not found, try next candidate
+        continue;
+      }
+
+      comp = tryData ?? [];
+      compErr = tryErr;
+      setPhotoCompletionIdField(field);
+      break;
     }
+
+    if (compErr) {
+      console.error("Error fetching photo completions:", compErr);
+      setPhotoError("Greška pri učitavanju završenih foto izazova.");
+      setPhotoLoading(false);
+      return;
+    }
+
+    const completedIds = (comp ?? []).map((c: any) => c[photoCompletionIdField]).filter(Boolean);
+    setPhotoCompletedIds(completedIds);
+    setPhotoCompletionMap(
+      (comp ?? []).reduce<Record<number, { completionKey: number; completed_at: string }>>(
+        (acc, item) => {
+          const key = item[photoCompletionIdField];
+          if (!key) return acc;
+          acc[key] = { completionKey: key, completed_at: item.completed_at };
+          return acc;
+        },
+        {}
+      )
+    );
+
+    const mapped = (data ?? []).map((c: any) => ({
+      ...c,
+      status: completedIds.includes(c.id) ? "completed" : ("available" as const),
+    }));
+
+    setPhotoChallenges(mapped);
+    setCurrentPage(0);
+    setPhotoLoading(false);
   };
 
   const handlePhotoSubmission = (challenge: PhotoChallenge) => {
@@ -130,10 +437,14 @@ export function PhotoChallengeScreen({
     setShowSubmissionModal(true);
   };
 
-  const handleSubmissionComplete = (submission: any) => {
+  const handleSubmissionComplete = async (submission: any) => {
     setShowSubmissionModal(false);
+    const challenge = selectedChallenge;
     setSelectedChallenge(null);
     console.log("Photo submission completed:", submission);
+    if (challenge) {
+      await completePhotoChallenge(challenge.id, challenge.points);
+    }
   };
 
   const handleSubmissionCancel = () => {
@@ -260,7 +571,10 @@ export function PhotoChallengeScreen({
             animate={{ opacity: 1, y: 0 }}
             className="regular-challenges"
           >
-            {regularChallenges.map((challenge, index) => (
+            {regularLoading && <p>Učitavanje...</p>}
+            {regularError && <div className="fetch-error">{regularError}</div>}
+
+            {regularChallengesDb.map((challenge, index) => (
               <motion.div
                 key={challenge.id}
                 initial={{ opacity: 0, y: 20 }}
@@ -300,9 +614,17 @@ export function PhotoChallengeScreen({
                 <div className="regular-challenge-reward">
                   <span className="points">{challenge.points}</span>
                   <span className="points-label">pts</span>
-                  {challenge.status === "completed" && (
-                    <CheckCircle2 className="completed-icon" />
-                  )}
+                  {challenge.status === 'completed' ? (
+  <CheckCircle2 className="completed-icon" />
+) : (
+  <button
+    className="complete-regular-btn"
+    onClick={() => completeRegularChallenge(challenge.id, challenge.points)}
+  >
+    Završi
+  </button>
+)}
+
                 </div>
               </motion.div>
             ))}
@@ -316,6 +638,9 @@ export function PhotoChallengeScreen({
             animate={{ opacity: 1, y: 0 }}
             className="photo-challenges"
           >
+            {photoLoading && <p>Učitavanje...</p>}
+            {photoError && <div className="fetch-error">{photoError}</div>}
+
             <div className="photo-challenges-navigation">
               <button
                 onClick={prevPage}
