@@ -188,6 +188,30 @@
   margin-top: 0.25rem;
 }
 
+.complete-regular-btn {
+  margin-top: 0.35rem;
+  padding: 0.4rem 0.9rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(34 197 94 / 0.4);
+  background: rgba(34 197 94 / 0.15);
+  color: rgb(74 222 128);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s, transform 0.2s;
+}
+
+.complete-regular-btn:hover {
+  background: rgba(34 197 94 / 0.25);
+  border-color: rgba(34 197 94 / 0.6);
+  transform: translateY(-1px);
+}
+
+.complete-regular-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
 /* Photo Challenges */
 .photo-challenges {
   display: flex;
@@ -313,6 +337,10 @@
   color: rgb(34 197 94);
   font-size: 0.875rem;
   font-weight: 500;
+}
+
+.status-pending {
+  color: rgb(234 179 8);
 }
 
 .status-icon {

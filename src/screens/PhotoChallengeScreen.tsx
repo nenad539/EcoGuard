@@ -58,7 +58,7 @@ const REGULAR_COMPLETION_TABLE_CANDIDATES = [
 ].filter(Boolean) as string[];
 
 const PHOTO_COMPLETION_TABLE = 'photo_challenge_completions';
-const PHOTO_COMPLETION_ID_FIELDS = ['challenge_id', 'photo_challenge_id', 'photoId', 'photo_challenge'];
+const PHOTO_COMPLETION_ID_FIELD = 'photo_challenge_id';
 
 const iconMap: Record<string, React.ElementType> = {
   recycle: Recycle,
@@ -84,12 +84,14 @@ export function PhotoChallengeScreen({
   const [regularChallengesDb, setRegularChallengesDb] = useState<RegularChallenge[]>([]);
   const [regularCompletedIds, setRegularCompletedIds] = useState<number[]>([]);
   const [photoCompletionMap, setPhotoCompletionMap] = useState<
-    Record<number, { completionKey: number; completed_at: string }>
+    Record<
+      number,
+      { completionKey: number; completed_at: string; approved: boolean; points_awarded?: boolean }
+    >
   >({});
   const [photoCompletedIds, setPhotoCompletedIds] = useState<number[]>([]);
   const [photoLoading, setPhotoLoading] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
-  const [photoCompletionIdField, setPhotoCompletionIdField] = useState<string>('challenge_id');
   const [showSubmissionModal, setShowSubmissionModal] = useState(false);
   const [selectedChallenge, setSelectedChallenge] =
     useState<PhotoChallenge | null>(null);
@@ -314,22 +316,28 @@ export function PhotoChallengeScreen({
     await awardPoints(points);
   };
 
-  const completePhotoChallenge = async (challengeId: number, points: number) => {
+  const completePhotoChallenge = async (
+    challengeId: number,
+    points: number,
+    submission?: { photo?: string; description?: string; location?: string }
+  ) => {
     if (!userId) return;
     if (photoCompletedIds.includes(challengeId)) return;
 
-    // Ensure we have a valid id field; if not, fall back to default
-    const idField = photoCompletionIdField || PHOTO_COMPLETION_ID_FIELDS[0] || 'challenge_id';
-
     const payload = {
       user_id: userId,
-      [idField]: challengeId,
+      [PHOTO_COMPLETION_ID_FIELD]: challengeId,
       completed_at: new Date().toISOString(),
+      approved: false,
+      points_awarded: false,
+      image_url: submission?.photo ?? null,
+      description: submission?.description ?? null,
+      location: submission?.location ?? null
     };
 
     const { error } = await supabase
       .from(PHOTO_COMPLETION_TABLE)
-      .upsert(payload, { onConflict: "user_id,challenge_id" });
+      .upsert(payload, { onConflict: "user_id,photo_challenge_id" });
 
     if (error) {
       console.error("Error completing photo challenge:", error);
@@ -340,15 +348,18 @@ export function PhotoChallengeScreen({
     setPhotoCompletedIds((prev) => [...prev, challengeId]);
     setPhotoCompletionMap((prev) => ({
       ...prev,
-      [challengeId]: { completionKey: challengeId, completed_at: payload.completed_at },
+      [challengeId]: {
+        completionKey: challengeId,
+        completed_at: payload.completed_at,
+        approved: false,
+        points_awarded: false
+      },
     }));
     setPhotoChallenges((prev) =>
       prev.map((c) =>
-        c.id === challengeId ? { ...c, status: "completed" as const } : c
+        c.id === challengeId ? { ...c, status: "pending" as const } : c
       )
     );
-
-    await awardPoints(points);
   };
 
   useEffect(() => {
@@ -381,25 +392,10 @@ export function PhotoChallengeScreen({
       return;
     }
 
-    let comp: any[] | null = null;
-    let compErr = null;
-
-    for (const field of PHOTO_COMPLETION_ID_FIELDS) {
-      const { data: tryData, error: tryErr } = await supabase
-        .from(PHOTO_COMPLETION_TABLE)
-        .select(`${field}, completed_at`)
-        .eq("user_id", userId);
-
-      if (tryErr?.code === "42703") {
-        // column not found, try next candidate
-        continue;
-      }
-
-      comp = tryData ?? [];
-      compErr = tryErr;
-      setPhotoCompletionIdField(field);
-      break;
-    }
+    const { data: comp, error: compErr } = await supabase
+      .from(PHOTO_COMPLETION_TABLE)
+      .select(`${PHOTO_COMPLETION_ID_FIELD}, completed_at, approved, points_awarded`)
+      .eq("user_id", userId);
 
     if (compErr) {
       console.error("Error fetching photo completions:", compErr);
@@ -408,24 +404,69 @@ export function PhotoChallengeScreen({
       return;
     }
 
-    const completedIds = (comp ?? []).map((c: any) => c[photoCompletionIdField]).filter(Boolean);
+    const completedIds = (comp ?? [])
+      .map((c: any) => c[PHOTO_COMPLETION_ID_FIELD])
+      .filter(Boolean);
     setPhotoCompletedIds(completedIds);
-    setPhotoCompletionMap(
-      (comp ?? []).reduce<Record<number, { completionKey: number; completed_at: string }>>(
-        (acc, item) => {
-          const key = item[photoCompletionIdField];
-          if (!key) return acc;
-          acc[key] = { completionKey: key, completed_at: item.completed_at };
-          return acc;
-        },
-        {}
-      )
-    );
+    const completionMapFromFetch =
+      (comp ?? []).reduce<
+        Record<number, { completionKey: number; completed_at: string; approved: boolean; points_awarded?: boolean }>
+      >((acc, item) => {
+        const key = item[PHOTO_COMPLETION_ID_FIELD];
+        if (!key) return acc;
+        acc[key] = {
+          completionKey: key,
+          completed_at: item.completed_at,
+          approved: !!item.approved,
+          points_awarded: item.points_awarded
+        };
+        return acc;
+      }, {});
 
-    const mapped = (data ?? []).map((c: any) => ({
-      ...c,
-      status: completedIds.includes(c.id) ? "completed" : ("available" as const),
-    }));
+    // Build a points map for quick lookup
+    const pointsMap: Record<number, number> = {};
+    (data ?? []).forEach((c: any) => {
+      pointsMap[c.id] = c.points ?? 0;
+    });
+
+    // If any approved completions have not awarded points yet, award and mark them.
+    const updatedCompletionMap = { ...completionMapFromFetch };
+    const toAward = Object.values(completionMapFromFetch).filter(
+      (c) => c.approved && !c.points_awarded
+    );
+    for (const item of toAward) {
+      const pts = pointsMap[item.completionKey] ?? 0;
+      await awardPoints(pts);
+      const { error: markErr } = await supabase
+        .from(PHOTO_COMPLETION_TABLE)
+        .update({ points_awarded: true })
+        .eq(PHOTO_COMPLETION_ID_FIELD, item.completionKey)
+        .eq("user_id", userId);
+      if (!markErr) {
+        updatedCompletionMap[item.completionKey] = {
+          ...updatedCompletionMap[item.completionKey],
+          points_awarded: true
+        };
+      } else {
+        console.warn("Failed to mark points_awarded for photo completion:", markErr);
+      }
+    }
+
+    setPhotoCompletionMap(updatedCompletionMap);
+
+    const mapped = (data ?? []).map((c: any) => {
+      const completion = completionMapFromFetch[c.id];
+      const status = completion
+        ? completion.approved
+          ? ("completed" as const)
+          : ("pending" as const)
+        : ("available" as const);
+
+      return {
+        ...c,
+        status,
+      };
+    });
 
     setPhotoChallenges(mapped);
     setCurrentPage(0);
@@ -443,7 +484,7 @@ export function PhotoChallengeScreen({
     setSelectedChallenge(null);
     console.log("Photo submission completed:", submission);
     if (challenge) {
-      await completePhotoChallenge(challenge.id, challenge.points);
+      await completePhotoChallenge(challenge.id, challenge.points, submission);
     }
   };
 
@@ -716,6 +757,11 @@ export function PhotoChallengeScreen({
                       <span className="status-completed">
                         <CheckCircle2 className="status-icon" />
                         Završeno
+                      </span>
+                    ) : challenge.status === "pending" ? (
+                      <span className="status-completed status-pending">
+                        <Clock className="status-icon" />
+                        Čeka odobrenje
                       </span>
                     ) : (
                       <button
