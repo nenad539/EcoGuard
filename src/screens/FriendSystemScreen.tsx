@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
 import { BottomNav } from "../components/common/BottomNav";
 import {
@@ -10,16 +10,18 @@ import {
   Flame,
   UserPlus,
 } from "lucide-react";
+import { supabase } from "../supabase-client";
 import "../styles/FriendSystemScreen.css";
 
 type Friend = {
-  id: number;
+  id: string;
+  connectionId?: string;
   name: string;
   avatar: string;
   level: number;
   points: number;
   status: "online" | "offline" | "away";
-  isFriend: boolean;
+  relation: "accepted" | "pending-in" | "pending-out" | "suggested";
   rank: number;
   city: string;
   badge: "bronze" | "silver" | "gold";
@@ -39,130 +41,13 @@ type Group = {
 export function FriendSystemScreen() {
   const [activeTab, setActiveTab] = useState<"friends" | "groups">("friends");
   const [searchQuery, setSearchQuery] = useState("");
+  const [userId, setUserId] = useState<string | null>(null);
+  const [friendList, setFriendList] = useState<Friend[]>([]);
+  const [suggestedList, setSuggestedList] = useState<Friend[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const friends: Friend[] = [
-    {
-      id: 1,
-      name: "Ana Petrović",
-      avatar: "AP",
-      level: 8,
-      points: 5240,
-      status: "online",
-      isFriend: true,
-      rank: 1,
-      city: "Beograd",
-      badge: "gold",
-      streak: 12,
-    },
-    {
-      id: 2,
-      name: "Nikola Jovanović",
-      avatar: "NJ",
-      level: 7,
-      points: 4890,
-      status: "online",
-      isFriend: true,
-      rank: 2,
-      city: "Novi Sad",
-      badge: "gold",
-      streak: 8,
-    },
-    {
-      id: 3,
-      name: "Jelena Marković",
-      avatar: "JM",
-      level: 7,
-      points: 4320,
-      status: "away",
-      isFriend: true,
-      rank: 3,
-      city: "Niš",
-      badge: "gold",
-      streak: 15,
-    },
-    {
-      id: 4,
-      name: "Stefan Ilić",
-      avatar: "SI",
-      level: 6,
-      points: 3870,
-      status: "offline",
-      isFriend: true,
-      rank: 4,
-      city: "Kragujevac",
-      badge: "silver",
-      streak: 5,
-    },
-    {
-      id: 5,
-      name: "Milica Đorđević",
-      avatar: "MD",
-      level: 6,
-      points: 3540,
-      status: "online",
-      isFriend: true,
-      rank: 5,
-      city: "Subotica",
-      badge: "silver",
-      streak: 9,
-    },
-  ];
-
-  const suggestedFriends: Friend[] = [
-    {
-      id: 6,
-      name: "Luka Nikolić",
-      avatar: "LN",
-      level: 5,
-      points: 3210,
-      status: "online",
-      isFriend: false,
-      rank: 6,
-      city: "Čačak",
-      badge: "silver",
-      streak: 3,
-    },
-    {
-      id: 7,
-      name: "Tijana Stanković",
-      avatar: "TS",
-      level: 5,
-      points: 2890,
-      status: "away",
-      isFriend: false,
-      rank: 7,
-      city: "Zrenjanin",
-      badge: "silver",
-      streak: 7,
-    },
-    {
-      id: 8,
-      name: "Marko Pavlović",
-      avatar: "MP",
-      level: 3,
-      points: 2450,
-      status: "online",
-      isFriend: false,
-      rank: 8,
-      city: "Pančevo",
-      badge: "bronze",
-      streak: 2,
-    },
-    {
-      id: 9,
-      name: "Sara Simić",
-      avatar: "SS",
-      level: 4,
-      points: 2120,
-      status: "offline",
-      isFriend: false,
-      rank: 9,
-      city: "Smederevo",
-      badge: "bronze",
-      streak: 4,
-    },
-  ];
-
+  // static groups (unchanged)
   const groups: Group[] = [
     {
       id: 1,
@@ -220,33 +105,280 @@ export function FriendSystemScreen() {
     },
   ];
 
-  const [friendList, setFriendList] = useState<Friend[]>(friends);
-  const [suggestedList, setSuggestedList] =
-    useState<Friend[]>(suggestedFriends);
-  const [groupList, setGroupList] = useState<Group[]>(groups);
+  useEffect(() => {
+    const init = async () => {
+      setLoading(true);
+      setError(null);
+      const uid = await getUserId();
+      if (!uid) {
+        setLoading(false);
+        return;
+      }
+      setUserId(uid);
+      await loadFriends(uid);
+      await loadSuggestions(uid);
+      setLoading(false);
+    };
+    init();
+  }, []);
 
-  const handleAddFriend = (friendId: number) => {
-    setSuggestedList((prev) =>
-      prev.map((friend) =>
-        friend.id === friendId ? { ...friend, isFriend: true } : friend
-      )
-    );
+  const getUserId = async (): Promise<string | null> => {
+    try {
+      const { data, error } = await supabase.auth.getUser();
+      if (error) {
+        console.error("Auth error (friends):", error);
+        return null;
+      }
+      return data.user?.id ?? null;
+    } catch (e) {
+      console.error("Unexpected auth error (friends):", e);
+      return null;
+    }
   };
 
-  const handleJoinGroup = (groupId: number) => {
-    setGroupList((prev) =>
-      prev.map((group) =>
-        group.id === groupId ? { ...group, isJoined: true } : group
-      )
-    );
+  const mapProfileToFriend = (
+    row: any,
+    relation: Friend["relation"],
+    rank: number,
+    connectionId?: string
+  ): Friend => {
+    const initials =
+      (row.korisnicko_ime || "Korisnik")
+        .split(" ")
+        .map((n: string) => n[0])
+        .join("") || "K";
+    return {
+      id: row.id,
+      connectionId,
+      name: row.korisnicko_ime || "Korisnik",
+      avatar: initials,
+      level: row.nivo || 0,
+      points: Number(row.ukupno_poena) || 0,
+      status: "online",
+      relation,
+      rank,
+      city: row.grad || "—",
+      badge: (row.trenutni_bedz as any) || "bronze",
+      streak: row.dnevna_serija || 0,
+    };
   };
 
-  const handleLeaveGroup = (groupId: number) => {
-    setGroupList((prev) =>
-      prev.map((group) =>
-        group.id === groupId ? { ...group, isJoined: false } : group
-      )
-    );
+  const loadFriends = async (uid: string) => {
+    try {
+      const { data: connections, error: connErr } = await supabase
+        .from("prijatelji")
+        .select("id, korisnik_od, korisnik_do, status")
+        .or(`korisnik_od.eq.${uid},korisnik_do.eq.${uid}`)
+        .in("status", ["pending", "accepted"]);
+
+      if (connErr) {
+        console.error("Error loading friends:", connErr);
+        setError("Greška pri učitavanju prijatelja.");
+        return;
+      }
+
+      const friendIds = (connections || []).map((c: any) =>
+        c.korisnik_od === uid ? c.korisnik_do : c.korisnik_od
+      );
+
+      if (!friendIds.length) {
+        setFriendList([]);
+        return;
+      }
+
+      const { data: profiles, error: profErr } = await supabase
+        .from("korisnik_profil")
+        .select("id, korisnicko_ime, ukupno_poena, nivo, trenutni_bedz, dnevna_serija")
+        .in("id", friendIds)
+        .order("ukupno_poena", { ascending: false });
+
+      if (profErr) {
+        console.error("Error loading friend profiles:", profErr);
+        setError("Greška pri učitavanju profila prijatelja.");
+      }
+
+      const mappedProfiles = (profiles || []).map((row: any, idx: number) => {
+        const conn = (connections || []).find(
+          (c: any) => (c.korisnik_od === uid ? c.korisnik_do : c.korisnik_od) === row.id
+        );
+        const relation =
+          conn?.status === "accepted"
+            ? "accepted"
+            : conn?.korisnik_do === uid
+            ? "pending-in"
+            : "pending-out";
+        return mapProfileToFriend(row, relation, idx + 1, conn?.id);
+      });
+
+      const missing = (connections || []).filter(
+        (c: any) =>
+          !(profiles || []).some(
+            (p: any) =>
+              p.id === (c.korisnik_od === uid ? c.korisnik_do : c.korisnik_od)
+          )
+      );
+      const fallbackMapped = missing.map((c: any, idx: number) => {
+        const otherId = c.korisnik_od === uid ? c.korisnik_do : c.korisnik_od;
+        const relation =
+          c.status === "accepted"
+            ? "accepted"
+            : c.korisnik_do === uid
+            ? "pending-in"
+            : "pending-out";
+        return mapProfileToFriend(
+          {
+            id: otherId,
+            korisnicko_ime: "Korisnik",
+            ukupno_poena: 0,
+            nivo: 0,
+            trenutni_bedz: "bronze",
+            dnevna_serija: 0,
+          },
+          relation,
+          friendIds.length + idx + 1,
+          c.id
+        );
+      });
+
+      setFriendList([...mappedProfiles, ...fallbackMapped]);
+    } catch (e) {
+      console.error("Unexpected error loading friends:", e);
+      setError("Neočekivana greška pri učitavanju prijatelja.");
+    }
+  };
+
+  const loadSuggestions = async (uid: string) => {
+    try {
+      const existingIds = new Set<string>([uid, ...friendList.map((f) => f.id)]);
+      const { data: profiles, error } = await supabase
+        .from("korisnik_profil")
+        .select("id, korisnicko_ime, ukupno_poena, nivo, trenutni_bedz, dnevna_serija")
+        .limit(30);
+
+      if (error) {
+        console.error("Error loading suggestions:", error);
+        return;
+      }
+
+      const shuffled = (profiles || []).sort(() => Math.random() - 0.5).slice(0, 10);
+
+      const mapped = shuffled
+        .filter((p) => !existingIds.has(p.id))
+        .map((row: any, idx: number) => mapProfileToFriend(row, "suggested", idx + 1));
+
+      const merged = mapped.map((m) => {
+        const existing = friendList.find((f) => f.id === m.id);
+        if (existing && existing.relation === "pending-out") {
+          return { ...m, relation: "pending-out", connectionId: existing.connectionId };
+        }
+        return m;
+      });
+
+      setSuggestedList(merged);
+    } catch (e) {
+      console.error("Unexpected error loading suggestions:", e);
+    }
+  };
+
+  const logActivity = async (user: string, opis: string, status: string) => {
+    try {
+      await supabase.from("aktivnosti").insert({
+        korisnik_id: user,
+        opis,
+        poena_dodato: 0,
+        kategorija: "friends",
+        status,
+        kreirano_u: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.error("Failed to log activity (friends):", e);
+    }
+  };
+
+  const handleAddFriend = async (friendId: string, name: string) => {
+    if (!userId) return;
+    try {
+      const { data: existing, error: existingErr } = await supabase
+        .from("prijatelji")
+        .select("id, status, korisnik_od, korisnik_do")
+        .or(
+          `and(korisnik_od.eq.${userId},korisnik_do.eq.${friendId}),and(korisnik_od.eq.${friendId},korisnik_do.eq.${userId})`
+        )
+        .maybeSingle();
+
+      if (existingErr && existingErr.code !== "PGRST116") {
+        console.error("Check existing friend error:", existingErr);
+      }
+
+      if (existing) {
+        await loadFriends(userId);
+        setSuggestedList((prev) =>
+          prev.map((f) =>
+            f.id === friendId
+              ? {
+                  ...f,
+                  relation:
+                    existing.status === "accepted"
+                      ? "accepted"
+                      : existing.korisnik_do === userId
+                      ? "pending-in"
+                      : "pending-out",
+                }
+              : f
+          )
+        );
+        return;
+      }
+
+      const { error } = await supabase.from("prijatelji").insert({
+        korisnik_od: userId,
+        korisnik_do: friendId,
+        status: "pending",
+        kreirano_u: new Date().toISOString(),
+      });
+      if (error) {
+        console.error("Add friend error:", error);
+        setError("Greška pri slanju zahtjeva.");
+        return;
+      }
+
+      setSuggestedList((prev) =>
+        prev.map((friend) =>
+          friend.id === friendId ? { ...friend, relation: "pending-out" } : friend
+        )
+      );
+
+      await loadFriends(userId);
+
+      await logActivity(userId, `Poslat zahtjev za prijateljstvo: ${name}`, "pending");
+      await logActivity(
+        friendId,
+        `Novi zahtjev za prijateljstvo od korisnika`,
+        "pending"
+      );
+    } catch (e) {
+      console.error("Unexpected add friend error:", e);
+    }
+  };
+
+  const handleAcceptFriend = async (friend: Friend) => {
+    if (!userId || !friend.connectionId) return;
+    try {
+      const { error } = await supabase
+        .from("prijatelji")
+        .update({ status: "accepted" })
+        .eq("id", friend.connectionId);
+      if (error) {
+        console.error("Accept friend error:", error);
+        setError("Greška pri prihvatanju.");
+        return;
+      }
+      await loadFriends(userId);
+      await logActivity(userId, `Prihvaćen zahtjev od ${friend.name}`, "accepted");
+      await logActivity(friend.id, `Vaš zahtjev je prihvaćen`, "accepted");
+    } catch (e) {
+      console.error("Unexpected accept friend error:", e);
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -275,32 +407,29 @@ export function FriendSystemScreen() {
     }
   };
 
-  const getCategoryColor = (category: string) => {
-    switch (category.toLowerCase()) {
-      case "transport":
-        return "bg-blue-500/20 text-blue-400 border-blue-500/30";
-      case "reciklaža":
-        return "bg-green-500/20 text-green-400 border-green-500/30";
-      case "energija":
-        return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
-      case "voda":
-        return "bg-cyan-500/20 text-cyan-400 border-cyan-500/30";
-      case "hrana":
-        return "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
-      case "održivost":
-        return "bg-purple-500/20 text-purple-400 border-purple-500/30";
-      default:
-        return "bg-gray-500/20 text-gray-400 border-gray-500/30";
-    }
+  const achievementTitleFromPoints = (pts: number) => {
+    if (pts >= 5000) return "Legenda prirode";
+    if (pts >= 2500) return "Eko heroj";
+    if (pts >= 1000) return "Eko borac";
+    if (pts >= 500) return "Aktivan član";
+    if (pts >= 100) return "Početnik";
+    return "Rookie";
   };
 
-  const filteredFriends = friendList.filter(
-    (friend) =>
-      friend.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      friend.city.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredFriends = useMemo(
+    () =>
+      friendList.filter(
+        (friend) =>
+          (friend.relation === "accepted" ||
+            friend.relation === "pending-in" ||
+            friend.relation === "pending-out") &&
+          (friend.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            friend.city.toLowerCase().includes(searchQuery.toLowerCase()))
+      ),
+    [friendList, searchQuery]
   );
 
-  const filteredGroups = groupList.filter(
+  const filteredGroups = groups.filter(
     (group) =>
       group.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       group.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -309,7 +438,6 @@ export function FriendSystemScreen() {
 
   return (
     <div className="friend-system-screen">
-      {/* Header - Sličan kao HomeScreen */}
       <div className="friend-header">
         <div className="friend-header-content">
           <div className="friend-header-text">
@@ -324,7 +452,6 @@ export function FriendSystemScreen() {
           </div>
         </div>
 
-        {/* Search Bar - Isti kao HomeScreen */}
         <div className="friend-search-container">
           <div className="friend-search">
             <Search className="friend-search-icon" />
@@ -339,7 +466,6 @@ export function FriendSystemScreen() {
           </div>
         </div>
 
-        {/* Tabs - Bez "Aktivnosti" taba */}
         <div className="friend-tabs">
           <button
             onClick={() => setActiveTab("friends")}
@@ -347,7 +473,7 @@ export function FriendSystemScreen() {
           >
             <Users className="friend-tab-icon" />
             <span>Prijatelji</span>
-            <span className="tab-count">{friendList.length}</span>
+            <span className="tab-count">{filteredFriends.length}</span>
           </button>
           <button
             onClick={() => setActiveTab("groups")}
@@ -355,16 +481,17 @@ export function FriendSystemScreen() {
           >
             <Users className="friend-tab-icon" />
             <span>Grupe</span>
-            <span className="tab-count">{groupList.length}</span>
+            <span className="tab-count">{groups.length}</span>
           </button>
         </div>
       </div>
 
-      {/* Content */}
+      {loading && <p className="friend-loading">Učitavanje...</p>}
+      {error && <div className="fetch-error">{error}</div>}
+
       <div className="friend-content">
         {activeTab === "friends" && (
           <div className="friends-container">
-            {/* Moji prijatelji - Kartice kao na HomeScreen */}
             <div className="friend-section">
               <h3 className="friend-section-title">Moji prijatelji</h3>
               <div className="friend-cards-grid">
@@ -377,24 +504,18 @@ export function FriendSystemScreen() {
                     className="friend-card"
                   >
                     <div className="friend-card-content">
-                      {/* Avatar sa statusom */}
                       <div className="friend-avatar-container">
                         <div
-                          className={`friend-avatar ${getBadgeColor(
-                            friend.badge
-                          )}`}
+                          className={`friend-avatar ${getBadgeColor(friend.badge)}`}
                         >
                           {friend.avatar}
                         </div>
                         <div
                           className="friend-status"
-                          style={{
-                            backgroundColor: getStatusColor(friend.status),
-                          }}
+                          style={{ backgroundColor: getStatusColor(friend.status) }}
                         />
                       </div>
 
-                      {/* Friend info */}
                       <div className="friend-info">
                         <div className="friend-info-header">
                           <h4 className="friend-name">{friend.name}</h4>
@@ -404,11 +525,10 @@ export function FriendSystemScreen() {
                         <div className="friend-details">
                           <span className="friend-city">{friend.city}</span>
                           <span className="friend-level">
-                            Level {friend.level}
+                            {achievementTitleFromPoints(friend.points)}
                           </span>
                         </div>
 
-                        {/* Stats - kao na HomeScreen */}
                         <div className="friend-stats">
                           <div className="friend-stat">
                             <Star className="friend-stat-icon" />
@@ -428,19 +548,33 @@ export function FriendSystemScreen() {
                       </div>
                     </div>
 
-                    {/* Actions */}
                     <div className="friend-actions">
-                      <button className="friend-action-btn message-btn">
-                        <MessageCircle className="w-4 h-4" />
-                        <span>Poruka</span>
-                      </button>
+                      {friend.relation === "accepted" && (
+                        <button className="friend-action-btn message-btn">
+                          <MessageCircle className="w-4 h-4" />
+                          <span>Poruka</span>
+                        </button>
+                      )}
+                      {friend.relation === "pending-in" && (
+                        <button
+                          className="friend-action-btn add-btn"
+                          onClick={() => handleAcceptFriend(friend)}
+                        >
+                          <UserPlus className="w-4 h-4" />
+                          <span>Prihvati</span>
+                        </button>
+                      )}
+                      {friend.relation === "pending-out" && (
+                        <button className="friend-action-btn added-btn" disabled>
+                          <span>Na čekanju</span>
+                        </button>
+                      )}
                     </div>
                   </motion.div>
                 ))}
               </div>
             </div>
 
-            {/* Predloženi prijatelji */}
             <div className="friend-section">
               <h3 className="friend-section-title">Predloženi prijatelji</h3>
               <div className="friend-cards-grid">
@@ -455,17 +589,13 @@ export function FriendSystemScreen() {
                     <div className="friend-card-content">
                       <div className="friend-avatar-container">
                         <div
-                          className={`friend-avatar ${getBadgeColor(
-                            friend.badge
-                          )}`}
+                          className={`friend-avatar ${getBadgeColor(friend.badge)}`}
                         >
                           {friend.avatar}
                         </div>
                         <div
                           className="friend-status"
-                          style={{
-                            backgroundColor: getStatusColor(friend.status),
-                          }}
+                          style={{ backgroundColor: getStatusColor(friend.status) }}
                         />
                       </div>
 
@@ -478,7 +608,7 @@ export function FriendSystemScreen() {
                         <div className="friend-details">
                           <span className="friend-city">{friend.city}</span>
                           <span className="friend-level">
-                            Level {friend.level}
+                            {achievementTitleFromPoints(friend.points)}
                           </span>
                         </div>
 
@@ -502,16 +632,13 @@ export function FriendSystemScreen() {
                     </div>
 
                     <div className="friend-actions">
-                      {friend.isFriend ? (
-                        <button
-                          className="friend-action-btn added-btn"
-                          disabled
-                        >
-                          <span>Dodano</span>
+                      {friend.relation === "pending-out" ? (
+                        <button className="friend-action-btn added-btn" disabled>
+                          <span>Na čekanju</span>
                         </button>
                       ) : (
                         <button
-                          onClick={() => handleAddFriend(friend.id)}
+                          onClick={() => handleAddFriend(friend.id, friend.name)}
                           className="friend-action-btn add-btn"
                         >
                           <UserPlus className="w-4 h-4" />
@@ -539,54 +666,29 @@ export function FriendSystemScreen() {
                     transition={{ delay: index * 0.1 }}
                     className="group-card"
                   >
-                    <div className="group-card-content">
-                      <div className="group-header">
+                    <div className="group-card-header">
+                      <div className="group-info">
                         <h4 className="group-name">{group.name}</h4>
-                        <span
-                          className={`group-category ${getCategoryColor(
-                            group.category
-                          )}`}
-                        >
-                          {group.category}
-                        </span>
+                        <p className="group-description">{group.description}</p>
                       </div>
-
-                      <p className="group-description">{group.description}</p>
-
-                      <div className="group-stats">
-                        <div className="group-stat">
-                          <Users className="group-stat-icon" />
-                          <span className="group-stat-value">
-                            {group.members}
-                          </span>
-                          <span className="group-stat-label">članova</span>
-                        </div>
-                        <div className="group-stat">
-                          <Star className="group-stat-icon" />
-                          <span className="group-stat-value">
-                            {group.ecoPoints.toLocaleString()}
-                          </span>
-                          <span className="group-stat-label">poena</span>
-                        </div>
+                      <ChevronRight className="group-arrow" />
+                    </div>
+                    <div className="group-meta">
+                      <span className="group-members">
+                        {group.members} članova
+                      </span>
+                      <span className="group-category">{group.category}</span>
+                    </div>
+                    <div className="group-stats">
+                      <div className="group-stat">
+                        <Star className="group-stat-icon" />
+                        <span>{group.ecoPoints} eko poena</span>
                       </div>
                     </div>
-
                     <div className="group-actions">
-                      {group.isJoined ? (
-                        <button
-                          onClick={() => handleLeaveGroup(group.id)}
-                          className="group-action-btn leave-btn"
-                        >
-                          <span>Napusti</span>
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => handleJoinGroup(group.id)}
-                          className="group-action-btn join-btn"
-                        >
-                          <span>Pridruži se</span>
-                        </button>
-                      )}
+                      <button className="group-action-btn primary">
+                        {group.isJoined ? "Pridružen" : "Pridruži se"}
+                      </button>
                     </div>
                   </motion.div>
                 ))}
