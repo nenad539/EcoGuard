@@ -202,7 +202,7 @@ export function EditProfileScreen() {
 
   if (loading) {
     return (
-      <div className="edit-profile-screen">
+      <div className="edit-profile-screen dark">
         <div className="edit-profile-header">
           <button
             onClick={() => navigateTo("profile")}
@@ -221,7 +221,7 @@ export function EditProfileScreen() {
   }
 
   return (
-    <div className="edit-profile-screen">
+    <div className="edit-profile-screen dark">
       {/* Header */}
       <div className="edit-profile-header">
         <button
@@ -345,30 +345,6 @@ export function EditProfileScreen() {
           </div>
         </div>
 
-        {/* Bio */}
-        <div className="edit-profile-section">
-          <h2 className="edit-profile-section-title">O meni</h2>
-          <div className="edit-profile-field">
-            <label htmlFor="bio" className="edit-profile-label">
-              Bio
-            </label>
-            <textarea
-              id="bio"
-              value={formData.bio}
-              onChange={(e) =>
-                setFormData({ ...formData, bio: e.target.value })
-              }
-              className="edit-profile-textarea"
-              placeholder="Napišite nešto o sebi..."
-              rows={4}
-              maxLength={500}
-            />
-            <div className="edit-profile-char-count">
-              {formData.bio.length}/500 karaktera
-            </div>
-          </div>
-        </div>
-
         {/* Additional Information */}
         <div className="edit-profile-section">
           <h2 className="edit-profile-section-title">Dodatne informacije</h2>
@@ -409,34 +385,36 @@ export function EditProfileScreen() {
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="edit-profile-actions">
-          <button
-            type="button"
-            onClick={() => navigateTo("profile")}
-            className="edit-profile-cancel-button"
-            disabled={saving}
-          >
-            Otkaži
-          </button>
+        {/* Actions - Modifikovano da bude na dnu */}
+        <div className="edit-profile-actions-container">
+          <div className="edit-profile-actions">
+            <button
+              type="button"
+              onClick={() => navigateTo("profile")}
+              className="edit-profile-cancel-button"
+              disabled={saving}
+            >
+              Otkaži
+            </button>
 
-          <button
-            type="submit"
-            className="edit-profile-save-button"
-            disabled={saving}
-          >
-            {saving ? (
-              <>
-                <div className="edit-profile-save-spinner"></div>
-                Čuvanje...
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4" />
-                Sačuvaj promjene
-              </>
-            )}
-          </button>
+            <button
+              type="submit"
+              className="edit-profile-save-button"
+              disabled={saving}
+            >
+              {saving ? (
+                <>
+                  <div className="edit-profile-save-spinner"></div>
+                  Čuvanje...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" />
+                  Sačuvaj promjene
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </form>
     </div>

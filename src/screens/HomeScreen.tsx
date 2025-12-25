@@ -361,7 +361,6 @@ export function HomeScreen() {
           </button>
         </motion.div>
       </div>
-
       {/* Recent Activity */}
       <div className="home-section">
         <h2 className="home-section-title">Nedavne aktivnosti</h2>
@@ -418,7 +417,6 @@ export function HomeScreen() {
           )}
         </div>
       </div>
-
       {/* Quick Actions */}
       <div className="home-section">
         <h2 className="home-section-title">Brze akcije</h2>
@@ -480,7 +478,42 @@ export function HomeScreen() {
           </button>
         </div>
       </div>
-
+      // Na kraju HomeScreen komponente, prije BottomNav-a dodaj:
+      {userIsAdmin && (
+        <div className="admin-panel">
+          <h3 className="admin-title">👑 Admin Panel</h3>
+          <div className="admin-grid">
+            <button
+              onClick={() => navigateTo("adminUsers")}
+              className="admin-btn"
+            >
+              <Users className="w-5 h-5" />
+              Svi korisnici
+            </button>
+            <button
+              onClick={() => navigateTo("adminPhotos")}
+              className="admin-btn"
+            >
+              <Camera className="w-5 h-5" />
+              Foto izazovi
+            </button>
+            <button
+              onClick={() => navigateTo("adminGroups")}
+              className="admin-btn"
+            >
+              <Users className="w-5 h-5" />
+              Grupe
+            </button>
+            <button
+              onClick={() => navigateTo("adminAnalytics")}
+              className="admin-btn"
+            >
+              <TrendingUp className="w-5 h-5" />
+              Analitika
+            </button>
+          </div>
+        </div>
+      )}
       <BottomNav />
     </div>
   );

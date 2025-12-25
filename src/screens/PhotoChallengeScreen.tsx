@@ -630,7 +630,6 @@ export function PhotoChallengeScreen({
           Osvoj poene kroz različite aktivnosti
         </p>
       </div>
-
       {/* Plus button in top right corner */}
       <motion.button
         initial={{ opacity: 0, scale: 0.8 }}
@@ -642,7 +641,6 @@ export function PhotoChallengeScreen({
       >
         <Plus className="w-6 h-6" />
       </motion.button>
-
       {/* Tabs - Izmijenjeni nazivi */}
       <div className="photo-challenge-tabs">
         <button
@@ -662,7 +660,6 @@ export function PhotoChallengeScreen({
           Teški
         </button>
       </div>
-
       {/* Content */}
       <div className="photo-challenge-content">
         {/* Laki Izazovi Tab */}
@@ -715,17 +712,18 @@ export function PhotoChallengeScreen({
                 <div className="regular-challenge-reward">
                   <span className="points">{challenge.points}</span>
                   <span className="points-label">pts</span>
-                  {challenge.status === 'completed' ? (
-  <CheckCircle2 className="completed-icon" />
-) : (
-  <button
-    className="complete-regular-btn"
-    onClick={() => completeRegularChallenge(challenge.id, challenge.points)}
-  >
-    Završi
-  </button>
-)}
-
+                  {challenge.status === "completed" ? (
+                    <CheckCircle2 className="completed-icon" />
+                  ) : (
+                    <button
+                      className="complete-regular-btn"
+                      onClick={() =>
+                        completeRegularChallenge(challenge.id, challenge.points)
+                      }
+                    >
+                      Završi
+                    </button>
+                  )}
                 </div>
               </motion.div>
             ))}
@@ -839,7 +837,6 @@ export function PhotoChallengeScreen({
           </motion.div>
         )}
       </div>
-
       {/* Photo Submission Modal */}
       {showSubmissionModal && selectedChallenge && (
         <PhotoSubmission
@@ -850,7 +847,34 @@ export function PhotoChallengeScreen({
           onCancel={handleSubmissionCancel}
         />
       )}
-
+      // Dodaj ovo u PhotoChallengeScreen prije BottomNav:
+      {userIsAdmin && activeTab === "photo" && (
+        <div className="admin-panel">
+          <h3 className="admin-title">👑 Admin: Foto Izazovi</h3>
+          <div className="admin-submissions">
+            <h4>Čekaju odobrenje ({pendingSubmissions.length})</h4>
+            {pendingSubmissions.map((submission) => (
+              <div key={submission.id} className="submission-card">
+                <img src={submission.image} alt="Submission" />
+                <div>
+                  <p>
+                    <strong>{submission.user}</strong>
+                  </p>
+                  <p>{submission.challenge}</p>
+                  <div className="submission-actions">
+                    <button onClick={() => approveSubmission(submission.id)}>
+                      ✅ Odobri
+                    </button>
+                    <button onClick={() => rejectSubmission(submission.id)}>
+                      ❌ Odbij
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <BottomNav />
     </div>
   );
