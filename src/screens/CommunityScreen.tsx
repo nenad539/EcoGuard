@@ -349,89 +349,94 @@ export function CommunityScreen() {
           })}
         </div>
       </div>
-
       {/* Top 3 Podium - UVIJEK prikazuje prva 3 mjesta */}
       <div className="community-leaderboard">
         <div className="community-podium">
-              {
-                // Defensive rendering: users may be empty while loading.
-                // Pick first/second/third if available, otherwise render placeholders.
-              }
-              {(() => {
-                const first = users[0];
-                const second = users[1];
-                const third = users[2];
+          {
+            // Defensive rendering: users may be empty while loading.
+            // Pick first/second/third if available, otherwise render placeholders.
+          }
+          {(() => {
+            const first = users[0];
+            const second = users[1];
+            const third = users[2];
 
-                return (
-                  <>
-                    {/* 2nd Place */}
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.2 }}
-                      className="community-podium-item second"
-                    >
-                      <div className="community-podium-rank second">
-                        <Medal className="w-4 h-4" />
-                      </div>
-                      <div className="community-podium-avatar">
-                        {(second?.name ?? "Korisnik")
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")}
-                      </div>
-                      <p className="community-podium-name">
-                        {(second?.name ?? "Korisnik").split(" ")[0]}
-                      </p>
-                      <p className="community-podium-points">{second?.points ?? "—"} pts</p>
-                    </motion.div>
+            return (
+              <>
+                {/* 2nd Place */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="community-podium-item second"
+                >
+                  <div className="community-podium-rank second">
+                    <Medal className="w-4 h-4" />
+                  </div>
+                  <div className="community-podium-avatar">
+                    {(second?.name ?? "Korisnik")
+                      .split(" ")
+                      .map((n) => n[0])
+                      .join("")}
+                  </div>
+                  <p className="community-podium-name">
+                    {(second?.name ?? "Korisnik").split(" ")[0]}
+                  </p>
+                  <p className="community-podium-points">
+                    {second?.points ?? "—"} pts
+                  </p>
+                </motion.div>
 
-                    {/* 1st Place */}
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.1 }}
-                      className="community-podium-item first"
-                    >
-                      <div className="community-podium-rank first">
-                        <Trophy className="w-4 h-4" />
-                      </div>
-                      <div className="community-podium-avatar">
-                        {(first?.name ?? "Korisnik")
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")}
-                      </div>
-                      <p className="community-podium-name">
-                        {(first?.name ?? "Korisnik").split(" ")[0]}
-                      </p>
-                      <p className="community-podium-points">{first?.points ?? "—"} pts</p>
-                    </motion.div>
+                {/* 1st Place */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="community-podium-item first"
+                >
+                  <div className="community-podium-rank first">
+                    <Trophy className="w-4 h-4" />
+                  </div>
+                  <div className="community-podium-avatar">
+                    {(first?.name ?? "Korisnik")
+                      .split(" ")
+                      .map((n) => n[0])
+                      .join("")}
+                  </div>
+                  <p className="community-podium-name">
+                    {(first?.name ?? "Korisnik").split(" ")[0]}
+                  </p>
+                  <p className="community-podium-points">
+                    {first?.points ?? "—"} pts
+                  </p>
+                </motion.div>
 
-                    {/* 3rd Place */}
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.3 }}
-                      className="community-podium-item third"
-                    >
-                      <div className="community-podium-rank third">
-                        <Medal className="w-4 h-4" />
-                      </div>
-                      <div className="community-podium-avatar">
-                        {(third?.name ?? "Korisnik")
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")}
-                      </div>
-                      <p className="community-podium-name">
-                        {(third?.name ?? "Korisnik").split(" ")[0]}
-                      </p>
-                      <p className="community-podium-points">{third?.points ?? "—"} pts</p>
-                    </motion.div>
-                  </>
-                );
-              })()}
+                {/* 3rd Place */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                  className="community-podium-item third"
+                >
+                  <div className="community-podium-rank third">
+                    <Medal className="w-4 h-4" />
+                  </div>
+                  <div className="community-podium-avatar">
+                    {(third?.name ?? "Korisnik")
+                      .split(" ")
+                      .map((n) => n[0])
+                      .join("")}
+                  </div>
+                  <p className="community-podium-name">
+                    {(third?.name ?? "Korisnik").split(" ")[0]}
+                  </p>
+                  <p className="community-podium-points">
+                    {third?.points ?? "—"} pts
+                  </p>
+                </motion.div>
+              </>
+            );
+          })()}
         </div>
 
         {/* Leaderboard List - SVI korisnici (uključujući top 3) */}
@@ -534,7 +539,33 @@ export function CommunityScreen() {
           )}
         </div>
       </div>
+      // Dodaj ovo prije BottomNav u CommunityScreen:
+      {userIsAdmin && (
+        <div className="admin-panel">
+          <h3 className="admin-title">👑 Admin: Zajednica</h3>
+          <div className="admin-actions">
+            <button onClick={() => setShowAllUsers(true)}>
+              👥 Prikaži sve korisnike
+            </button>
+            <button onClick={() => manageGroups()}>👥 Upravljaj grupama</button>
+            <button onClick={() => viewReports()}>⚠️ Prijave i flagovi</button>
+          </div>
 
+          {showAllUsers && (
+            <div className="admin-users-list">
+              <h4>Svi korisnici ({allUsers.length})</h4>
+              {allUsers.map((user) => (
+                <div key={user.id} className="admin-user-card">
+                  <span>{user.name}</span>
+                  <span>{user.points} poena</span>
+                  <button onClick={() => banUser(user.id)}>🚫 Ban</button>
+                  <button onClick={() => resetUser(user.id)}>🔄 Reset</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       <BottomNav />
     </div>
   );
