@@ -3,7 +3,16 @@ import { supabase } from "../supabase-client";
 import { motion } from "motion/react";
 import { NavigationContext } from "../App";
 import { BottomNav } from "../components/common/BottomNav";
-import { Recycle, Star, Bell, Flame, Medal } from "lucide-react";
+import {
+  Recycle,
+  Star,
+  Bell,
+  Flame,
+  Medal,
+  Users,
+  Camera,
+  TrendingUp,
+} from "lucide-react";
 import "../styles/HomeScreen.css";
 
 export function HomeScreen() {
@@ -12,21 +21,11 @@ export function HomeScreen() {
   const ACTIVITY_TABLE = "aktivnosti";
 
   const [userName, setUserName] = useState("");
-  const [userLevel, setUserLevel] = useState("");
-  const [userReciklirano, setUserReciklirano] = useState("");
   const [userPoints, setUserPoints] = useState("");
   const [userBadge, setUserBadge] = useState<string>("bronze");
   const [userStreak, setUserStreak] = useState("7");
-  const [activities, setActivities] = useState<
-    {
-      id: string;
-      opis: string;
-      poena_dodato: number | null;
-      kategorija: string | null;
-      status: string | null;
-      kreirano_u: string | null;
-    }[]
-  >([]);
+  const [activities, setActivities] = useState<any[]>([]);
+  const [userIsAdmin, setUserIsAdmin] = useState(false);
 
   const levelLabelFromPoints = (pts: number) => {
     if (pts >= 5000) return "Legenda prirode";
@@ -37,17 +36,29 @@ export function HomeScreen() {
     return "Rookie";
   };
 
-  const getUserName = async () => {
-    let { data: korisnik_profil, error } = await supabase
-      .from("korisnik_profil")
-      .select("korisnicko_ime");
-
+  const getCurrentUserId = async () => {
+    const { data, error } = await supabase.auth.getUser();
     if (error) {
-      console.error("Error fetching user:", error);
-      return "Korisnik";
+      console.error("Auth error:", error);
+      return null;
     }
+    return data.user?.id;
+  };
 
-    return korisnik_profil?.[0]?.korisnicko_ime || "Korisnik";
+  const checkAdminStatus = async (userId: string) => {
+    try {
+      const { data: profile } = await supabase
+        .from("korisnik_profil")
+        .select("is_admin, role")
+        .eq("id", userId)
+        .single();
+
+      if (profile?.is_admin || profile?.role === "admin") {
+        setUserIsAdmin(true);
+      }
+    } catch (error) {
+      console.error("Error checking admin status:", error);
+    }
   };
 
   const updateAndGetStreak = async () => {
@@ -94,58 +105,6 @@ export function HomeScreen() {
     return newStreak;
   };
 
-  const getUserLevel = async () => {
-    let { data: korisnik_profil, error } = await supabase
-      .from("korisnik_profil")
-      .select("nivo");
-
-    if (error) {
-      console.error("Error fetching user:", error);
-      return "0";
-    }
-
-    return korisnik_profil?.[0]?.nivo || "Korisnik";
-  };
-
-  const getUserReciklirano = async () => {
-    let { data: korisnik_profil, error } = await supabase
-      .from("korisnik_profil")
-      .select("reciklirano_stvari");
-
-    if (error) {
-      console.error("Error fetching user:", error);
-      return "0";
-    }
-
-    return korisnik_profil?.[0]?.reciklirano_stvari || "0";
-  };
-
-  const getUserPoints = async () => {
-    let { data: korisnik_profil, error } = await supabase
-      .from("korisnik_profil")
-      .select("ukupno_poena, trenutni_bedz");
-
-    if (error) {
-      console.error("Error fetching user:", error);
-      return "0";
-    }
-
-    if (korisnik_profil?.[0]?.trenutni_bedz) {
-      setUserBadge(korisnik_profil[0].trenutni_bedz);
-    }
-
-    return korisnik_profil?.[0]?.ukupno_poena || "0";
-  };
-
-  const getCurrentUserId = async () => {
-    const { data, error } = await supabase.auth.getUser();
-    if (error) {
-      console.error("Auth error:", error);
-      return null;
-    }
-    return data.user?.id;
-  };
-
   useEffect(() => {
     updateAndGetStreak().then((streak) => {
       setUserStreak(String(streak));
@@ -157,9 +116,11 @@ export function HomeScreen() {
       const userId = await getCurrentUserId();
       if (!userId) return;
 
+      await checkAdminStatus(userId);
+
       const { data, error } = await supabase
         .from("korisnik_profil")
-        .select("korisnicko_ime, nivo, reciklirano_stvari, ukupno_poena, trenutni_bedz")
+        .select("korisnicko_ime, ukupno_poena, trenutni_bedz")
         .eq("id", userId)
         .single();
 
@@ -169,8 +130,6 @@ export function HomeScreen() {
       }
 
       setUserName(data.korisnicko_ime);
-      setUserLevel(data.nivo);
-      setUserReciklirano(data.reciklirano_stvari);
       setUserPoints(data.ukupno_poena);
       if (data.trenutni_bedz) {
         setUserBadge(data.trenutni_bedz);
@@ -205,7 +164,6 @@ export function HomeScreen() {
 
   return (
     <div className="home-screen">
-      {/* Header */}
       <div className="home-header">
         <div className="home-header-content">
           <div className="home-user-info">
@@ -229,7 +187,7 @@ export function HomeScreen() {
               <Bell />
             </button>
             <button
-              onClick={() => navigateTo("friends")} // OVO JE PROMIJENJENO - SADA IDE NA FRIENDS
+              onClick={() => navigateTo("friends")}
               className="home-profile-button"
               aria-label="Prijatelji"
             >
@@ -248,9 +206,7 @@ export function HomeScreen() {
           </div>
         </div>
 
-        {/* Stats Grid - NOVI LAYOUT */}
         <div className="home-stats-grid">
-          {/* Prva dva widgeta jedan do drugog */}
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -312,7 +268,6 @@ export function HomeScreen() {
             </div>
           </motion.div>
 
-          {/* Streak widget koji zauzima cijeli red */}
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -345,7 +300,6 @@ export function HomeScreen() {
           </motion.div>
         </div>
 
-        {/* CTA Button */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -361,7 +315,7 @@ export function HomeScreen() {
           </button>
         </motion.div>
       </div>
-      {/* Recent Activity */}
+
       <div className="home-section">
         <h2 className="home-section-title">Nedavne aktivnosti</h2>
         <div className="home-activity-list">
@@ -417,7 +371,7 @@ export function HomeScreen() {
           )}
         </div>
       </div>
-      {/* Quick Actions */}
+
       <div className="home-section">
         <h2 className="home-section-title">Brze akcije</h2>
         <div className="home-quick-actions">
@@ -446,7 +400,7 @@ export function HomeScreen() {
             </div>
           </button>
           <button
-            onClick={() => navigateTo("community")} // OVO JE OSTALO ZAJEDNICA
+            onClick={() => navigateTo("community")}
             className="home-quick-action purple"
           >
             <div className="quick-action-content">
@@ -470,15 +424,14 @@ export function HomeScreen() {
                 </svg>
               </div>
               <div className="quick-action-text">
-                <p className="home-quick-action-title">Zajednica</p>{" "}
-                {/* OVO OSTALO ZAJEDNICA */}
+                <p className="home-quick-action-title">Zajednica</p>
                 <p className="home-quick-action-subtitle">Rang lista</p>
               </div>
             </div>
           </button>
         </div>
       </div>
-      // Na kraju HomeScreen komponente, prije BottomNav-a dodaj:
+
       {userIsAdmin && (
         <div className="admin-panel">
           <h3 className="admin-title">👑 Admin Panel</h3>
@@ -514,6 +467,7 @@ export function HomeScreen() {
           </div>
         </div>
       )}
+
       <BottomNav />
     </div>
   );

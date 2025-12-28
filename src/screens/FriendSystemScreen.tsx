@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useContext } from "react";
 import { motion } from "motion/react";
 import { BottomNav } from "../components/common/BottomNav";
 import {
@@ -9,8 +9,10 @@ import {
   Star,
   Flame,
   UserPlus,
+  ChevronRight,
 } from "lucide-react";
 import { supabase } from "../supabase-client";
+import { NavigationContext } from "../App";
 import "../styles/FriendSystemScreen.css";
 
 type Friend = {
@@ -39,6 +41,7 @@ type Group = {
 };
 
 export function FriendSystemScreen() {
+  const { navigateTo } = useContext(NavigationContext);
   const [activeTab, setActiveTab] = useState<"friends" | "groups">("friends");
   const [searchQuery, setSearchQuery] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
@@ -46,6 +49,14 @@ export function FriendSystemScreen() {
   const [suggestedList, setSuggestedList] = useState<Friend[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [userIsAdmin, setUserIsAdmin] = useState(false);
+  const [adminData, setAdminData] = useState({
+    allGroups: [],
+    reportsCount: 0,
+    largestGroupSize: 0,
+    dailyConnections: 0,
+    avgFriendsPerUser: 0,
+  });
 
   // static groups (unchanged)
   const groups: Group[] = [
@@ -115,12 +126,76 @@ export function FriendSystemScreen() {
         return;
       }
       setUserId(uid);
+      await checkAdminStatus(uid);
       await loadFriends(uid);
       await loadSuggestions(uid);
       setLoading(false);
     };
     init();
   }, []);
+
+  const checkAdminStatus = async (uid: string) => {
+    try {
+      const { data: profile } = await supabase
+        .from("korisnik_profil")
+        .select("is_admin, role")
+        .eq("id", uid)
+        .single();
+
+      if (profile?.is_admin || profile?.role === "admin") {
+        setUserIsAdmin(true);
+        await loadAdminData();
+      }
+    } catch (error) {
+      console.error("Error checking admin status:", error);
+    }
+  };
+
+  const loadAdminData = async () => {
+    try {
+      // Fetch all groups from database if they exist
+      const { data: dbGroups } = await supabase
+        .from("grupe")
+        .select("*")
+        .limit(10);
+
+      // Fetch reports count
+      const { count: reportsCount } = await supabase
+        .from("reports")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "pending");
+
+      // Calculate social stats
+      const { data: allUsers } = await supabase
+        .from("korisnik_profil")
+        .select("id");
+
+      const { data: allConnections } = await supabase
+        .from("prijatelji")
+        .select("*")
+        .eq("status", "accepted");
+
+      const avgFriends = allConnections
+        ? allConnections.length / (allUsers?.length || 1)
+        : 0;
+
+      // Find largest group
+      const largestGroup = groups.reduce(
+        (max, group) => (group.members > max.members ? group : max),
+        { members: 0 }
+      );
+
+      setAdminData({
+        allGroups: dbGroups || groups,
+        reportsCount: reportsCount || 0,
+        largestGroupSize: largestGroup.members,
+        dailyConnections: Math.floor(Math.random() * 50) + 20, // Mock data
+        avgFriendsPerUser: parseFloat(avgFriends.toFixed(1)),
+      });
+    } catch (error) {
+      console.error("Error loading admin data:", error);
+    }
+  };
 
   const getUserId = async (): Promise<string | null> => {
     try {
@@ -188,7 +263,9 @@ export function FriendSystemScreen() {
 
       const { data: profiles, error: profErr } = await supabase
         .from("korisnik_profil")
-        .select("id, korisnicko_ime, ukupno_poena, nivo, trenutni_bedz, dnevna_serija")
+        .select(
+          "id, korisnicko_ime, ukupno_poena, nivo, trenutni_bedz, dnevna_serija"
+        )
         .in("id", friendIds)
         .order("ukupno_poena", { ascending: false });
 
@@ -199,7 +276,8 @@ export function FriendSystemScreen() {
 
       const mappedProfiles = (profiles || []).map((row: any, idx: number) => {
         const conn = (connections || []).find(
-          (c: any) => (c.korisnik_od === uid ? c.korisnik_do : c.korisnik_od) === row.id
+          (c: any) =>
+            (c.korisnik_od === uid ? c.korisnik_do : c.korisnik_od) === row.id
         );
         const relation =
           conn?.status === "accepted"
@@ -249,10 +327,15 @@ export function FriendSystemScreen() {
 
   const loadSuggestions = async (uid: string) => {
     try {
-      const existingIds = new Set<string>([uid, ...friendList.map((f) => f.id)]);
+      const existingIds = new Set<string>([
+        uid,
+        ...friendList.map((f) => f.id),
+      ]);
       const { data: profiles, error } = await supabase
         .from("korisnik_profil")
-        .select("id, korisnicko_ime, ukupno_poena, nivo, trenutni_bedz, dnevna_serija")
+        .select(
+          "id, korisnicko_ime, ukupno_poena, nivo, trenutni_bedz, dnevna_serija"
+        )
         .limit(30);
 
       if (error) {
@@ -260,16 +343,24 @@ export function FriendSystemScreen() {
         return;
       }
 
-      const shuffled = (profiles || []).sort(() => Math.random() - 0.5).slice(0, 10);
+      const shuffled = (profiles || [])
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 10);
 
       const mapped = shuffled
         .filter((p) => !existingIds.has(p.id))
-        .map((row: any, idx: number) => mapProfileToFriend(row, "suggested", idx + 1));
+        .map((row: any, idx: number) =>
+          mapProfileToFriend(row, "suggested", idx + 1)
+        );
 
       const merged = mapped.map((m) => {
         const existing = friendList.find((f) => f.id === m.id);
         if (existing && existing.relation === "pending-out") {
-          return { ...m, relation: "pending-out", connectionId: existing.connectionId };
+          return {
+            ...m,
+            relation: "pending-out",
+            connectionId: existing.connectionId,
+          };
         }
         return m;
       });
@@ -344,13 +435,19 @@ export function FriendSystemScreen() {
 
       setSuggestedList((prev) =>
         prev.map((friend) =>
-          friend.id === friendId ? { ...friend, relation: "pending-out" } : friend
+          friend.id === friendId
+            ? { ...friend, relation: "pending-out" }
+            : friend
         )
       );
 
       await loadFriends(userId);
 
-      await logActivity(userId, `Poslat zahtjev za prijateljstvo: ${name}`, "pending");
+      await logActivity(
+        userId,
+        `Poslat zahtjev za prijateljstvo: ${name}`,
+        "pending"
+      );
       await logActivity(
         friendId,
         `Novi zahtjev za prijateljstvo od korisnika`,
@@ -374,11 +471,57 @@ export function FriendSystemScreen() {
         return;
       }
       await loadFriends(userId);
-      await logActivity(userId, `Prihvaćen zahtjev od ${friend.name}`, "accepted");
+      await logActivity(
+        userId,
+        `Prihvaćen zahtjev od ${friend.name}`,
+        "accepted"
+      );
       await logActivity(friend.id, `Vaš zahtjev je prihvaćen`, "accepted");
     } catch (e) {
       console.error("Unexpected accept friend error:", e);
     }
+  };
+
+  // DODAJ OVE FUNKCIJE ZA CHAT:
+  const handleOpenChat = (friend: Friend) => {
+    // Sačuvaj podatke o chatu u localStorage
+    localStorage.setItem(
+      "currentChat",
+      JSON.stringify({
+        name: friend.name,
+        avatar: friend.avatar,
+        type: "private",
+        status: friend.status,
+        level: friend.level,
+        points: friend.points,
+        city: friend.city,
+        id: friend.id,
+      })
+    );
+
+    // Navigate to chat screen
+    navigateTo("chat");
+  };
+
+  const handleOpenGroupChat = (group: Group) => {
+    // Sačuvaj podatke o grupi u localStorage
+    localStorage.setItem(
+      "currentChat",
+      JSON.stringify({
+        name: group.name,
+        avatar: group.name.charAt(0), // Prvo slovo imena grupe
+        type: "group",
+        members: group.members,
+        category: group.category,
+        description: group.description,
+        ecoPoints: group.ecoPoints,
+        id: group.id,
+        isJoined: group.isJoined,
+      })
+    );
+
+    // Navigate to chat screen
+    navigateTo("chat");
   };
 
   const getStatusColor = (status: string) => {
@@ -435,6 +578,38 @@ export function FriendSystemScreen() {
       group.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
       group.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Admin functions
+  const scanForSpam = async () => {
+    alert("Scanning for spam messages...");
+  };
+
+  const viewReports = async () => {
+    alert(`Showing ${adminData.reportsCount} reports`);
+  };
+
+  const manageBlockedUsers = async () => {
+    alert("Opening blocked users management...");
+  };
+
+  const exportFriendData = async () => {
+    alert("Exporting friend network data...");
+  };
+
+  const viewGroupMembers = (groupId: number) => {
+    alert(`Viewing members of group ${groupId}`);
+  };
+
+  const messageGroup = (groupId: number) => {
+    const group = groups.find((g) => g.id === groupId);
+    if (group) {
+      handleOpenGroupChat(group);
+    }
+  };
+
+  const moderateGroup = (groupId: number) => {
+    alert(`Moderating group ${groupId}`);
+  };
 
   return (
     <div className="friend-system-screen">
@@ -506,13 +681,17 @@ export function FriendSystemScreen() {
                     <div className="friend-card-content">
                       <div className="friend-avatar-container">
                         <div
-                          className={`friend-avatar ${getBadgeColor(friend.badge)}`}
+                          className={`friend-avatar ${getBadgeColor(
+                            friend.badge
+                          )}`}
                         >
                           {friend.avatar}
                         </div>
                         <div
                           className="friend-status"
-                          style={{ backgroundColor: getStatusColor(friend.status) }}
+                          style={{
+                            backgroundColor: getStatusColor(friend.status),
+                          }}
                         />
                       </div>
 
@@ -550,7 +729,10 @@ export function FriendSystemScreen() {
 
                     <div className="friend-actions">
                       {friend.relation === "accepted" && (
-                        <button className="friend-action-btn message-btn">
+                        <button
+                          className="friend-action-btn message-btn"
+                          onClick={() => handleOpenChat(friend)}
+                        >
                           <MessageCircle className="w-4 h-4" />
                           <span>Poruka</span>
                         </button>
@@ -565,7 +747,10 @@ export function FriendSystemScreen() {
                         </button>
                       )}
                       {friend.relation === "pending-out" && (
-                        <button className="friend-action-btn added-btn" disabled>
+                        <button
+                          className="friend-action-btn added-btn"
+                          disabled
+                        >
                           <span>Na čekanju</span>
                         </button>
                       )}
@@ -589,13 +774,17 @@ export function FriendSystemScreen() {
                     <div className="friend-card-content">
                       <div className="friend-avatar-container">
                         <div
-                          className={`friend-avatar ${getBadgeColor(friend.badge)}`}
+                          className={`friend-avatar ${getBadgeColor(
+                            friend.badge
+                          )}`}
                         >
                           {friend.avatar}
                         </div>
                         <div
                           className="friend-status"
-                          style={{ backgroundColor: getStatusColor(friend.status) }}
+                          style={{
+                            backgroundColor: getStatusColor(friend.status),
+                          }}
                         />
                       </div>
 
@@ -633,12 +822,17 @@ export function FriendSystemScreen() {
 
                     <div className="friend-actions">
                       {friend.relation === "pending-out" ? (
-                        <button className="friend-action-btn added-btn" disabled>
+                        <button
+                          className="friend-action-btn added-btn"
+                          disabled
+                        >
                           <span>Na čekanju</span>
                         </button>
                       ) : (
                         <button
-                          onClick={() => handleAddFriend(friend.id, friend.name)}
+                          onClick={() =>
+                            handleAddFriend(friend.id, friend.name)
+                          }
                           className="friend-action-btn add-btn"
                         >
                           <UserPlus className="w-4 h-4" />
@@ -665,6 +859,8 @@ export function FriendSystemScreen() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.1 }}
                     className="group-card"
+                    onClick={() => handleOpenGroupChat(group)}
+                    style={{ cursor: "pointer" }}
                   >
                     <div className="group-card-header">
                       <div className="group-info">
@@ -697,6 +893,86 @@ export function FriendSystemScreen() {
           </div>
         )}
       </div>
+
+      {/* ADMIN PANEL */}
+      {userIsAdmin && (
+        <div className="admin-panel">
+          <h3 className="admin-title">👑 Admin: Prijatelji & Grupe</h3>
+
+          <div className="admin-section">
+            <h4>👥 Grupna Administracija</h4>
+
+            <div className="admin-groups">
+              {adminData.allGroups.slice(0, 3).map((group: any) => (
+                <div key={group.id} className="admin-group-card">
+                  <h5>
+                    {group.name} ({group.members || 0} članova)
+                  </h5>
+                  <p>{group.description || "Nema opisa"}</p>
+                  <div className="group-actions">
+                    <button
+                      className="small-btn"
+                      onClick={() => viewGroupMembers(group.id)}
+                    >
+                      👁️ Članovi
+                    </button>
+                    <button
+                      className="small-btn"
+                      onClick={() => messageGroup(group.id)}
+                    >
+                      💬 Poruka grupi
+                    </button>
+                    {group.hasIssues && (
+                      <button
+                        className="small-btn warning"
+                        onClick={() => moderateGroup(group.id)}
+                      >
+                        ⚠️ Moderiraj
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="admin-section">
+            <h4>🛡️ Moderation Tools</h4>
+            <div className="admin-grid">
+              <button className="admin-btn" onClick={scanForSpam}>
+                🔍 Scan za spam
+              </button>
+              <button className="admin-btn" onClick={viewReports}>
+                ⚠️ Prijave ({adminData.reportsCount})
+              </button>
+              <button className="admin-btn" onClick={manageBlockedUsers}>
+                🚫 Blokirani korisnici
+              </button>
+              <button className="admin-btn" onClick={exportFriendData}>
+                📊 Export mreže
+              </button>
+            </div>
+          </div>
+
+          <div className="admin-section">
+            <h4>📊 Social Analytics</h4>
+            <div className="social-stats">
+              <div className="social-stat">
+                <span>Prosječno prijatelja:</span>
+                <strong>{adminData.avgFriendsPerUser}</strong>
+              </div>
+              <div className="social-stat">
+                <span>Najveća grupa:</span>
+                <strong>{adminData.largestGroupSize} članova</strong>
+              </div>
+              <div className="social-stat">
+                <span>Dnevne veze:</span>
+                <strong>{adminData.dailyConnections}</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <BottomNav />
     </div>

@@ -17,6 +17,7 @@ import { EcoTipsScreen } from "./screens/EcoTipsScreen";
 import { PhotoChallengeScreen } from "./screens/PhotoChallengeScreen";
 import { TermsScreen } from "./screens/TermsScreen";
 import { EditProfileScreen } from "./screens/EditProfileScreen";
+import { ChatScreen } from "./screens/ChatScreen";
 import "./styles/App.css";
 
 export type Screen =
@@ -36,7 +37,8 @@ export type Screen =
   | "notifications"
   | "ecoTips"
   | "terms"
-  | "photoChallenge";
+  | "photoChallenge"
+  | "chat";
 
 export type Theme = "light" | "dark";
 
@@ -197,6 +199,7 @@ export default function App() {
             />
           )}
           {currentScreen === "terms" && <TermsScreen />}
+          {currentScreen === "chat" && <ChatScreen />}
         </div>
       </NavigationContext.Provider>
     </ThemeContext.Provider>
