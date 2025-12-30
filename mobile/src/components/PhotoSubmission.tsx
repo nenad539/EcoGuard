@@ -1,0 +1,373 @@
+import React, { useState } from 'react';
+import { Modal, View, Text, StyleSheet, TouchableOpacity, Image, TextInput, ActivityIndicator, Alert, ScrollView } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { Camera, X, Check, Upload, MapPin, Clock } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { colors, radius, spacing, gradients } from '../styles/common';
+
+type PhotoSubmissionProps = {
+  visible: boolean;
+  challengeId: number;
+  challengeTitle: string;
+  challengePoints: number;
+  onSubmit: (submission: {
+    challengeId: number;
+    photo: string;
+    description: string;
+    location?: string;
+  }) => void;
+  onCancel: () => void;
+};
+
+export function PhotoSubmission({
+  visible,
+  challengeId,
+  challengeTitle,
+  challengePoints,
+  onSubmit,
+  onCancel,
+}: PhotoSubmissionProps) {
+  const [submissionStep, setSubmissionStep] = useState<'capture' | 'details' | 'confirm'>('capture');
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoData, setPhotoData] = useState<string | null>(null);
+  const [description, setDescription] = useState('');
+  const [location, setLocation] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const resetState = () => {
+    setSubmissionStep('capture');
+    setPhotoPreview(null);
+    setPhotoData(null);
+    setDescription('');
+    setLocation('');
+  };
+
+  const handleCancel = () => {
+    resetState();
+    onCancel();
+  };
+
+  const capturePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Dozvola potrebna', 'Omogućite pristup kameri.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      base64: true,
+      quality: 0.7,
+    });
+
+    if (result.canceled) return;
+
+    const asset = result.assets?.[0];
+    if (!asset?.uri) {
+      Alert.alert('Greška', 'Fotografija nije učitana.');
+      return;
+    }
+
+    setPhotoPreview(asset.uri);
+    if (asset.base64) {
+      setPhotoData(`data:image/jpeg;base64,${asset.base64}`);
+    } else {
+      // Fallback to URI if base64 is unavailable on the device.
+      setPhotoData(asset.uri);
+    }
+    setSubmissionStep('details');
+  };
+
+  const handleSubmit = async () => {
+    if (!photoData && !photoPreview) {
+      Alert.alert('Greška', 'Dodajte fotografiju prije slanja.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      onSubmit({
+        challengeId,
+        photo: photoData ?? photoPreview ?? '',
+        description,
+        location,
+      });
+    } finally {
+      setIsSubmitting(false);
+      resetState();
+    }
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent>
+      <View style={styles.overlay}>
+        <View style={styles.modal}>
+          <View style={styles.header}>
+            <View>
+              <Text style={styles.title}>Prihvati izazov</Text>
+              <Text style={styles.subtitle}>{challengeTitle}</Text>
+            </View>
+            <TouchableOpacity onPress={handleCancel}>
+              <X color={colors.muted} size={20} />
+            </TouchableOpacity>
+          </View>
+
+          {submissionStep === 'capture' && (
+            <View style={styles.captureSection}>
+              <Camera color={colors.primary} size={56} />
+              <Text style={styles.captureTitle}>Fotografiši dokaz</Text>
+              <Text style={styles.captureSubtitle}>Fotografiraj da si završio/la ovaj izazov</Text>
+              <TouchableOpacity onPress={capturePhoto}>
+                <LinearGradient colors={gradients.primary} style={styles.primaryButton}>
+                  <Camera color={colors.text} size={18} />
+                  <Text style={styles.primaryLabel}>Otvori kameru</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {submissionStep === 'details' && photoPreview && (
+            <ScrollView contentContainerStyle={styles.stepContent}>
+              <Image source={{ uri: photoPreview }} style={styles.preview} />
+              <TouchableOpacity style={styles.secondaryButton} onPress={() => setSubmissionStep('capture')}>
+                <Camera color={colors.primary} size={16} />
+                <Text style={styles.secondaryLabel}>Ponovo fotografiši</Text>
+              </TouchableOpacity>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Opis (opcionalno)</Text>
+                <TextInput
+                  value={description}
+                  onChangeText={setDescription}
+                  placeholder="Opišite kako ste završili izazov..."
+                  placeholderTextColor={colors.muted}
+                  style={styles.input}
+                  multiline
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Lokacija (opcionalno)</Text>
+                <View style={styles.inputRow}>
+                  <MapPin color={colors.muted} size={16} />
+                  <TextInput
+                    value={location}
+                    onChangeText={setLocation}
+                    placeholder="Dodajte lokaciju..."
+                    placeholderTextColor={colors.muted}
+                    style={styles.inputInline}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.rewardRow}>
+                <Text style={styles.rewardText}>Osvojićete +{challengePoints} poena</Text>
+              </View>
+
+              <View style={styles.actionsRow}>
+                <TouchableOpacity style={styles.secondaryButton} onPress={() => setSubmissionStep('capture')}>
+                  <Text style={styles.secondaryLabel}>Nazad</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setSubmissionStep('confirm')}>
+                  <LinearGradient colors={gradients.primary} style={styles.primaryButton}>
+                    <Text style={styles.primaryLabel}>Dalje</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          )}
+
+          {submissionStep === 'confirm' && photoPreview && (
+            <ScrollView contentContainerStyle={styles.stepContent}>
+              <Image source={{ uri: photoPreview }} style={styles.preview} />
+              <View style={styles.confirmBox}>
+                <Text style={styles.label}>Potvrdi slanje</Text>
+                <Text style={styles.confirmText}>Izazov: {challengeTitle}</Text>
+                <Text style={styles.confirmText}>Nagrada: +{challengePoints} poena</Text>
+                {description ? <Text style={styles.confirmText}>Opis: {description}</Text> : null}
+                {location ? <Text style={styles.confirmText}>Lokacija: {location}</Text> : null}
+                <View style={styles.noticeRow}>
+                  <Clock color={colors.muted} size={14} />
+                  <Text style={styles.noticeText}>Vaša fotografija će biti pregledana u roku od 24h</Text>
+                </View>
+              </View>
+
+              <View style={styles.actionsRow}>
+                <TouchableOpacity style={styles.secondaryButton} onPress={() => setSubmissionStep('details')} disabled={isSubmitting}>
+                  <Text style={styles.secondaryLabel}>Nazad</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleSubmit} disabled={isSubmitting}>
+                  <LinearGradient colors={gradients.primary} style={styles.primaryButton}>
+                    {isSubmitting ? (
+                      <ActivityIndicator color={colors.text} />
+                    ) : (
+                      <>
+                        <Upload color={colors.text} size={16} />
+                        <Text style={styles.primaryLabel}>Pošalji</Text>
+                      </>
+                    )}
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          )}
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const styles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    padding: spacing.md,
+  },
+  modal: {
+    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    maxHeight: '90%',
+    borderWidth: 1,
+    borderColor: colors.border,
+    width: '100%',
+    shadowColor: '#000',
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 8 },
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  title: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  subtitle: {
+    color: colors.muted,
+    marginTop: spacing.xs,
+  },
+  captureSection: {
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  stepContent: {
+    paddingBottom: spacing.md,
+  },
+  captureTitle: {
+    color: colors.text,
+    fontWeight: '700',
+  },
+  captureSubtitle: {
+    color: colors.muted,
+    textAlign: 'center',
+  },
+  primaryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    marginTop: spacing.md,
+  },
+  primaryLabel: {
+    color: colors.text,
+    fontWeight: '600',
+  },
+  secondaryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    borderColor: colors.primary,
+    borderWidth: 1,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    marginTop: spacing.md,
+  },
+  secondaryLabel: {
+    color: colors.primary,
+    fontWeight: '500',
+  },
+  preview: {
+    width: '100%',
+    height: 180,
+    borderRadius: radius.md,
+    marginBottom: spacing.sm,
+  },
+  formGroup: {
+    marginTop: spacing.sm,
+  },
+  label: {
+    color: colors.text,
+    fontWeight: '600',
+    marginBottom: spacing.xs,
+  },
+  input: {
+    backgroundColor: colors.cardAlt,
+    color: colors.text,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.cardAlt,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.sm,
+  },
+  inputInline: {
+    flex: 1,
+    color: colors.text,
+    paddingVertical: spacing.sm,
+    marginLeft: spacing.xs,
+  },
+  rewardRow: {
+    marginTop: spacing.md,
+    backgroundColor: '#0f1b2d',
+    padding: spacing.sm,
+    borderRadius: radius.md,
+  },
+  rewardText: {
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  confirmBox: {
+    marginTop: spacing.sm,
+    backgroundColor: colors.cardAlt,
+    padding: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  confirmText: {
+    color: colors.muted,
+    marginTop: spacing.xs,
+  },
+  noticeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+  },
+  noticeText: {
+    color: colors.muted,
+    flex: 1,
+  },
+});
