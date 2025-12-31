@@ -2,9 +2,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { CheckCircle2 } from 'lucide-react-native';
 import { supabase } from '../lib/supabase';
+import { getCached, setCached } from '../lib/cache';
+import { useRealtimeStatus } from '../lib/realtime';
+import { showError, showSuccess } from '../lib/toast';
 import { colors, radius, spacing, gradients } from '../styles/common';
 import { GradientBackground } from '../components/common/GradientBackground';
 import { LinearGradient } from 'expo-linear-gradient';
+import { SkeletonBlock } from '../components/common/Skeleton';
 
 const COMPLETION_TABLE_CANDIDATES = [
   process.env.EXPO_PUBLIC_DAILY_COMPLETION_TABLE,
@@ -12,6 +16,7 @@ const COMPLETION_TABLE_CANDIDATES = [
   'dailyChallengeCompletion',
   'user_daily_challenges',
 ].filter(Boolean) as string[];
+const CACHE_TTL = 1000 * 60 * 5;
 
 type DailyChallenge = {
   id: number;
@@ -43,6 +48,7 @@ function getDailyChallengeIds(): number[] {
 }
 
 export function ChallengesScreen() {
+  const realtimeConnected = useRealtimeStatus();
   const [dailyChallenges, setDailyChallenges] = useState<DailyChallenge[]>([]);
   const [completionMap, setCompletionMap] = useState<Record<number, ChallengeCompletion>>({});
   const [dailyPointsEarned, setDailyPointsEarned] = useState(0);
@@ -52,9 +58,17 @@ export function ChallengesScreen() {
   const [loading, setLoading] = useState(true);
   const [completionLoadingId, setCompletionLoadingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [usingCache, setUsingCache] = useState(false);
 
   useEffect(() => {
     const fetchDailyChallenges = async () => {
+      const dateKey = new Date().toISOString().slice(0, 10);
+      const cached = await getCached<DailyChallenge[]>(`daily-challenges:${dateKey}`, CACHE_TTL);
+      if (cached?.value?.length) {
+        setDailyChallenges(cached.value);
+        setUsingCache(cached.isStale);
+        setLoading(false);
+      }
       const ids = getDailyChallengeIds();
       const { data, error: fetchError } = await supabase
         .from('dailyChallenge')
@@ -68,6 +82,8 @@ export function ChallengesScreen() {
         setDailyChallenges([]);
       } else {
         setDailyChallenges(data ?? []);
+        setCached(`daily-challenges:${dateKey}`, data ?? []);
+        setUsingCache(false);
       }
       setLoading(false);
     };
@@ -148,12 +164,31 @@ export function ChallengesScreen() {
         return acc;
       }, {});
       setCompletionMap(mapped);
+      const dateKey = new Date().toISOString().slice(0, 10);
+      setCached(`daily-completions:${userId}:${dateKey}`, mapped);
+      setUsingCache(false);
     }
   };
 
   useEffect(() => {
     fetchCompletions();
   }, [userId, dailyChallenges, completionTable]);
+
+  useEffect(() => {
+    const loadCompletionCache = async () => {
+      if (!userId) return;
+      const dateKey = new Date().toISOString().slice(0, 10);
+      const cached = await getCached<Record<number, ChallengeCompletion>>(
+        `daily-completions:${userId}:${dateKey}`,
+        CACHE_TTL
+      );
+      if (cached?.value) {
+        setCompletionMap(cached.value);
+        setUsingCache(cached.isStale);
+      }
+    };
+    loadCompletionCache();
+  }, [userId, dailyChallenges.length]);
 
   useEffect(() => {
     if (!userId || !completionTable) return;
@@ -177,11 +212,12 @@ export function ChallengesScreen() {
   }, [userId, completionTable, dailyChallenges]);
 
   useEffect(() => {
+    if (realtimeConnected) return;
     const interval = setInterval(() => {
       fetchCompletions();
     }, 20000);
     return () => clearInterval(interval);
-  }, [userId, dailyChallenges, completionTable]);
+  }, [userId, dailyChallenges, completionTable, realtimeConnected]);
 
   const awardPoints = async (points: number) => {
     if (!userId) return;
@@ -213,10 +249,12 @@ export function ChallengesScreen() {
   const handleCompleteChallenge = async (challengeId: number, points: number) => {
     if (!userId) {
       setError('Morate biti prijavljeni da biste završili izazov.');
+      showError('Greška', 'Morate biti prijavljeni.');
       return;
     }
     if (!completionTable) {
       setError('Nije pronađena tabela za završene izazove.');
+      showError('Greška', 'Tabela za završene izazove nije pronađena.');
       return;
     }
 
@@ -236,12 +274,14 @@ export function ChallengesScreen() {
     if (saveError) {
       console.error('Error saving completion:', saveError);
       setError('Greška prilikom čuvanja završetka izazova.');
+      showError('Greška', 'Ne možemo sačuvati završetak.');
     } else {
       setCompletionMap((prev) => ({
         ...prev,
         [challengeId]: { challenge_id: challengeId, completed_at: payload.completed_at },
       }));
       await awardPoints(points);
+      showSuccess('Uspjeh', 'Izazov je završen.');
     }
 
     setCompletionLoadingId(null);
@@ -273,21 +313,24 @@ export function ChallengesScreen() {
     setDailyPointsEarned(earned);
   }, [completionMap, dailyChallenges]);
 
-  if (loading) {
-    return (
-      <GradientBackground>
-        <View style={styles.centered}>
-          <Text style={styles.text}>Učitavanje...</Text>
-        </View>
-      </GradientBackground>
-    );
-  }
-
   return (
     <GradientBackground>
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.title}>Dnevni izazovi</Text>
+        {usingCache && <Text style={styles.cacheNote}>Prikazujem keširane podatke.</Text>}
         {error && <Text style={styles.error}>{error}</Text>}
+
+        {loading && dailyChallenges.length === 0 ? (
+          <View style={styles.skeletonGroup}>
+            {Array.from({ length: 4 }).map((_, index) => (
+              <View key={`daily-skeleton-${index}`} style={styles.card}>
+                <SkeletonBlock width="60%" height={14} />
+                <SkeletonBlock width="90%" height={10} style={{ marginTop: 8 }} />
+                <SkeletonBlock width="40%" height={12} style={{ marginTop: 12 }} />
+              </View>
+            ))}
+          </View>
+        ) : null}
 
         {dailyChallenges.map((challenge) => {
           const isCompleted = Boolean(completionMap[challenge.id]);
@@ -333,20 +376,15 @@ const styles = StyleSheet.create({
   content: {
     padding: spacing.md,
   },
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.background,
-  },
-  text: {
-    color: colors.text,
-  },
   title: {
     color: colors.text,
     fontSize: 22,
     fontWeight: '600',
     marginBottom: spacing.md,
+  },
+  cacheNote: {
+    color: colors.muted,
+    marginBottom: spacing.sm,
   },
   error: {
     color: colors.danger,
@@ -412,5 +450,9 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '600',
     marginTop: spacing.xs,
+  },
+  skeletonGroup: {
+    gap: spacing.sm,
+    marginBottom: spacing.md,
   },
 });

@@ -2,9 +2,12 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, Text, StyleSheet, View, TextInput, TouchableOpacity } from 'react-native';
 import { Search } from 'lucide-react-native';
 import { supabase } from '../lib/supabase';
+import { getCached, setCached } from '../lib/cache';
+import { useRealtimeStatus } from '../lib/realtime';
 import { colors, radius, spacing, gradients } from '../styles/common';
 import { GradientBackground } from '../components/common/GradientBackground';
 import { LinearGradient } from 'expo-linear-gradient';
+import { SkeletonBlock } from '../components/common/Skeleton';
 
 type Profile = {
   id: string;
@@ -28,14 +31,19 @@ const filterOptions = [
   { id: 'silver', label: 'Silver' },
   { id: 'bronze', label: 'Bronze' },
 ];
+const CACHE_TTL = 1000 * 60 * 5;
 
 export function CommunityScreen() {
+  const realtimeConnected = useRealtimeStatus();
   const [users, setUsers] = useState<Profile[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'gold' | 'silver' | 'bronze'>('all');
+  const [loading, setLoading] = useState(true);
+  const [usingCache, setUsingCache] = useState(false);
 
   const loadLeaderboard = async () => {
+    setLoading(true);
     const { data, error } = await supabase
       .from('korisnik_profil')
       .select('id, korisnicko_ime, ukupno_poena, trenutni_bedz')
@@ -44,14 +52,27 @@ export function CommunityScreen() {
 
     if (error) {
       setError('Greška pri učitavanju rang liste.');
+      setLoading(false);
       return;
     }
 
     setUsers((data ?? []) as Profile[]);
+    setCached('community-leaderboard', (data ?? []) as Profile[]);
+    setUsingCache(false);
+    setLoading(false);
   };
 
   useEffect(() => {
-    loadLeaderboard();
+    const init = async () => {
+      const cached = await getCached<Profile[]>('community-leaderboard', CACHE_TTL);
+      if (cached?.value?.length) {
+        setUsers(cached.value);
+        setUsingCache(cached.isStale);
+        setLoading(false);
+      }
+      loadLeaderboard();
+    };
+    init();
   }, []);
 
   useEffect(() => {
@@ -70,11 +91,12 @@ export function CommunityScreen() {
   }, []);
 
   useEffect(() => {
+    if (realtimeConnected) return;
     const interval = setInterval(() => {
       loadLeaderboard();
     }, 20000);
     return () => clearInterval(interval);
-  }, []);
+  }, [realtimeConnected]);
 
   const filtered = useMemo(() => {
     return users.filter((user) => {
@@ -122,48 +144,77 @@ export function CommunityScreen() {
         </View>
 
         {error && <Text style={styles.error}>{error}</Text>}
+        {usingCache && <Text style={styles.cacheNote}>Prikazujem keširane podatke.</Text>}
 
-        <View style={styles.podiumRow}>
-          {[podium[1], podium[0], podium[2]].map((user, index) => {
-            if (!user) return null;
-            const rank = index === 0 ? 2 : index === 1 ? 1 : 3;
-            const badge = user.trenutni_bedz ?? 'bronze';
-            const badgeColor = badge === 'gold' ? '#fbbf24' : badge === 'silver' ? '#9ca3af' : '#cd7f32';
-            const orderStyle = rank === 1 ? styles.podiumFirst : rank === 2 ? styles.podiumSecond : styles.podiumThird;
-            return (
-              <View key={user.id} style={[styles.podiumItem, orderStyle]}>
-                <LinearGradient colors={[badgeColor, '#0f172a']} style={styles.podiumRank}>
-                  <Text style={styles.podiumRankText}>{rank}</Text>
-                </LinearGradient>
-                <LinearGradient colors={gradients.primary} style={styles.podiumAvatar}>
-                  <Text style={styles.podiumAvatarText}>{user.korisnicko_ime?.[0]?.toUpperCase() ?? 'U'}</Text>
-                </LinearGradient>
-                <Text style={styles.podiumName}>{user.korisnicko_ime}</Text>
-                <Text style={styles.podiumPoints}>{user.ukupno_poena ?? 0} poena</Text>
-              </View>
-            );
-          })}
-        </View>
+        {loading && users.length === 0 ? (
+          <View style={styles.skeletonWrap}>
+            <View style={styles.podiumRow}>
+              {Array.from({ length: 3 }).map((_, index) => (
+                <View key={`podium-skeleton-${index}`} style={styles.podiumItem}>
+                  <SkeletonBlock width={40} height={40} radiusSize={20} />
+                  <SkeletonBlock width={48} height={48} radiusSize={24} style={{ marginTop: 12 }} />
+                  <SkeletonBlock width={80} height={12} style={{ marginTop: 10 }} />
+                  <SkeletonBlock width={60} height={10} style={{ marginTop: 6 }} />
+                </View>
+              ))}
+            </View>
+            <View style={styles.listSection}>
+              {Array.from({ length: 4 }).map((_, index) => (
+                <View key={`list-skeleton-${index}`} style={styles.listItem}>
+                  <View>
+                    <SkeletonBlock width={120} height={12} />
+                    <SkeletonBlock width={80} height={10} style={{ marginTop: 8 }} />
+                  </View>
+                  <SkeletonBlock width={50} height={12} />
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : (
+          <>
+            <View style={styles.podiumRow}>
+              {[podium[1], podium[0], podium[2]].map((user, index) => {
+                if (!user) return null;
+                const rank = index === 0 ? 2 : index === 1 ? 1 : 3;
+                const badge = user.trenutni_bedz ?? 'bronze';
+                const badgeColor = badge === 'gold' ? '#fbbf24' : badge === 'silver' ? '#9ca3af' : '#cd7f32';
+                const orderStyle = rank === 1 ? styles.podiumFirst : rank === 2 ? styles.podiumSecond : styles.podiumThird;
+                return (
+                  <View key={user.id} style={[styles.podiumItem, orderStyle]}>
+                    <LinearGradient colors={[badgeColor, '#0f172a']} style={styles.podiumRank}>
+                      <Text style={styles.podiumRankText}>{rank}</Text>
+                    </LinearGradient>
+                    <LinearGradient colors={gradients.primary} style={styles.podiumAvatar}>
+                      <Text style={styles.podiumAvatarText}>{user.korisnicko_ime?.[0]?.toUpperCase() ?? 'U'}</Text>
+                    </LinearGradient>
+                    <Text style={styles.podiumName}>{user.korisnicko_ime}</Text>
+                    <Text style={styles.podiumPoints}>{user.ukupno_poena ?? 0} poena</Text>
+                  </View>
+                );
+              })}
+            </View>
 
-        <View style={styles.listSection}>
-          {rest.map((user, index) => {
-            const rank = index + 4;
-            const badge = user.trenutni_bedz ?? 'bronze';
-            const badgeColor = badge === 'gold' ? colors.gold : badge === 'silver' ? colors.silver : colors.bronze;
-            return (
-              <View key={user.id} style={[styles.listItem, { borderColor: badgeColor }]}> 
-                <View>
-                  <Text style={styles.listName}>{rank}. {user.korisnicko_ime}</Text>
-                  <Text style={styles.listLevel}>{levelLabelFromPoints(user.ukupno_poena ?? 0)}</Text>
-                </View>
-                <View style={styles.listPoints}>
-                  <Text style={styles.pointsValue}>{user.ukupno_poena ?? 0}</Text>
-                  <Text style={[styles.badgeText, { color: badgeColor }]}>{badge}</Text>
-                </View>
-              </View>
-            );
-          })}
-        </View>
+            <View style={styles.listSection}>
+              {rest.map((user, index) => {
+                const rank = index + 4;
+                const badge = user.trenutni_bedz ?? 'bronze';
+                const badgeColor = badge === 'gold' ? colors.gold : badge === 'silver' ? colors.silver : colors.bronze;
+                return (
+                  <View key={user.id} style={[styles.listItem, { borderColor: badgeColor }]}> 
+                    <View>
+                      <Text style={styles.listName}>{rank}. {user.korisnicko_ime}</Text>
+                      <Text style={styles.listLevel}>{levelLabelFromPoints(user.ukupno_poena ?? 0)}</Text>
+                    </View>
+                    <View style={styles.listPoints}>
+                      <Text style={styles.pointsValue}>{user.ukupno_poena ?? 0}</Text>
+                      <Text style={[styles.badgeText, { color: badgeColor }]}>{badge}</Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          </>
+        )}
       </ScrollView>
     </GradientBackground>
   );
@@ -186,6 +237,10 @@ const styles = StyleSheet.create({
   subtitle: {
     color: colors.softGreen,
     marginTop: spacing.xs,
+  },
+  cacheNote: {
+    color: colors.muted,
+    marginBottom: spacing.sm,
   },
   searchContainer: {
     position: 'relative',
@@ -324,5 +379,8 @@ const styles = StyleSheet.create({
   badgeText: {
     marginTop: spacing.xs,
     fontWeight: '600',
+  },
+  skeletonWrap: {
+    gap: spacing.md,
   },
 });

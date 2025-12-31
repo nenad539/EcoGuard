@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Modal, View, Text, StyleSheet, TouchableOpacity, Image, TextInput, ActivityIndicator, Alert, ScrollView } from 'react-native';
+import { Modal, View, Text, StyleSheet, TouchableOpacity, Image, TextInput, ActivityIndicator, ScrollView } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { Camera, X, Check, Upload, MapPin, Clock } from 'lucide-react-native';
+import { Camera, X, Upload, MapPin, Clock } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, radius, spacing, gradients } from '../styles/common';
+import { showError } from '../lib/toast';
 
 type PhotoSubmissionProps = {
   visible: boolean;
@@ -12,10 +13,10 @@ type PhotoSubmissionProps = {
   challengePoints: number;
   onSubmit: (submission: {
     challengeId: number;
-    photo: string;
+    photoUri: string;
     description: string;
     location?: string;
-  }) => void;
+  }, onProgress?: (value: number) => void) => Promise<{ success: boolean; error?: string }>;
   onCancel: () => void;
 };
 
@@ -29,17 +30,19 @@ export function PhotoSubmission({
 }: PhotoSubmissionProps) {
   const [submissionStep, setSubmissionStep] = useState<'capture' | 'details' | 'confirm'>('capture');
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [photoData, setPhotoData] = useState<string | null>(null);
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const resetState = () => {
     setSubmissionStep('capture');
     setPhotoPreview(null);
-    setPhotoData(null);
     setDescription('');
     setLocation('');
+    setUploadProgress(0);
+    setSubmitError(null);
   };
 
   const handleCancel = () => {
@@ -50,12 +53,11 @@ export function PhotoSubmission({
   const capturePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Dozvola potrebna', 'Omogućite pristup kameri.');
+      showError('Dozvola potrebna', 'Omogućite pristup kameri.');
       return;
     }
 
     const result = await ImagePicker.launchCameraAsync({
-      base64: true,
       quality: 0.7,
     });
 
@@ -63,37 +65,41 @@ export function PhotoSubmission({
 
     const asset = result.assets?.[0];
     if (!asset?.uri) {
-      Alert.alert('Greška', 'Fotografija nije učitana.');
+      showError('Greška', 'Fotografija nije učitana.');
       return;
     }
 
     setPhotoPreview(asset.uri);
-    if (asset.base64) {
-      setPhotoData(`data:image/jpeg;base64,${asset.base64}`);
-    } else {
-      // Fallback to URI if base64 is unavailable on the device.
-      setPhotoData(asset.uri);
-    }
     setSubmissionStep('details');
   };
 
   const handleSubmit = async () => {
-    if (!photoData && !photoPreview) {
-      Alert.alert('Greška', 'Dodajte fotografiju prije slanja.');
+    if (!photoPreview) {
+      showError('Greška', 'Dodajte fotografiju prije slanja.');
       return;
     }
 
     setIsSubmitting(true);
+    setSubmitError(null);
+    setUploadProgress(0.05);
     try {
-      onSubmit({
-        challengeId,
-        photo: photoData ?? photoPreview ?? '',
-        description,
-        location,
-      });
+      const result = await onSubmit(
+        {
+          challengeId,
+          photoUri: photoPreview,
+          description,
+          location,
+        },
+        setUploadProgress
+      );
+      if (!result.success) {
+        setSubmitError(result.error ?? 'Neuspješno slanje fotografije.');
+        return;
+      }
+      setUploadProgress(1);
+      resetState();
     } finally {
       setIsSubmitting(false);
-      resetState();
     }
   };
 
@@ -191,6 +197,13 @@ export function PhotoSubmission({
                 </View>
               </View>
 
+              {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
+              {isSubmitting ? (
+                <View style={styles.progressTrack}>
+                  <View style={[styles.progressFill, { width: `${Math.round(uploadProgress * 100)}%` }]} />
+                </View>
+              ) : null}
+
               <View style={styles.actionsRow}>
                 <TouchableOpacity style={styles.secondaryButton} onPress={() => setSubmissionStep('details')} disabled={isSubmitting}>
                   <Text style={styles.secondaryLabel}>Nazad</Text>
@@ -202,7 +215,9 @@ export function PhotoSubmission({
                     ) : (
                       <>
                         <Upload color={colors.text} size={16} />
-                        <Text style={styles.primaryLabel}>Pošalji</Text>
+                        <Text style={styles.primaryLabel}>
+                          {submitError ? 'Pokušaj ponovo' : 'Pošalji'}
+                        </Text>
                       </>
                     )}
                   </LinearGradient>
@@ -369,5 +384,21 @@ const styles = StyleSheet.create({
   noticeText: {
     color: colors.muted,
     flex: 1,
+  },
+  errorText: {
+    color: colors.danger,
+    marginTop: spacing.sm,
+  },
+  progressTrack: {
+    height: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(148, 163, 184, 0.25)',
+    marginTop: spacing.sm,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: colors.primary,
   },
 });

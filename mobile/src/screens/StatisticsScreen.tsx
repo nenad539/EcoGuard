@@ -2,14 +2,22 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, Text, StyleSheet, View, TouchableOpacity } from 'react-native';
 import { TrendingUp, Award, Target, Recycle, Droplet, Battery, Flame } from 'lucide-react-native';
 import { supabase } from '../lib/supabase';
+import { getCached, setCached } from '../lib/cache';
+import { useRealtimeStatus } from '../lib/realtime';
 import { colors, radius, spacing, gradients } from '../styles/common';
 import { GradientBackground } from '../components/common/GradientBackground';
 import { LinearGradient } from 'expo-linear-gradient';
+import { SkeletonBlock } from '../components/common/Skeleton';
+
+const CACHE_TTL = 1000 * 60 * 5;
 
 export function StatisticsScreen() {
+  const realtimeConnected = useRealtimeStatus();
   const [timeFilter, setTimeFilter] = useState<'day' | 'week' | 'month'>('week');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [usingCache, setUsingCache] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
 
   const [recikliranoStvari, setRecikliranoStvari] = useState<number | null>(null);
   const [ustedjenaEnergija, setUstedjenaEnergija] = useState<number | null>(null);
@@ -20,11 +28,17 @@ export function StatisticsScreen() {
   const [rank, setRank] = useState<number | null>(null);
 
   const getUserId = async (): Promise<string | undefined> => {
+    if (userId) return userId;
     const { data: authData } = await supabase.auth.getUser();
-    if (authData?.user?.id) return authData.user.id;
+    if (authData?.user?.id) {
+      setUserId(authData.user.id);
+      return authData.user.id;
+    }
 
     const { data } = await supabase.from('korisnik_profil').select('id').limit(1);
-    return data?.[0]?.id;
+    const fallbackId = data?.[0]?.id;
+    if (fallbackId) setUserId(fallbackId);
+    return fallbackId;
   };
 
   const refreshStats = async () => {
@@ -59,6 +73,17 @@ export function StatisticsScreen() {
 
     const idx = leaderboard?.findIndex((row) => row.id === userId);
     if (idx != null && idx >= 0) setRank(idx + 1);
+
+    setCached(`stats:${userId}`, {
+      reciklirano_stvari: profile?.reciklirano_stvari ?? null,
+      ustedjena_energija: profile?.ustedjena_energija ?? null,
+      smanjen_co2: profile?.smanjen_co2 ?? null,
+      izazova_zavrseno: profile?.izazova_zavrseno ?? null,
+      dnevna_serija: profile?.dnevna_serija ?? null,
+      ukupno_poena: profile?.ukupno_poena ?? null,
+      rank: idx != null && idx >= 0 ? idx + 1 : null,
+    });
+    setUsingCache(false);
   };
 
   useEffect(() => {
@@ -67,6 +92,29 @@ export function StatisticsScreen() {
       setLoading(true);
       setError(null);
       try {
+        const uid = await getUserId();
+        if (uid) {
+          const cached = await getCached<{
+            reciklirano_stvari: number | null;
+            ustedjena_energija: number | null;
+            smanjen_co2: number | null;
+            izazova_zavrseno: number | null;
+            dnevna_serija: number | null;
+            ukupno_poena: number | null;
+            rank: number | null;
+          }>(`stats:${uid}`, CACHE_TTL);
+          if (cached?.value) {
+            setRecikliranoStvari(cached.value.reciklirano_stvari);
+            setUstedjenaEnergija(cached.value.ustedjena_energija);
+            setSmanjenCo2(cached.value.smanjen_co2);
+            setIzazovaZavrseno(cached.value.izazova_zavrseno);
+            setDnevnaSerija(cached.value.dnevna_serija);
+            setUkupnoPoena(cached.value.ukupno_poena);
+            setRank(cached.value.rank);
+            setUsingCache(cached.isStale);
+            setLoading(false);
+          }
+        }
         await refreshStats();
       } catch (err) {
         console.error(err);
@@ -105,11 +153,12 @@ export function StatisticsScreen() {
   }, []);
 
   useEffect(() => {
+    if (realtimeConnected) return;
     const interval = setInterval(() => {
       refreshStats();
     }, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [realtimeConnected]);
 
   const pointsData = useMemo(() => {
     if (timeFilter === 'day') return [30, 45, 60, 40];
@@ -148,6 +197,7 @@ export function StatisticsScreen() {
           ))}
         </View>
 
+        {usingCache && <Text style={styles.cacheNote}>Prikazujem keširane podatke.</Text>}
         {loading && <Text style={styles.muted}>Učitavanje...</Text>}
         {error && <Text style={styles.error}>{error}</Text>}
 
@@ -157,14 +207,22 @@ export function StatisticsScreen() {
               <Award size={18} color={colors.text} />
             </LinearGradient>
             <Text style={styles.summaryLabel}>Ukupno poena</Text>
-            <Text style={styles.summaryValue}>{ukupnoPoena ?? 0}</Text>
+            {loading && ukupnoPoena == null ? (
+              <SkeletonBlock width={60} height={14} />
+            ) : (
+              <Text style={styles.summaryValue}>{ukupnoPoena ?? 0}</Text>
+            )}
           </View>
           <View style={styles.summaryCard}>
             <LinearGradient colors={gradients.primary} style={styles.summaryIcon}>
               <Target size={18} color={colors.text} />
             </LinearGradient>
             <Text style={styles.summaryLabel}>Izazova završeno</Text>
-            <Text style={styles.summaryValue}>{izazovaZavrseno ?? 0}</Text>
+            {loading && izazovaZavrseno == null ? (
+              <SkeletonBlock width={60} height={14} />
+            ) : (
+              <Text style={styles.summaryValue}>{izazovaZavrseno ?? 0}</Text>
+            )}
           </View>
         </View>
 
@@ -174,14 +232,22 @@ export function StatisticsScreen() {
               <TrendingUp size={18} color={colors.text} />
             </LinearGradient>
             <Text style={styles.summaryLabel}>Rang</Text>
-            <Text style={styles.summaryValue}>{rank ?? '-'}</Text>
+            {loading && rank == null ? (
+              <SkeletonBlock width={40} height={14} />
+            ) : (
+              <Text style={styles.summaryValue}>{rank ?? '-'}</Text>
+            )}
           </View>
           <View style={styles.summaryCard}>
             <LinearGradient colors={gradients.primary} style={styles.summaryIcon}>
               <Flame size={18} color={colors.text} />
             </LinearGradient>
             <Text style={styles.summaryLabel}>Dnevna serija</Text>
-            <Text style={styles.summaryValue}>{dnevnaSerija ?? 0}</Text>
+            {loading && dnevnaSerija == null ? (
+              <SkeletonBlock width={40} height={14} />
+            ) : (
+              <Text style={styles.summaryValue}>{dnevnaSerija ?? 0}</Text>
+            )}
           </View>
         </View>
 
@@ -284,6 +350,10 @@ const styles = StyleSheet.create({
   },
   error: {
     color: colors.danger,
+    marginBottom: spacing.sm,
+  },
+  cacheNote: {
+    color: colors.muted,
     marginBottom: spacing.sm,
   },
   summaryGrid: {

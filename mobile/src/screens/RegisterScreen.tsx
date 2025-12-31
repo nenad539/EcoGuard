@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Switch, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Switch, TextInput } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Leaf, Shield, Mail, Lock, User } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabase';
 import { colors, radius, spacing, gradients } from '../styles/common';
 import { GradientBackground } from '../components/common/GradientBackground';
 import { LinearGradient } from 'expo-linear-gradient';
+import { showError, showSuccess } from '../lib/toast';
 
 export function RegisterScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -21,15 +22,15 @@ export function RegisterScreen() {
 
   const handleRegister = async () => {
     if (!email || !password) {
-      Alert.alert('Greška', 'Popunite email i lozinku');
+      showError('Greška', 'Popunite email i lozinku');
       return;
     }
     if (password !== confirmPassword) {
-      Alert.alert('Greška', 'Lozinke se ne poklapaju');
+      showError('Greška', 'Lozinke se ne poklapaju');
       return;
     }
     if (!termsAccepted) {
-      Alert.alert('Greška', 'Morate prihvatiti uslove korišćenja');
+      showError('Greška', 'Morate prihvatiti uslove korišćenja');
       return;
     }
 
@@ -43,7 +44,7 @@ export function RegisterScreen() {
 
     if (error) {
       setLoading(false);
-      Alert.alert('Greška', error.message);
+      showError('Greška', error.message);
       return;
     }
 
@@ -53,7 +54,7 @@ export function RegisterScreen() {
     }
 
     setLoading(false);
-    Alert.alert('Uspešno', 'Proverite email za potvrdu naloga.');
+    showSuccess('Uspešno', 'Proverite email za potvrdu naloga.');
     navigation.replace('Login');
   };
 

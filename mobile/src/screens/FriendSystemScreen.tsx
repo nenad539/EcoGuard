@@ -2,11 +2,17 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, Text, StyleSheet, View, TouchableOpacity, TextInput } from 'react-native';
 import { Search, Users, UserPlus, Mail } from 'lucide-react-native';
 import { supabase } from '../lib/supabase';
+import { getCached, setCached } from '../lib/cache';
+import { useRealtimeStatus } from '../lib/realtime';
+import { showError, showSuccess } from '../lib/toast';
 import { colors, radius, spacing, gradients } from '../styles/common';
 import { GradientBackground } from '../components/common/GradientBackground';
 import { LinearGradient } from 'expo-linear-gradient';
+import { SkeletonBlock } from '../components/common/Skeleton';
 
 const FRIENDS_TABLE = 'prijatelji';
+const NOTIFICATIONS_TABLE = 'notifications';
+const CACHE_TTL = 1000 * 60 * 5;
 
 type Profile = {
   id: string;
@@ -25,6 +31,7 @@ type FriendLink = {
 type TabKey = 'friends' | 'requests' | 'suggestions';
 
 export function FriendSystemScreen() {
+  const realtimeConnected = useRealtimeStatus();
   const [userId, setUserId] = useState<string | null>(null);
   const [friends, setFriends] = useState<Profile[]>([]);
   const [pendingIn, setPendingIn] = useState<FriendLink[]>([]);
@@ -33,6 +40,9 @@ export function FriendSystemScreen() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<TabKey>('friends');
+  const [loadingConnections, setLoadingConnections] = useState(true);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(true);
+  const [usingCache, setUsingCache] = useState(false);
 
   const fetchUserId = async () => {
     const { data } = await supabase.auth.getUser();
@@ -40,6 +50,7 @@ export function FriendSystemScreen() {
   };
 
   const loadConnections = async (uid: string) => {
+    setLoadingConnections(true);
     const { data, error: linksError } = await supabase
       .from(FRIENDS_TABLE)
       .select('*')
@@ -47,17 +58,23 @@ export function FriendSystemScreen() {
 
     if (linksError) {
       setError('Greška pri učitavanju prijatelja.');
+      showError('Greška', 'Ne mogu učitati prijatelje.');
+      setLoadingConnections(false);
       return;
     }
 
     const links = (data ?? []) as FriendLink[];
-    setPendingIn(links.filter((l) => l.status === 'pending' && l.korisnik_do === uid));
-    setPendingOut(links.filter((l) => l.status === 'pending' && l.korisnik_od === uid));
+    const nextPendingIn = links.filter((l) => l.status === 'pending' && l.korisnik_do === uid);
+    const nextPendingOut = links.filter((l) => l.status === 'pending' && l.korisnik_od === uid);
+    setPendingIn(nextPendingIn);
+    setPendingOut(nextPendingOut);
 
     const accepted = links.filter((l) => l.status === 'accepted');
     const otherIds = accepted.map((l) => (l.korisnik_od === uid ? l.korisnik_do : l.korisnik_od));
     if (otherIds.length === 0) {
       setFriends([]);
+      setCached(`friends:${uid}`, { friends: [], pendingIn: nextPendingIn, pendingOut: nextPendingOut });
+      setLoadingConnections(false);
       return;
     }
 
@@ -66,17 +83,26 @@ export function FriendSystemScreen() {
       .select('id, korisnicko_ime, ukupno_poena, trenutni_bedz')
       .in('id', otherIds);
 
-    setFriends((profiles ?? []) as Profile[]);
+    const nextFriends = (profiles ?? []) as Profile[];
+    setFriends(nextFriends);
+    setCached(`friends:${uid}`, { friends: nextFriends, pendingIn: nextPendingIn, pendingOut: nextPendingOut });
+    setUsingCache(false);
+    setLoadingConnections(false);
   };
 
   const loadSuggestions = async (uid: string) => {
+    setLoadingSuggestions(true);
     const { data } = await supabase
       .from('korisnik_profil')
       .select('id, korisnicko_ime, ukupno_poena, trenutni_bedz')
       .neq('id', uid)
       .limit(10);
 
-    setSuggestions((data ?? []) as Profile[]);
+    const nextSuggestions = (data ?? []) as Profile[];
+    setSuggestions(nextSuggestions);
+    setCached(`friend-suggestions:${uid}`, nextSuggestions);
+    setUsingCache(false);
+    setLoadingSuggestions(false);
   };
 
   useEffect(() => {
@@ -84,6 +110,23 @@ export function FriendSystemScreen() {
       const uid = await fetchUserId();
       setUserId(uid);
       if (!uid) return;
+      const cachedFriends = await getCached<{ friends: Profile[]; pendingIn: FriendLink[]; pendingOut: FriendLink[] }>(
+        `friends:${uid}`,
+        CACHE_TTL
+      );
+      if (cachedFriends?.value) {
+        setFriends(cachedFriends.value.friends ?? []);
+        setPendingIn(cachedFriends.value.pendingIn ?? []);
+        setPendingOut(cachedFriends.value.pendingOut ?? []);
+        setUsingCache(cachedFriends.isStale);
+        setLoadingConnections(false);
+      }
+      const cachedSuggestions = await getCached<Profile[]>(`friend-suggestions:${uid}`, CACHE_TTL);
+      if (cachedSuggestions?.value?.length) {
+        setSuggestions(cachedSuggestions.value);
+        setUsingCache(cachedSuggestions.isStale);
+        setLoadingSuggestions(false);
+      }
       await loadConnections(uid);
       await loadSuggestions(uid);
     };
@@ -127,41 +170,115 @@ export function FriendSystemScreen() {
   }, [userId]);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || realtimeConnected) return;
     const interval = setInterval(() => {
       loadConnections(userId);
       loadSuggestions(userId);
     }, 20000);
     return () => clearInterval(interval);
-  }, [userId]);
+  }, [userId, realtimeConnected]);
 
   const sendRequest = async (targetId: string) => {
     if (!userId) return;
     setError(null);
-    const { error: insertError } = await supabase
+
+    const optimistic: FriendLink = {
+      id: `temp-${targetId}`,
+      korisnik_od: userId,
+      korisnik_do: targetId,
+      status: 'pending',
+    };
+    const previousSuggestions = suggestions;
+    setPendingOut((prev) => [...prev, optimistic]);
+    setSuggestions((prev) => prev.filter((s) => s.id !== targetId));
+
+    const { data: link, error: insertError } = await supabase
       .from(FRIENDS_TABLE)
-      .insert({ korisnik_od: userId, korisnik_do: targetId, status: 'pending' });
+      .insert({ korisnik_od: userId, korisnik_do: targetId, status: 'pending' })
+      .select('id')
+      .single();
 
     if (insertError) {
       setError('Ne možemo poslati zahtjev.');
+      showError('Greška', 'Ne možemo poslati zahtjev.');
+      setPendingOut((prev) => prev.filter((item) => item.id !== optimistic.id));
+      setSuggestions(previousSuggestions);
       return;
     }
 
+    setPendingOut((prev) =>
+      prev.map((item) => (item.id === optimistic.id ? { ...item, id: link?.id ?? item.id } : item))
+    );
+
+    const { data: profile } = await supabase
+      .from('korisnik_profil')
+      .select('korisnicko_ime')
+      .eq('id', userId)
+      .maybeSingle();
+    const senderName = profile?.korisnicko_ime ?? 'Korisnik';
+
+    if (link?.id) {
+      await supabase.from(NOTIFICATIONS_TABLE).insert({
+        korisnik_id: targetId,
+        title: 'Novi zahtjev za prijateljstvo',
+        body: `${senderName} vam je poslao zahtjev za prijateljstvo.`,
+        type: 'friend_request',
+        related_id: link.id,
+        status: 'unread',
+      });
+    }
+
+    showSuccess('Poslato', 'Zahtjev je poslat.');
     await loadConnections(userId);
   };
 
-  const acceptRequest = async (linkId: string) => {
+  const acceptRequest = async (link: FriendLink) => {
     if (!userId) return;
+    setPendingIn((prev) => prev.filter((item) => item.id !== link.id));
     const { error: updateError } = await supabase
       .from(FRIENDS_TABLE)
       .update({ status: 'accepted' })
-      .eq('id', linkId);
+      .eq('id', link.id);
 
     if (updateError) {
       setError('Ne možemo prihvatiti zahtjev.');
+      showError('Greška', 'Ne možemo prihvatiti zahtjev.');
+      setPendingIn((prev) => [...prev, link]);
       return;
     }
 
+    const { data: profile } = await supabase
+      .from('korisnik_profil')
+      .select('korisnicko_ime')
+      .eq('id', userId)
+      .maybeSingle();
+    const receiverName = profile?.korisnicko_ime ?? 'Korisnik';
+
+    const { data: friendProfile } = await supabase
+      .from('korisnik_profil')
+      .select('id, korisnicko_ime, ukupno_poena, trenutni_bedz')
+      .eq('id', link.korisnik_od)
+      .maybeSingle();
+    if (friendProfile) {
+      setFriends((prev) => [friendProfile as Profile, ...prev]);
+    }
+
+    await supabase.from(NOTIFICATIONS_TABLE).insert({
+      korisnik_id: link.korisnik_od,
+      title: 'Zahtjev prihvaćen',
+      body: `${receiverName} je prihvatio/la vaš zahtjev.`,
+      type: 'friend_accept',
+      related_id: link.id,
+      status: 'unread',
+    });
+
+    await supabase
+      .from(NOTIFICATIONS_TABLE)
+      .update({ status: 'read' })
+      .eq('related_id', link.id)
+      .eq('korisnik_id', userId);
+
+    showSuccess('Uspjeh', 'Zahtjev je prihvaćen.');
     await loadConnections(userId);
   };
 
@@ -217,10 +334,23 @@ export function FriendSystemScreen() {
         </View>
 
         {error && <Text style={styles.error}>{error}</Text>}
+        {usingCache && <Text style={styles.cacheNote}>Prikazujem keširane podatke.</Text>}
 
         {activeTab === 'friends' && (
           <View style={styles.section}>
-            {filteredFriends.length === 0 ? (
+            {loadingConnections && filteredFriends.length === 0 ? (
+              <View style={styles.skeletonGroup}>
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <View key={`friend-skeleton-${index}`} style={styles.card}>
+                    <View>
+                      <SkeletonBlock width={120} height={14} />
+                      <SkeletonBlock width={80} height={10} style={{ marginTop: 8 }} />
+                    </View>
+                    <SkeletonBlock width={50} height={12} />
+                  </View>
+                ))}
+              </View>
+            ) : filteredFriends.length === 0 ? (
               <Text style={styles.muted}>Još nemate prijatelja.</Text>
             ) : (
               filteredFriends.map((friend) => (
@@ -238,14 +368,23 @@ export function FriendSystemScreen() {
 
         {activeTab === 'requests' && (
           <View style={styles.section}>
-            {pendingIn.length === 0 && pendingOut.length === 0 ? (
+            {loadingConnections && pendingIn.length === 0 && pendingOut.length === 0 ? (
+              <View style={styles.skeletonGroup}>
+                {Array.from({ length: 2 }).map((_, index) => (
+                  <View key={`request-skeleton-${index}`} style={styles.card}>
+                    <SkeletonBlock width={150} height={14} />
+                    <SkeletonBlock width={80} height={10} style={{ marginTop: 8 }} />
+                  </View>
+                ))}
+              </View>
+            ) : pendingIn.length === 0 && pendingOut.length === 0 ? (
               <Text style={styles.muted}>Nema aktivnih zahtjeva.</Text>
             ) : (
               <>
                 {pendingIn.map((req) => (
                   <View key={req.id} style={styles.card}>
                     <Text style={styles.cardTitle}>Primljen zahtjev</Text>
-                    <TouchableOpacity onPress={() => acceptRequest(req.id)}>
+                    <TouchableOpacity onPress={() => acceptRequest(req)}>
                       <LinearGradient colors={gradients.primary} style={styles.actionButton}>
                         <Text style={styles.actionLabel}>Prihvati</Text>
                       </LinearGradient>
@@ -264,7 +403,20 @@ export function FriendSystemScreen() {
 
         {activeTab === 'suggestions' && (
           <View style={styles.section}>
-            {suggestions.map((suggestion) => (
+            {loadingSuggestions && suggestions.length === 0 ? (
+              <View style={styles.skeletonGroup}>
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <View key={`suggestion-skeleton-${index}`} style={styles.card}>
+                    <View>
+                      <SkeletonBlock width={120} height={14} />
+                      <SkeletonBlock width={80} height={10} style={{ marginTop: 8 }} />
+                    </View>
+                    <SkeletonBlock width={70} height={12} />
+                  </View>
+                ))}
+              </View>
+            ) : (
+              suggestions.map((suggestion) => (
               <View key={suggestion.id} style={styles.card}>
                 <View>
                   <Text style={styles.cardTitle}>{suggestion.korisnicko_ime}</Text>
@@ -276,7 +428,8 @@ export function FriendSystemScreen() {
                   </LinearGradient>
                 </TouchableOpacity>
               </View>
-            ))}
+            ))
+            )}
           </View>
         )}
       </ScrollView>
@@ -396,5 +549,12 @@ const styles = StyleSheet.create({
   error: {
     color: colors.danger,
     marginBottom: spacing.sm,
+  },
+  cacheNote: {
+    color: colors.muted,
+    marginBottom: spacing.sm,
+  },
+  skeletonGroup: {
+    gap: spacing.sm,
   },
 });

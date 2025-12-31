@@ -5,11 +5,15 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { supabase } from '../lib/supabase';
+import { getCached, setCached } from '../lib/cache';
+import { useRealtimeStatus } from '../lib/realtime';
 import { colors, radius, spacing, gradients } from '../styles/common';
 import { GradientBackground } from '../components/common/GradientBackground';
 import { LinearGradient } from 'expo-linear-gradient';
+import { SkeletonBlock } from '../components/common/Skeleton';
 
 const ACTIVITY_TABLE = 'aktivnosti';
+const CACHE_TTL = 1000 * 60 * 5;
 
 type Activity = {
   id: string;
@@ -21,12 +25,17 @@ type Activity = {
 };
 
 export function HomeScreen() {
+  const realtimeConnected = useRealtimeStatus();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const [userId, setUserId] = useState<string | null>(null);
   const [userName, setUserName] = useState('');
   const [userPoints, setUserPoints] = useState(0);
   const [userBadge, setUserBadge] = useState<'gold' | 'silver' | 'bronze'>('bronze');
   const [userStreak, setUserStreak] = useState('0');
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [loadingActivities, setLoadingActivities] = useState(true);
+  const [usingCache, setUsingCache] = useState(false);
 
   const levelLabelFromPoints = (pts: number) => {
     if (pts >= 5000) return 'Legenda prirode';
@@ -38,12 +47,15 @@ export function HomeScreen() {
   };
 
   const getCurrentUserId = async () => {
+    if (userId) return userId;
     const { data, error } = await supabase.auth.getUser();
     if (error) {
       console.error('Auth error:', error);
       return null;
     }
-    return data.user?.id ?? null;
+    const uid = data.user?.id ?? null;
+    setUserId(uid);
+    return uid;
   };
 
   const updateAndGetStreak = async () => {
@@ -93,17 +105,19 @@ export function HomeScreen() {
   }, []);
 
   const loadProfile = async () => {
-    const userId = await getCurrentUserId();
-    if (!userId) return;
+    const uid = await getCurrentUserId();
+    if (!uid) return;
+    setLoadingProfile(true);
 
     const { data, error } = await supabase
       .from('korisnik_profil')
       .select('korisnicko_ime, ukupno_poena, trenutni_bedz')
-      .eq('id', userId)
+      .eq('id', uid)
       .single();
 
     if (error || !data) {
       console.error('Profile error', error);
+      setLoadingProfile(false);
       return;
     }
 
@@ -112,33 +126,65 @@ export function HomeScreen() {
     if (data.trenutni_bedz) {
       setUserBadge(data.trenutni_bedz);
     }
+    setCached(`home-profile:${uid}`, {
+      korisnicko_ime: data.korisnicko_ime ?? 'Korisnik',
+      ukupno_poena: data.ukupno_poena ?? 0,
+      trenutni_bedz: data.trenutni_bedz ?? 'bronze',
+    });
+    setUsingCache(false);
+    setLoadingProfile(false);
   };
 
   const loadActivities = async () => {
-    const userId = await getCurrentUserId();
-    if (!userId) return;
+    const uid = await getCurrentUserId();
+    if (!uid) return;
+    setLoadingActivities(true);
 
     const { data, error } = await supabase
       .from(ACTIVITY_TABLE)
       .select('id, opis, poena_dodato, kategorija, status, kreirano_u')
-      .eq('korisnik_id', userId)
+      .eq('korisnik_id', uid)
       .order('kreirano_u', { ascending: false })
       .limit(5);
 
     if (error) {
       console.error('Activity error', error);
+      setLoadingActivities(false);
       return;
     }
 
     setActivities(data ?? []);
+    setCached(`home-activities:${uid}`, data ?? []);
+    setUsingCache(false);
+    setLoadingActivities(false);
   };
 
   useEffect(() => {
-    loadProfile();
-  }, []);
-
-  useEffect(() => {
-    loadActivities();
+    const init = async () => {
+      const uid = await getCurrentUserId();
+      if (!uid) return;
+      const cachedProfile = await getCached<{
+        korisnicko_ime: string;
+        ukupno_poena: number;
+        trenutni_bedz: 'gold' | 'silver' | 'bronze';
+      }>(`home-profile:${uid}`, CACHE_TTL);
+      if (cachedProfile?.value) {
+        setUserName(cachedProfile.value.korisnicko_ime);
+        setUserPoints(cachedProfile.value.ukupno_poena);
+        setUserBadge(cachedProfile.value.trenutni_bedz);
+        setUsingCache(cachedProfile.isStale);
+        setLoadingProfile(false);
+      }
+      const cachedActivities = await getCached<Activity[]>(`home-activities:${uid}`, CACHE_TTL);
+      if (cachedActivities?.value?.length) {
+        setActivities(cachedActivities.value);
+        setUsingCache(cachedActivities.isStale);
+        setLoadingActivities(false);
+      }
+      loadProfile();
+      loadActivities();
+    };
+    init();
   }, []);
 
   useEffect(() => {
@@ -173,12 +219,13 @@ export function HomeScreen() {
   }, []);
 
   useEffect(() => {
+    if (realtimeConnected) return;
     const interval = setInterval(() => {
       loadProfile();
       loadActivities();
     }, 15000);
     return () => clearInterval(interval);
-  }, []);
+  }, [realtimeConnected]);
 
   const badgeLabel = userBadge === 'gold' ? 'Gold' : userBadge === 'silver' ? 'Silver' : 'Bronze';
   const badgeColor = userBadge === 'gold' ? colors.gold : userBadge === 'silver' ? colors.silver : colors.bronze;
@@ -188,8 +235,16 @@ export function HomeScreen() {
       <ScrollView contentContainerStyle={styles.content}>
       <View style={styles.headerRow}>
         <View>
-          <Text style={styles.welcome}>Dobro došao nazad, {userName}</Text>
-          <Text style={styles.subTitle}>{levelLabelFromPoints(userPoints)}</Text>
+          {loadingProfile ? (
+            <SkeletonBlock width={180} height={16} />
+          ) : (
+            <Text style={styles.welcome}>Dobro došao nazad, {userName}</Text>
+          )}
+          {loadingProfile ? (
+            <SkeletonBlock width={140} height={12} style={{ marginTop: spacing.xs }} />
+          ) : (
+            <Text style={styles.subTitle}>{levelLabelFromPoints(userPoints)}</Text>
+          )}
         </View>
         <View style={styles.headerActions}>
           <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Notifications')}>
@@ -205,12 +260,12 @@ export function HomeScreen() {
         <View style={[styles.statCard, { borderColor: badgeColor }]}>
           <Medal color={badgeColor} size={26} />
           <Text style={styles.statLabel}>Bedž</Text>
-          <Text style={styles.statValue}>{badgeLabel}</Text>
+          {loadingProfile ? <SkeletonBlock width={60} height={14} /> : <Text style={styles.statValue}>{badgeLabel}</Text>}
         </View>
         <View style={styles.statCard}>
           <Star color={colors.primary} size={26} />
           <Text style={styles.statLabel}>Ukupni poeni</Text>
-          <Text style={styles.statValue}>{userPoints}</Text>
+          {loadingProfile ? <SkeletonBlock width={70} height={14} /> : <Text style={styles.statValue}>{userPoints}</Text>}
         </View>
       </View>
 
@@ -233,7 +288,20 @@ export function HomeScreen() {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Nedavne aktivnosti</Text>
-        {activities.length === 0 ? (
+        {usingCache && <Text style={styles.cacheNote}>Prikazujem keširane podatke.</Text>}
+        {loadingActivities && activities.length === 0 ? (
+          <View style={styles.skeletonGroup}>
+            {Array.from({ length: 3 }).map((_, index) => (
+              <View key={`activity-skeleton-${index}`} style={styles.activityItem}>
+                <View style={styles.activityContent}>
+                  <SkeletonBlock width="70%" height={12} />
+                  <SkeletonBlock width="40%" height={10} style={{ marginTop: 8 }} />
+                </View>
+                <SkeletonBlock width={40} height={12} />
+              </View>
+            ))}
+          </View>
+        ) : activities.length === 0 ? (
           <Text style={styles.empty}>Još nema aktivnosti.</Text>
         ) : (
           activities.map((activity) => (
@@ -371,6 +439,10 @@ const styles = StyleSheet.create({
   empty: {
     color: colors.muted,
   },
+  cacheNote: {
+    color: colors.muted,
+    marginBottom: spacing.sm,
+  },
   activityItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -403,6 +475,9 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '600',
     textAlign: 'right',
+  },
+  skeletonGroup: {
+    gap: spacing.sm,
   },
   quickRow: {
     flexDirection: 'row',

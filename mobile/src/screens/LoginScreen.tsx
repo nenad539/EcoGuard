@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Leaf, Shield, Mail, Lock } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabase';
 import { colors, radius, spacing, gradients } from '../styles/common';
 import { GradientBackground } from '../components/common/GradientBackground';
 import { LinearGradient } from 'expo-linear-gradient';
+import { showError, showSuccess } from '../lib/toast';
 
 export function LoginScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -20,7 +21,7 @@ export function LoginScreen() {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Greška', 'Unesite email i lozinku');
+      showError('Greška', 'Unesite email i lozinku');
       return;
     }
 
@@ -29,26 +30,27 @@ export function LoginScreen() {
     setLoading(false);
 
     if (error) {
-      Alert.alert('Greška', error.message);
+      showError('Greška', error.message);
       return;
     }
 
+    showSuccess('Uspjeh', 'Prijava uspješna.');
     navigation.replace('MainTabs');
   };
 
   const handleReset = async () => {
     if (!resetEmail) {
-      Alert.alert('Greška', 'Unesite email adresu');
+      showError('Greška', 'Unesite email adresu');
       return;
     }
 
     const { error } = await supabase.auth.resetPasswordForEmail(resetEmail);
     if (error) {
-      Alert.alert('Greška', error.message);
+      showError('Greška', error.message);
       return;
     }
 
-    Alert.alert('Poslato', 'Provjerite email za reset lozinke.');
+    showSuccess('Poslato', 'Provjerite email za reset lozinke.');
     setForgot(false);
     setResetEmail('');
   };

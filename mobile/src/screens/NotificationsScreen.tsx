@@ -1,105 +1,320 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, Text, StyleSheet, View, TouchableOpacity } from 'react-native';
+import { Bell, CheckCircle, Trash2, UserPlus } from 'lucide-react-native';
 import { supabase } from '../lib/supabase';
-import { colors, radius, spacing } from '../styles/common';
+import { getCached, setCached } from '../lib/cache';
+import { useRealtimeStatus } from '../lib/realtime';
+import { showError, showSuccess } from '../lib/toast';
+import { colors, gradients, radius, spacing } from '../styles/common';
 import { GradientBackground } from '../components/common/GradientBackground';
+import { SkeletonBlock } from '../components/common/Skeleton';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const NOTIFICATIONS_TABLE = 'notifications';
+const FRIENDS_TABLE = 'prijatelji';
+const CACHE_TTL = 1000 * 60 * 5;
 
 type NotificationItem = {
   id: string;
   title: string | null;
   body: string | null;
   type: string | null;
+  related_id: string | null;
   status: string | null;
   created_at: string | null;
 };
 
 export function NotificationsScreen() {
+  const realtimeConnected = useRealtimeStatus();
+  const [userId, setUserId] = useState<string | null>(null);
+  const [profileName, setProfileName] = useState('');
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [usingCache, setUsingCache] = useState(false);
 
   const loadNotifications = async () => {
-    const { data: auth } = await supabase.auth.getUser();
-    const userId = auth?.user?.id;
     if (!userId) return;
 
     const { data, error } = await supabase
       .from(NOTIFICATIONS_TABLE)
-      .select('id, title, body, type, status, created_at')
+      .select('id, title, body, type, related_id, status, created_at')
       .eq('korisnik_id', userId)
       .order('created_at', { ascending: false })
       .limit(50);
 
     if (error) {
       setError('Greška pri učitavanju obavještenja.');
+      showError('Greška', 'Ne mogu učitati obavještenja.');
+      setLoading(false);
       return;
     }
 
     setItems((data ?? []) as NotificationItem[]);
+    setCached(`notifications:${userId}`, (data ?? []) as NotificationItem[]);
+    setUsingCache(false);
+    setLoading(false);
   };
 
   useEffect(() => {
-    loadNotifications();
+    const loadUser = async () => {
+      const { data: auth } = await supabase.auth.getUser();
+      setUserId(auth?.user?.id ?? null);
+    };
+    loadUser();
   }, []);
 
   useEffect(() => {
-    let channel: ReturnType<typeof supabase.channel> | null = null;
-    const setup = async () => {
-      const { data: auth } = await supabase.auth.getUser();
-      const userId = auth?.user?.id;
-      if (!userId) return;
-      channel = supabase
-        .channel('notifications')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: NOTIFICATIONS_TABLE, filter: `korisnik_id=eq.${userId}` },
-          () => loadNotifications()
-        )
-        .subscribe();
+    if (!userId) return;
+    loadNotifications();
+    const loadProfile = async () => {
+      const { data } = await supabase
+        .from('korisnik_profil')
+        .select('korisnicko_ime')
+        .eq('id', userId)
+        .maybeSingle();
+      if (data?.korisnicko_ime) setProfileName(data.korisnicko_ime);
     };
-    setup();
+    loadProfile();
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId) return;
+    const loadCache = async () => {
+      const cached = await getCached<NotificationItem[]>(`notifications:${userId}`, CACHE_TTL);
+      if (cached?.value?.length) {
+        setItems(cached.value);
+        setUsingCache(cached.isStale);
+        setLoading(false);
+      }
+    };
+    loadCache();
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId) return;
+    const channel = supabase
+      .channel('notifications')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: NOTIFICATIONS_TABLE, filter: `korisnik_id=eq.${userId}` },
+        () => loadNotifications()
+      )
+      .subscribe();
 
     return () => {
-      if (channel) supabase.removeChannel(channel);
+      supabase.removeChannel(channel);
     };
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
+    if (!userId || realtimeConnected) return;
     const interval = setInterval(() => {
       loadNotifications();
     }, 20000);
     return () => clearInterval(interval);
-  }, []);
+  }, [userId, realtimeConnected]);
 
   const markRead = async (id: string) => {
+    setItems((prev) => prev.map((item) => (item.id === id ? { ...item, status: 'read' } : item)));
     await supabase.from(NOTIFICATIONS_TABLE).update({ status: 'read' }).eq('id', id);
-    loadNotifications();
+  };
+
+  const markAllRead = async () => {
+    if (!userId) return;
+    setItems((prev) => prev.map((item) => ({ ...item, status: 'read' })));
+    const { error: updateError } = await supabase
+      .from(NOTIFICATIONS_TABLE)
+      .update({ status: 'read' })
+      .eq('korisnik_id', userId)
+      .eq('status', 'unread');
+    if (updateError) {
+      showError('Greška', 'Ne mogu označiti sva obavještenja.');
+      return;
+    }
+    showSuccess('Uspjeh', 'Sva obavještenja su pročitana.');
+  };
+
+  const acceptFriendRequest = async (item: NotificationItem) => {
+    if (!userId || !item.related_id) return;
+    const { data: link, error: linkError } = await supabase
+      .from(FRIENDS_TABLE)
+      .select('id, korisnik_od, korisnik_do, status')
+      .eq('id', item.related_id)
+      .maybeSingle();
+
+    if (linkError || !link) {
+      showError('Greška', 'Zahtjev nije pronađen.');
+      return;
+    }
+
+    if (link.korisnik_do !== userId) {
+      showError('Greška', 'Nemate dozvolu za ovaj zahtjev.');
+      return;
+    }
+
+    if (link.status === 'accepted') {
+      await markRead(item.id);
+      return;
+    }
+
+    const { error: updateError } = await supabase
+      .from(FRIENDS_TABLE)
+      .update({ status: 'accepted' })
+      .eq('id', link.id);
+
+    if (updateError) {
+      showError('Greška', 'Ne mogu prihvatiti zahtjev.');
+      return;
+    }
+
+    await supabase.from(NOTIFICATIONS_TABLE).insert({
+      korisnik_id: link.korisnik_od,
+      title: 'Zahtjev prihvaćen',
+      body: `${profileName || 'Korisnik'} je prihvatio/la vaš zahtjev.`,
+      type: 'friend_accept',
+      related_id: link.id,
+      status: 'unread',
+    });
+
+    await markRead(item.id);
+    showSuccess('Uspjeh', 'Zahtjev je prihvaćen.');
+  };
+
+  const unreadCount = useMemo(
+    () => items.filter((item) => item.status === 'unread').length,
+    [items]
+  );
+
+  const removeNotification = async (id: string) => {
+    const prev = items;
+    setItems((current) => current.filter((item) => item.id !== id));
+    const { error: deleteError } = await supabase.from(NOTIFICATIONS_TABLE).delete().eq('id', id);
+    if (deleteError) {
+      setItems(prev);
+      showError('Greška', 'Ne mogu obrisati obavještenje.');
+    }
+  };
+
+  const grouped = useMemo(() => {
+    const groups: { label: string; items: NotificationItem[] }[] = [];
+    const today = new Date();
+    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const sevenDaysAgo = new Date(startOfToday);
+    sevenDaysAgo.setDate(startOfToday.getDate() - 7);
+
+    const todayItems = items.filter((item) => {
+      if (!item.created_at) return false;
+      return new Date(item.created_at) >= startOfToday;
+    });
+    const weekItems = items.filter((item) => {
+      if (!item.created_at) return false;
+      const date = new Date(item.created_at);
+      return date < startOfToday && date >= sevenDaysAgo;
+    });
+    const olderItems = items.filter((item) => {
+      if (!item.created_at) return true;
+      return new Date(item.created_at) < sevenDaysAgo;
+    });
+
+    if (todayItems.length) groups.push({ label: 'Danas', items: todayItems });
+    if (weekItems.length) groups.push({ label: 'Ove sedmice', items: weekItems });
+    if (olderItems.length) groups.push({ label: 'Ranije', items: olderItems });
+
+    return groups;
+  }, [items]);
+
+  const renderIcon = (type: string | null) => {
+    if (type === 'friend_request') return <UserPlus size={18} color={colors.text} />;
+    if (type === 'friend_accept') return <CheckCircle size={18} color={colors.text} />;
+    return <Bell size={18} color={colors.text} />;
   };
 
   return (
     <GradientBackground>
       <ScrollView contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Obavještenja</Text>
-      {error && <Text style={styles.error}>{error}</Text>}
+        <View style={styles.header}>
+          <View style={styles.headerRow}>
+            <Text style={styles.title}>Obavještenja</Text>
+            {unreadCount > 0 && (
+              <View style={styles.unreadBadge}>
+                <Text style={styles.unreadBadgeText}>{unreadCount}</Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.subtitle}>
+            {unreadCount > 0 ? `${unreadCount} nepročitanih` : 'Sve je pročitano'}
+          </Text>
+          {unreadCount > 0 && (
+            <TouchableOpacity onPress={markAllRead}>
+              <LinearGradient colors={gradients.primary} style={styles.headerAction}>
+                <Text style={styles.headerActionText}>Označi sve kao pročitano</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
+        </View>
 
-      {items.length === 0 ? (
-        <Text style={styles.muted}>Nema obavještenja.</Text>
-      ) : (
-        items.map((item) => (
-          <TouchableOpacity
-            key={item.id}
-            style={[styles.card, item.status === 'unread' && styles.cardUnread]}
-            onPress={() => markRead(item.id)}
-          >
-            <Text style={styles.cardTitle}>{item.title ?? 'Obavještenje'}</Text>
-            {item.body ? <Text style={styles.cardBody}>{item.body}</Text> : null}
-            <Text style={styles.cardMeta}>
-              {item.created_at ? new Date(item.created_at).toLocaleString() : ''}
-            </Text>
-          </TouchableOpacity>
-        ))
-      )}
+        {error && <Text style={styles.error}>{error}</Text>}
+        {usingCache && <Text style={styles.cacheNote}>Prikazujem keširane podatke.</Text>}
+
+        {loading && items.length === 0 ? (
+          <View style={styles.skeletonWrap}>
+            {Array.from({ length: 4 }).map((_, index) => (
+              <View key={`skeleton-${index}`} style={styles.card}>
+                <View style={styles.cardRow}>
+                  <SkeletonBlock width={36} height={36} radiusSize={18} />
+                  <View style={styles.cardContent}>
+                    <SkeletonBlock width="70%" height={14} />
+                    <SkeletonBlock width="90%" height={12} style={{ marginTop: 8 }} />
+                    <SkeletonBlock width="40%" height={10} style={{ marginTop: 8 }} />
+                  </View>
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : items.length === 0 ? (
+          <Text style={styles.muted}>Nema obavještenja.</Text>
+        ) : (
+          grouped.map((group) => (
+            <View key={group.label} style={styles.groupSection}>
+              <Text style={styles.groupTitle}>{group.label}</Text>
+              {group.items.map((item) => (
+                <View key={item.id} style={[styles.card, item.status === 'unread' && styles.cardUnread]}>
+                  <View style={styles.cardRow}>
+                    <View style={styles.iconWrap}>{renderIcon(item.type)}</View>
+                    <View style={styles.cardContent}>
+                      <View style={styles.cardTitleRow}>
+                        <Text style={styles.cardTitle}>{item.title ?? 'Obavještenje'}</Text>
+                        {item.status === 'unread' && <View style={styles.unreadDot} />}
+                      </View>
+                      {item.body ? <Text style={styles.cardBody}>{item.body}</Text> : null}
+                      <Text style={styles.cardMeta}>
+                        {item.created_at ? new Date(item.created_at).toLocaleString() : ''}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.actions}>
+                    {item.type === 'friend_request' && item.related_id ? (
+                      <TouchableOpacity onPress={() => acceptFriendRequest(item)}>
+                        <LinearGradient colors={gradients.primary} style={styles.primaryButton}>
+                          <Text style={styles.primaryLabel}>Prihvati</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    ) : null}
+                    {item.status !== 'read' && (
+                      <TouchableOpacity onPress={() => markRead(item.id)} style={styles.secondaryButton}>
+                        <Text style={styles.secondaryLabel}>Označi pročitano</Text>
+                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity onPress={() => removeNotification(item.id)} style={styles.iconButton}>
+                      <Trash2 color={colors.muted} size={16} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))}
+            </View>
+          ))
+        )}
       </ScrollView>
     </GradientBackground>
   );
@@ -107,20 +322,60 @@ export function NotificationsScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    padding: spacing.md,
+    paddingBottom: spacing.xl,
+    paddingHorizontal: spacing.lg,
+  },
+  header: {
+    paddingTop: spacing.xl,
+    marginBottom: spacing.md,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   title: {
     color: colors.text,
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '600',
-    marginBottom: spacing.md,
+  },
+  subtitle: {
+    color: colors.muted,
+    marginTop: spacing.xs,
+  },
+  headerAction: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: radius.lg,
+    marginTop: spacing.sm,
+    alignSelf: 'flex-start',
+  },
+  headerActionText: {
+    color: colors.text,
+    fontWeight: '600',
+    fontSize: 13,
   },
   error: {
     color: colors.danger,
     marginBottom: spacing.sm,
   },
+  cacheNote: {
+    color: colors.muted,
+    marginBottom: spacing.sm,
+  },
   muted: {
     color: colors.muted,
+  },
+  unreadBadge: {
+    backgroundColor: 'rgba(34, 197, 94, 0.2)',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  unreadBadgeText: {
+    color: colors.softGreen,
+    fontWeight: '600',
+    fontSize: 12,
   },
   card: {
     backgroundColor: colors.card,
@@ -131,8 +386,36 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   cardUnread: {
-    borderColor: colors.primary,
-    borderWidth: 1,
+    borderColor: 'rgba(34, 197, 94, 0.4)',
+  },
+  groupSection: {
+    marginBottom: spacing.md,
+  },
+  groupTitle: {
+    color: colors.muted,
+    fontSize: 12,
+    marginBottom: spacing.sm,
+    textTransform: 'uppercase',
+  },
+  cardRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  iconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(34, 197, 94, 0.15)',
+  },
+  cardContent: {
+    flex: 1,
+  },
+  cardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   cardTitle: {
     color: colors.text,
@@ -146,5 +429,44 @@ const styles = StyleSheet.create({
     color: colors.muted,
     marginTop: spacing.xs,
     fontSize: 12,
+  },
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.softGreen,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+    alignItems: 'center',
+  },
+  primaryButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: radius.md,
+  },
+  primaryLabel: {
+    color: colors.text,
+    fontWeight: '600',
+  },
+  secondaryButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+  },
+  secondaryLabel: {
+    color: colors.muted,
+    fontWeight: '600',
+  },
+  iconButton: {
+    padding: 8,
+  },
+  skeletonWrap: {
+    gap: spacing.sm,
   },
 });
