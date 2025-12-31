@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
-import { ArrowLeft, Lock, User } from 'lucide-react-native';
+import { ArrowLeft, Lock, User, Eye, EyeOff } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../lib/supabase';
@@ -8,6 +8,7 @@ import { colors, radius, spacing, gradients } from '../styles/common';
 import { GradientBackground } from '../components/common/GradientBackground';
 import { showError, showSuccess } from '../lib/toast';
 import { ScreenFade } from '../components/common/ScreenFade';
+import { GlowCard } from '../components/common/GlowCard';
 
 export function EditProfileScreen() {
   const navigation = useNavigation();
@@ -15,6 +16,8 @@ export function EditProfileScreen() {
   const [loadingName, setLoadingName] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loadingPassword, setLoadingPassword] = useState(false);
 
   useEffect(() => {
@@ -103,7 +106,7 @@ export function EditProfileScreen() {
         <Text style={styles.title}>Uredi profil</Text>
         <Text style={styles.subtitle}>Ažuriraj podatke svog naloga</Text>
 
-        <View style={styles.card}>
+        <GlowCard contentStyle={styles.card}>
           <View style={styles.cardHeader}>
             <LinearGradient colors={gradients.primary} style={styles.iconBadge}>
               <User size={16} color={colors.text} />
@@ -127,9 +130,9 @@ export function EditProfileScreen() {
               <Text style={styles.primaryText}>{loadingName ? 'Čuvanje...' : 'Sačuvaj ime'}</Text>
             </LinearGradient>
           </TouchableOpacity>
-        </View>
+        </GlowCard>
 
-        <View style={styles.card}>
+        <GlowCard contentStyle={styles.card}>
           <View style={styles.cardHeader}>
             <LinearGradient colors={gradients.primary} style={styles.iconBadge}>
               <Lock size={16} color={colors.text} />
@@ -144,9 +147,19 @@ export function EditProfileScreen() {
               onChangeText={setNewPassword}
               placeholder="••••••••"
               placeholderTextColor={colors.muted}
-              secureTextEntry
+              secureTextEntry={!showNewPassword}
               style={styles.input}
             />
+            <TouchableOpacity
+              onPress={() => setShowNewPassword((prev) => !prev)}
+              style={styles.toggleButton}
+            >
+              {showNewPassword ? (
+                <EyeOff color={colors.muted} size={18} />
+              ) : (
+                <Eye color={colors.muted} size={18} />
+              )}
+            </TouchableOpacity>
           </View>
 
           <Text style={styles.label}>Potvrda lozinke</Text>
@@ -156,9 +169,19 @@ export function EditProfileScreen() {
               onChangeText={setConfirmPassword}
               placeholder="••••••••"
               placeholderTextColor={colors.muted}
-              secureTextEntry
+              secureTextEntry={!showConfirmPassword}
               style={styles.input}
             />
+            <TouchableOpacity
+              onPress={() => setShowConfirmPassword((prev) => !prev)}
+              style={styles.toggleButton}
+            >
+              {showConfirmPassword ? (
+                <EyeOff color={colors.muted} size={18} />
+              ) : (
+                <Eye color={colors.muted} size={18} />
+              )}
+            </TouchableOpacity>
           </View>
 
           <TouchableOpacity onPress={handleResetPassword} disabled={loadingPassword}>
@@ -168,7 +191,7 @@ export function EditProfileScreen() {
               </Text>
             </LinearGradient>
           </TouchableOpacity>
-        </View>
+        </GlowCard>
         </View>
       </ScreenFade>
     </GradientBackground>
@@ -199,10 +222,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   card: {
-    backgroundColor: colors.card,
     borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
     padding: spacing.md,
     marginBottom: spacing.lg,
   },
@@ -234,11 +254,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#4b5563',
     marginBottom: spacing.md,
+    position: 'relative',
   },
   input: {
     color: colors.text,
     paddingVertical: 12,
     paddingHorizontal: 12,
+    paddingRight: 40,
+  },
+  toggleButton: {
+    position: 'absolute',
+    right: 10,
+    top: 12,
+    padding: 4,
   },
   primaryButton: {
     paddingVertical: 14,

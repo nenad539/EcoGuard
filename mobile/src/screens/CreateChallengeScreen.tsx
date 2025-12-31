@@ -8,6 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { showError, showSuccess } from '../lib/toast';
 import { ScreenFade } from '../components/common/ScreenFade';
 import { BackButton } from '../components/common/BackButton';
+import { GlowCard } from '../components/common/GlowCard';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
@@ -85,7 +86,7 @@ export function CreateChallengeScreen() {
         <View style={styles.container}>
           <BackButton onPress={() => navigation.goBack()} />
           <Text style={styles.title}>Kreiraj foto izazov</Text>
-          <View style={styles.card}>
+          <GlowCard contentStyle={styles.card}>
             <FormInput label="Naziv" value={title} onChangeText={setTitle} />
             <FormInput label="Opis" value={description} onChangeText={setDescription} />
             <FormInput label="Lokacija" value={location} onChangeText={setLocation} />
@@ -101,7 +102,7 @@ export function CreateChallengeScreen() {
                 {isSubmitting ? <ActivityIndicator color={colors.text} /> : <Text style={styles.actionLabel}>Kreiraj</Text>}
               </LinearGradient>
             </TouchableOpacity>
-          </View>
+          </GlowCard>
         </View>
       </ScreenFade>
     </GradientBackground>
@@ -120,11 +121,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   card: {
-    backgroundColor: colors.card,
     padding: spacing.md,
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
   actionButton: {
     padding: spacing.md,

@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Switch, ScrollView } from 'react-native';
-import { ArrowLeft, Bell, Globe, Shield, Info, ChevronRight } from 'lucide-react-native';
+import { Bell, Globe, Shield, Info, ChevronRight } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, radius, spacing, gradients } from '../styles/common';
 import { GradientBackground } from '../components/common/GradientBackground';
 import { ScreenFade } from '../components/common/ScreenFade';
 import { supabase } from '../lib/supabase';
+import { GlowCard } from '../components/common/GlowCard';
 
 export function SettingsScreen() {
   const navigation = useNavigation();
@@ -101,10 +102,6 @@ export function SettingsScreen() {
       <ScreenFade>
         <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <ArrowLeft size={18} color={colors.softGreen} />
-            <Text style={styles.backText}>Nazad</Text>
-          </TouchableOpacity>
           <Text style={styles.title}>Podešavanja</Text>
           <Text style={styles.subtitle}>Prilagodi svoju aplikaciju</Text>
         </View>
@@ -113,7 +110,7 @@ export function SettingsScreen() {
           {sections.map((section) => (
             <View key={section.title} style={styles.section}>
               <Text style={styles.sectionTitle}>{section.title}</Text>
-              <View style={styles.sectionContainer}>
+              <GlowCard contentStyle={styles.sectionContainer}>
                 {section.items.map((item, index) => (
                   <View key={item.id}>
                     <TouchableOpacity
@@ -139,7 +136,7 @@ export function SettingsScreen() {
                     {index < section.items.length - 1 && <View style={styles.separator} />}
                   </View>
                 ))}
-              </View>
+              </GlowCard>
             </View>
           ))}
         </View>
@@ -179,15 +176,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.lg,
   },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginBottom: spacing.md,
-  },
-  backText: {
-    color: colors.softGreen,
-  },
   title: {
     color: colors.text,
     fontSize: 24,
@@ -210,10 +198,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   sectionContainer: {
-    backgroundColor: colors.card,
     borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
     overflow: 'hidden',
   },
   item: {

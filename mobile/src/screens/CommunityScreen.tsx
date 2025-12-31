@@ -11,6 +11,7 @@ import { SkeletonBlock } from '../components/common/Skeleton';
 import { ScreenFade } from '../components/common/ScreenFade';
 import { BackButton } from '../components/common/BackButton';
 import { EmptyState } from '../components/common/EmptyState';
+import { GlowCard } from '../components/common/GlowCard';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
@@ -20,6 +21,14 @@ type Profile = {
   korisnicko_ime: string;
   ukupno_poena: number | null;
   trenutni_bedz?: 'bronze' | 'silver' | 'gold' | null;
+};
+
+const hexToRgba = (hex: string, alpha: number) => {
+  const normalized = hex.replace('#', '');
+  const r = parseInt(normalized.slice(0, 2), 16);
+  const g = parseInt(normalized.slice(2, 4), 16);
+  const b = parseInt(normalized.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
 const levelLabelFromPoints = (pts: number) => {
@@ -236,7 +245,12 @@ export function CommunityScreen() {
                   const badge = user.trenutni_bedz ?? 'bronze';
                   const badgeColor = badge === 'gold' ? colors.gold : badge === 'silver' ? colors.silver : colors.bronze;
                   return (
-                    <View key={user.id} style={[styles.listItem, { borderColor: badgeColor }]}>
+                    <GlowCard
+                      key={user.id}
+                      style={styles.listItemShell}
+                      contentStyle={styles.listItem}
+                      gradient={[hexToRgba(badgeColor, 0.45), 'rgba(15, 23, 42, 0.95)']}
+                    >
                       <View>
                         <Text style={styles.listName}>{rank}. {user.korisnicko_ime}</Text>
                         <Text style={styles.listLevel}>{levelLabelFromPoints(user.ukupno_poena ?? 0)}</Text>
@@ -245,7 +259,7 @@ export function CommunityScreen() {
                         <Text style={styles.pointsValue}>{user.ukupno_poena ?? 0}</Text>
                         <Text style={[styles.badgeText, { color: badgeColor }]}>{badge}</Text>
                       </View>
-                    </View>
+                    </GlowCard>
                   );
                 })}
               </View>
@@ -401,11 +415,12 @@ const styles = StyleSheet.create({
   listSection: {
     gap: spacing.sm,
   },
+  listItemShell: {
+    borderRadius: radius.md,
+  },
   listItem: {
-    backgroundColor: colors.card,
     borderRadius: radius.md,
     padding: spacing.md,
-    borderWidth: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',

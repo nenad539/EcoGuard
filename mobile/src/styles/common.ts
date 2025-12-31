@@ -31,6 +31,6 @@ export const radius = {
 };
 
 export const gradients = {
-  screen: ['#0f172a', '#1e293b', '#14532d'],
-  primary: ['#22c55e', '#16a34a'],
+  screen: ['#0f172a', '#1e293b', '#14532d'] as const,
+  primary: ['#22c55e', '#16a34a'] as const,
 };

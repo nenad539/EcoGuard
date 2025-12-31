@@ -6,6 +6,8 @@ import { supabase } from './supabase';
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
   }),
@@ -14,6 +16,9 @@ Notifications.setNotificationHandler({
 export const registerForPushNotifications = async (userId: string) => {
   if (!userId) return null;
   if (!Constants.isDevice) {
+    return null;
+  }
+  if (Constants.appOwnership === 'expo') {
     return null;
   }
 

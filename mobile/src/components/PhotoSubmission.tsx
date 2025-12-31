@@ -103,41 +103,75 @@ export function PhotoSubmission({
     }
   };
 
+  const steps: { key: 'capture' | 'details' | 'confirm'; label: string }[] = [
+    { key: 'capture', label: 'Foto' },
+    { key: 'details', label: 'Detalji' },
+    { key: 'confirm', label: 'Potvrda' },
+  ];
+
   return (
     <Modal visible={visible} animationType="slide" transparent>
       <View style={styles.overlay}>
-        <View style={styles.modal}>
-          <View style={styles.header}>
-            <View>
-              <Text style={styles.title}>Prihvati izazov</Text>
-              <Text style={styles.subtitle}>{challengeTitle}</Text>
+        <LinearGradient
+          colors={['rgba(34, 197, 94, 0.35)', 'rgba(15, 23, 42, 0.98)'] as const}
+          style={styles.modalShell}
+        >
+          <View style={styles.modal}>
+            <View style={styles.header}>
+              <View>
+                <Text style={styles.title}>Prihvati izazov</Text>
+                <Text style={styles.subtitle}>{challengeTitle}</Text>
+              </View>
+              <TouchableOpacity onPress={handleCancel}>
+                <X color={colors.muted} size={20} />
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity onPress={handleCancel}>
-              <X color={colors.muted} size={20} />
-            </TouchableOpacity>
-          </View>
 
-          {submissionStep === 'capture' && (
-            <View style={styles.captureSection}>
-              <Camera color={colors.primary} size={56} />
-              <Text style={styles.captureTitle}>Fotografiši dokaz</Text>
-              <Text style={styles.captureSubtitle}>Fotografiraj da si završio/la ovaj izazov</Text>
-              <TouchableOpacity onPress={capturePhoto}>
-                <LinearGradient colors={gradients.primary} style={styles.primaryButton}>
-                  <Camera color={colors.text} size={18} />
-                  <Text style={styles.primaryLabel}>Otvori kameru</Text>
+            <View style={styles.stepper}>
+              {steps.map((step, index) => {
+                const isActive = submissionStep === step.key;
+                return (
+                  <View key={step.key} style={styles.stepItem}>
+                    <LinearGradient
+                      colors={
+                        isActive
+                          ? gradients.primary
+                          : (['rgba(51, 65, 85, 0.8)', 'rgba(15, 23, 42, 0.8)'] as const)
+                      }
+                      style={[styles.stepPill, isActive && styles.stepPillActive]}
+                    >
+                      <Text style={[styles.stepText, isActive && styles.stepTextActive]}>
+                        {index + 1}. {step.label}
+                      </Text>
+                    </LinearGradient>
+                  </View>
+                );
+              })}
+            </View>
+
+            {submissionStep === 'capture' && (
+              <View style={styles.captureSection}>
+                <LinearGradient colors={gradients.primary} style={styles.captureIcon}>
+                  <Camera color={colors.text} size={32} />
                 </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          )}
+                <Text style={styles.captureTitle}>Fotografiši dokaz</Text>
+                <Text style={styles.captureSubtitle}>Fotografiraj da si završio/la ovaj izazov</Text>
+                <TouchableOpacity onPress={capturePhoto}>
+                  <LinearGradient colors={gradients.primary} style={styles.primaryButton}>
+                    <Camera color={colors.text} size={18} />
+                    <Text style={styles.primaryLabel}>Otvori kameru</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            )}
 
-          {submissionStep === 'details' && photoPreview && (
-            <ScrollView contentContainerStyle={styles.stepContent}>
-              <Image source={{ uri: photoPreview }} style={styles.preview} />
-              <TouchableOpacity style={styles.secondaryButton} onPress={() => setSubmissionStep('capture')}>
-                <Camera color={colors.primary} size={16} />
-                <Text style={styles.secondaryLabel}>Ponovo fotografiši</Text>
-              </TouchableOpacity>
+            {submissionStep === 'details' && photoPreview && (
+              <ScrollView contentContainerStyle={styles.stepContent}>
+                <Image source={{ uri: photoPreview }} style={styles.preview} />
+                <TouchableOpacity style={styles.secondaryButton} onPress={() => setSubmissionStep('capture')}>
+                  <Camera color={colors.primary} size={16} />
+                  <Text style={styles.secondaryLabel}>Ponovo fotografiši</Text>
+                </TouchableOpacity>
 
               <View style={styles.formGroup}>
                 <Text style={styles.label}>Opis (opcionalno)</Text>
@@ -165,67 +199,81 @@ export function PhotoSubmission({
                 </View>
               </View>
 
-              <View style={styles.rewardRow}>
-                <Text style={styles.rewardText}>Osvojićete +{challengePoints} poena</Text>
-              </View>
+                <LinearGradient
+                  colors={['rgba(34, 197, 94, 0.3)', 'rgba(15, 23, 42, 0.9)'] as const}
+                  style={styles.rewardRow}
+                >
+                  <Text style={styles.rewardText}>Osvojićete +{challengePoints} poena</Text>
+                </LinearGradient>
 
-              <View style={styles.actionsRow}>
-                <TouchableOpacity style={styles.secondaryButton} onPress={() => setSubmissionStep('capture')}>
-                  <Text style={styles.secondaryLabel}>Nazad</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => setSubmissionStep('confirm')}>
-                  <LinearGradient colors={gradients.primary} style={styles.primaryButton}>
-                    <Text style={styles.primaryLabel}>Dalje</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
-          )}
-
-          {submissionStep === 'confirm' && photoPreview && (
-            <ScrollView contentContainerStyle={styles.stepContent}>
-              <Image source={{ uri: photoPreview }} style={styles.preview} />
-              <View style={styles.confirmBox}>
-                <Text style={styles.label}>Potvrdi slanje</Text>
-                <Text style={styles.confirmText}>Izazov: {challengeTitle}</Text>
-                <Text style={styles.confirmText}>Nagrada: +{challengePoints} poena</Text>
-                {description ? <Text style={styles.confirmText}>Opis: {description}</Text> : null}
-                {location ? <Text style={styles.confirmText}>Lokacija: {location}</Text> : null}
-                <View style={styles.noticeRow}>
-                  <Clock color={colors.muted} size={14} />
-                  <Text style={styles.noticeText}>Vaša fotografija će biti pregledana u roku od 24h</Text>
+                <View style={styles.actionsRow}>
+                  <TouchableOpacity
+                    style={[styles.secondaryButton, styles.rowButton, styles.secondaryButtonRow]}
+                    onPress={() => setSubmissionStep('capture')}
+                  >
+                    <Text style={styles.secondaryLabel}>Nazad</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setSubmissionStep('confirm')} style={styles.rowButton}>
+                    <LinearGradient colors={gradients.primary} style={[styles.primaryButton, styles.primaryButtonRow]}>
+                      <Text style={styles.primaryLabel}>Dalje</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
                 </View>
-              </View>
+              </ScrollView>
+            )}
 
-              {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
-              {isSubmitting ? (
-                <View style={styles.progressTrack}>
-                  <View style={[styles.progressFill, { width: `${Math.round(uploadProgress * 100)}%` }]} />
+            {submissionStep === 'confirm' && photoPreview && (
+              <ScrollView contentContainerStyle={styles.stepContent}>
+                <Image source={{ uri: photoPreview }} style={styles.preview} />
+                <LinearGradient
+                  colors={['rgba(15, 23, 42, 0.95)', 'rgba(34, 197, 94, 0.12)'] as const}
+                  style={styles.confirmBox}
+                >
+                  <Text style={styles.label}>Potvrdi slanje</Text>
+                  <Text style={styles.confirmText}>Izazov: {challengeTitle}</Text>
+                  <Text style={styles.confirmText}>Nagrada: +{challengePoints} poena</Text>
+                  {description ? <Text style={styles.confirmText}>Opis: {description}</Text> : null}
+                  {location ? <Text style={styles.confirmText}>Lokacija: {location}</Text> : null}
+                  <View style={styles.noticeRow}>
+                    <Clock color={colors.muted} size={14} />
+                    <Text style={styles.noticeText}>Vaša fotografija će biti pregledana u roku od 24h</Text>
+                  </View>
+                </LinearGradient>
+
+                {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
+                {isSubmitting ? (
+                  <View style={styles.progressTrack}>
+                    <View style={[styles.progressFill, { width: `${Math.round(uploadProgress * 100)}%` }]} />
+                  </View>
+                ) : null}
+
+                <View style={styles.actionsRow}>
+                  <TouchableOpacity
+                    style={[styles.secondaryButton, styles.rowButton, styles.secondaryButtonRow]}
+                    onPress={() => setSubmissionStep('details')}
+                    disabled={isSubmitting}
+                  >
+                    <Text style={styles.secondaryLabel}>Nazad</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={handleSubmit} disabled={isSubmitting} style={styles.rowButton}>
+                    <LinearGradient colors={gradients.primary} style={[styles.primaryButton, styles.primaryButtonRow]}>
+                      {isSubmitting ? (
+                        <ActivityIndicator color={colors.text} />
+                      ) : (
+                        <>
+                          <Upload color={colors.text} size={16} />
+                          <Text style={styles.primaryLabel}>
+                            {submitError ? 'Pokušaj ponovo' : 'Pošalji'}
+                          </Text>
+                        </>
+                      )}
+                    </LinearGradient>
+                  </TouchableOpacity>
                 </View>
-              ) : null}
-
-              <View style={styles.actionsRow}>
-                <TouchableOpacity style={styles.secondaryButton} onPress={() => setSubmissionStep('details')} disabled={isSubmitting}>
-                  <Text style={styles.secondaryLabel}>Nazad</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={handleSubmit} disabled={isSubmitting}>
-                  <LinearGradient colors={gradients.primary} style={styles.primaryButton}>
-                    {isSubmitting ? (
-                      <ActivityIndicator color={colors.text} />
-                    ) : (
-                      <>
-                        <Upload color={colors.text} size={16} />
-                        <Text style={styles.primaryLabel}>
-                          {submitError ? 'Pokušaj ponovo' : 'Pošalji'}
-                        </Text>
-                      </>
-                    )}
-                  </LinearGradient>
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
-          )}
-        </View>
+              </ScrollView>
+            )}
+          </View>
+        </LinearGradient>
       </View>
     </Modal>
   );
@@ -238,13 +286,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: spacing.md,
   },
+  modalShell: {
+    borderRadius: radius.lg,
+    padding: 1.5,
+    width: '100%',
+    alignSelf: 'center',
+  },
   modal: {
-    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+    backgroundColor: 'rgba(12, 18, 30, 0.98)',
     borderRadius: radius.lg,
     padding: spacing.md,
     maxHeight: '90%',
-    borderWidth: 1,
-    borderColor: colors.border,
     width: '100%',
     shadowColor: '#000',
     shadowOpacity: 0.4,
@@ -273,6 +325,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
+  captureIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   stepContent: {
     paddingBottom: spacing.md,
   },
@@ -289,34 +348,43 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    paddingVertical: spacing.sm,
+    paddingVertical: 12,
+    paddingHorizontal: spacing.md,
     borderRadius: radius.md,
     marginTop: spacing.md,
+    minHeight: 48,
+    width: '100%',
   },
   primaryLabel: {
     color: colors.text,
     fontWeight: '600',
+    textAlign: 'center',
   },
   secondaryButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    borderColor: colors.primary,
+    borderColor: 'rgba(34, 197, 94, 0.5)',
     borderWidth: 1,
-    paddingVertical: spacing.sm,
+    paddingVertical: 12,
+    paddingHorizontal: spacing.md,
     borderRadius: radius.md,
     marginTop: spacing.md,
+    minHeight: 48,
   },
   secondaryLabel: {
     color: colors.primary,
     fontWeight: '500',
+    textAlign: 'center',
   },
   preview: {
     width: '100%',
     height: 180,
     borderRadius: radius.md,
     marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(51, 65, 85, 0.6)',
   },
   formGroup: {
     marginTop: spacing.sm,
@@ -327,19 +395,23 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   input: {
-    backgroundColor: colors.cardAlt,
+    backgroundColor: 'rgba(15, 23, 42, 0.7)',
     color: colors.text,
     borderRadius: radius.md,
     padding: spacing.sm,
     minHeight: 80,
     textAlignVertical: 'top',
+    borderWidth: 1,
+    borderColor: 'rgba(51, 65, 85, 0.5)',
   },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.cardAlt,
+    backgroundColor: 'rgba(15, 23, 42, 0.7)',
     borderRadius: radius.md,
     paddingHorizontal: spacing.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(51, 65, 85, 0.5)',
   },
   inputInline: {
     flex: 1,
@@ -349,9 +421,10 @@ const styles = StyleSheet.create({
   },
   rewardRow: {
     marginTop: spacing.md,
-    backgroundColor: '#0f1b2d',
     padding: spacing.sm,
     borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(34, 197, 94, 0.35)',
   },
   rewardText: {
     color: colors.primary,
@@ -362,14 +435,28 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing.sm,
     marginTop: spacing.md,
+    alignItems: 'stretch',
+  },
+  rowButton: {
+    flex: 1,
+    minWidth: 0,
+  },
+  primaryButtonRow: {
+    marginTop: 0,
+    paddingVertical: 12,
+    minHeight: 48,
+  },
+  secondaryButtonRow: {
+    marginTop: 0,
+    paddingVertical: 12,
+    minHeight: 48,
   },
   confirmBox: {
     marginTop: spacing.sm,
-    backgroundColor: colors.cardAlt,
     padding: spacing.sm,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: 'rgba(51, 65, 85, 0.6)',
   },
   confirmText: {
     color: colors.muted,
@@ -400,5 +487,32 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 999,
     backgroundColor: colors.primary,
+  },
+  stepper: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    marginBottom: spacing.md,
+  },
+  stepItem: {
+    flex: 1,
+  },
+  stepPill: {
+    borderRadius: 999,
+    paddingVertical: 6,
+    alignItems: 'center',
+  },
+  stepPillActive: {
+    shadowColor: '#22c55e',
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  stepText: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  stepTextActive: {
+    color: colors.text,
   },
 });

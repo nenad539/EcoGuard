@@ -7,9 +7,11 @@ import { supabase } from '../lib/supabase';
 import { getCached, setCached } from '../lib/cache';
 import { useRealtimeStatus } from '../lib/realtime';
 import { colors, radius, spacing, gradients } from '../styles/common';
+import { showError } from '../lib/toast';
 import { GradientBackground } from '../components/common/GradientBackground';
 import { SkeletonBlock } from '../components/common/Skeleton';
 import { ScreenFade } from '../components/common/ScreenFade';
+import { GlowCard } from '../components/common/GlowCard';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
@@ -39,6 +41,7 @@ export function ProfileScreen() {
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [loadingActivities, setLoadingActivities] = useState(true);
   const [usingCache, setUsingCache] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const getUserId = async (): Promise<string | undefined> => {
     if (userId) return userId;
@@ -53,6 +56,36 @@ export function ProfileScreen() {
     return fallbackId;
   };
 
+  const ensureProfile = async (uid: string) => {
+    const { data: profile, error } = await supabase
+      .from('korisnik_profil')
+      .select('korisnicko_ime, ukupno_poena, izazova_zavrseno, trenutni_bedz, dnevna_serija, posljednji_login')
+      .eq('id', uid)
+      .maybeSingle();
+    if (error) {
+      console.error('Profile fetch error', error);
+      return null;
+    }
+    if (profile) return profile;
+
+    const { data: auth } = await supabase.auth.getUser();
+    const fallbackName =
+      auth?.user?.user_metadata?.name ??
+      auth?.user?.user_metadata?.full_name ??
+      auth?.user?.email ??
+      'Korisnik';
+    const { data: inserted, error: insertError } = await supabase
+      .from('korisnik_profil')
+      .insert({ id: uid, korisnicko_ime: fallbackName })
+      .select('korisnicko_ime, ukupno_poena, izazova_zavrseno, trenutni_bedz, dnevna_serija, posljednji_login')
+      .maybeSingle();
+    if (insertError) {
+      console.error('Profile insert error', insertError);
+      return null;
+    }
+    return inserted ?? null;
+  };
+
   const updateAndGetStreak = async (): Promise<number> => {
     const userId = await getUserId();
     if (!userId) return 0;
@@ -60,12 +93,7 @@ export function ProfileScreen() {
     const today = new Date();
     const todayDate = today.toISOString().split('T')[0];
 
-    const { data } = await supabase
-      .from('korisnik_profil')
-      .select('dnevna_serija, posljednji_login')
-      .eq('id', userId)
-      .single();
-
+    const data = await ensureProfile(userId);
     if (!data) return 0;
 
     let streak = data.dnevna_serija ?? 0;
@@ -121,11 +149,15 @@ export function ProfileScreen() {
     if (!userId) return;
     setLoadingProfile(true);
 
-    const { data: profile } = await supabase
-      .from('korisnik_profil')
-      .select('korisnicko_ime, ukupno_poena, izazova_zavrseno, trenutni_bedz')
-      .eq('id', userId)
-      .single();
+    const profile = await ensureProfile(userId);
+    if (!profile) {
+      setUserName('Korisnik');
+      setUserPoints('0');
+      setUserCompleted('0');
+      setUserBadge('bronze');
+      setLoadingProfile(false);
+      return;
+    }
 
     setUserName(profile?.korisnicko_ime ?? 'Korisnik');
     setUserPoints(String(profile?.ukupno_poena ?? 0));
@@ -264,7 +296,10 @@ export function ProfileScreen() {
       <ScreenFade>
         <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate('Home')}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.navigate('MainTabs', { screen: 'Home' })}
+          >
             <ArrowLeft color={colors.softGreen} size={18} />
             <Text style={styles.backText}>Nazad</Text>
           </TouchableOpacity>
@@ -306,7 +341,10 @@ export function ProfileScreen() {
                 <Edit size={16} color={colors.softGreen} />
                 <Text style={styles.actionText}>Uredi profil</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButton} onPress={() => navigation.navigate('Statistics')}>
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => navigation.navigate('MainTabs', { screen: 'Statistics' })}
+              >
                 <BarChart3 size={16} color={colors.softGreen} />
                 <Text style={styles.actionText}>Statistika</Text>
               </TouchableOpacity>
@@ -318,7 +356,7 @@ export function ProfileScreen() {
           <Text style={styles.sectionTitle}>Tvoja statistika</Text>
           <View style={styles.statsGrid}>
             {stats.map((stat) => (
-              <View key={stat.label} style={styles.statCard}>
+              <GlowCard key={stat.label} style={styles.statCardShell} contentStyle={styles.statCard}>
                 <LinearGradient colors={gradients.primary} style={styles.statIcon}>
                   <stat.icon size={18} color={colors.text} />
                 </LinearGradient>
@@ -328,7 +366,7 @@ export function ProfileScreen() {
                   <Text style={styles.statValue}>{stat.value}</Text>
                 )}
                 <Text style={styles.statLabel}>{stat.label}</Text>
-              </View>
+              </GlowCard>
             ))}
           </View>
         </View>
@@ -337,9 +375,10 @@ export function ProfileScreen() {
           <Text style={styles.sectionTitle}>Dostignuća</Text>
           <View style={styles.achievementsGrid}>
             {achievements.map((achievement) => (
-              <View
+              <GlowCard
                 key={achievement.title}
-                style={[
+                style={styles.achievementCardShell}
+                contentStyle={[
                   styles.achievementCard,
                   achievement.unlocked ? styles.achievementUnlocked : styles.achievementLocked,
                 ]}
@@ -365,7 +404,7 @@ export function ProfileScreen() {
                 >
                   {achievement.description}
                 </Text>
-              </View>
+              </GlowCard>
             ))}
           </View>
         </View>
@@ -376,20 +415,20 @@ export function ProfileScreen() {
           {loadingActivities && activities.length === 0 ? (
             <View style={styles.skeletonGroup}>
               {Array.from({ length: 3 }).map((_, index) => (
-                <View key={`activity-skeleton-${index}`} style={styles.activityItem}>
+                <GlowCard key={`activity-skeleton-${index}`} style={styles.activityShell} contentStyle={styles.activityItem}>
                   <View style={styles.activityContent}>
                     <SkeletonBlock width="70%" height={12} />
                     <SkeletonBlock width="50%" height={10} style={{ marginTop: 8 }} />
                   </View>
                   <SkeletonBlock width={40} height={12} />
-                </View>
+                </GlowCard>
               ))}
             </View>
           ) : activities.length === 0 ? (
             <Text style={styles.emptyText}>Još nema aktivnosti.</Text>
           ) : (
             activities.map((activity) => (
-              <View key={activity.id} style={styles.activityItem}>
+              <GlowCard key={activity.id} style={styles.activityShell} contentStyle={styles.activityItem}>
                 <View style={styles.activityContent}>
                   <Text style={styles.activityAction}>{activity.opis}</Text>
                   <Text style={styles.activityDate}>
@@ -398,7 +437,7 @@ export function ProfileScreen() {
                   </Text>
                 </View>
                 <Text style={styles.activityPoints}>+{activity.poena_dodato ?? 0}</Text>
-              </View>
+              </GlowCard>
             ))
           )}
         </View>
@@ -406,13 +445,24 @@ export function ProfileScreen() {
         <View style={styles.logoutSection}>
           <TouchableOpacity
             style={styles.logoutButton}
+            disabled={loggingOut}
             onPress={async () => {
-              await supabase.auth.signOut();
-              navigation.navigate('Login');
+              if (loggingOut) return;
+              setLoggingOut(true);
+              const { error } = await supabase.auth.signOut();
+              setLoggingOut(false);
+              if (error) {
+                showError('Greška', error.message);
+                return;
+              }
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Login' }],
+              });
             }}
           >
             <LogOut size={16} color="#f87171" />
-            <Text style={styles.logoutText}>Odjavi se</Text>
+            <Text style={styles.logoutText}>{loggingOut ? 'Odjava...' : 'Odjavi se'}</Text>
           </TouchableOpacity>
         </View>
         </ScrollView>
@@ -541,12 +591,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
   },
+  statCardShell: {
+    flex: 1,
+  },
   statCard: {
     flex: 1,
-    backgroundColor: colors.card,
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
     padding: spacing.md,
     alignItems: 'center',
   },
@@ -574,19 +624,18 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.sm,
   },
-  achievementCard: {
+  achievementCardShell: {
     width: '48%',
+  },
+  achievementCard: {
     padding: spacing.md,
     borderRadius: radius.md,
-    borderWidth: 1,
   },
   achievementUnlocked: {
     backgroundColor: 'rgba(34, 197, 94, 0.1)',
-    borderColor: 'rgba(34, 197, 94, 0.3)',
   },
   achievementLocked: {
     backgroundColor: 'rgba(30, 41, 59, 0.3)',
-    borderColor: 'rgba(71, 85, 105, 0.3)',
   },
   achievementIconLocked: {
     opacity: 0.3,
@@ -612,16 +661,15 @@ const styles = StyleSheet.create({
   achievementDescLocked: {
     color: '#4b5563',
   },
+  activityShell: {
+    marginBottom: spacing.sm,
+  },
   activityItem: {
-    backgroundColor: colors.card,
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
     padding: spacing.md,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.sm,
   },
   activityContent: {
     flex: 1,

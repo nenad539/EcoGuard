@@ -12,6 +12,7 @@ import { SkeletonBlock } from '../components/common/Skeleton';
 import { ScreenFade } from '../components/common/ScreenFade';
 import { BackButton } from '../components/common/BackButton';
 import { EmptyState } from '../components/common/EmptyState';
+import { GlowCard } from '../components/common/GlowCard';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
@@ -66,6 +67,35 @@ export function FriendSystemScreen() {
   const [usingCache, setUsingCache] = useState(false);
   const [friendsVisible, setFriendsVisible] = useState(10);
   const [suggestionsVisible, setSuggestionsVisible] = useState(10);
+
+  const normalizeGroup = (row: any): GroupSummary => ({
+    id: row.id,
+    name: row.name ?? row.title ?? 'Grupa',
+    description: row.description ?? null,
+  });
+
+  const fetchGroupsList = async (ids?: string[]) => {
+    let query = supabase.from(GROUPS_TABLE).select('id, name, description');
+    if (ids?.length) {
+      query = query.in('id', ids);
+    }
+    const { data, error } = await query;
+    if (error?.code === '42703') {
+      let fallback = supabase.from(GROUPS_TABLE).select('id, title, description');
+      if (ids?.length) {
+        fallback = fallback.in('id', ids);
+      }
+      const { data: fallbackData, error: fallbackError } = await fallback;
+      if (fallbackError) {
+        throw fallbackError;
+      }
+      return (fallbackData ?? []).map((row: any) => normalizeGroup(row));
+    }
+    if (error) {
+      throw error;
+    }
+    return (data ?? []).map((row: any) => normalizeGroup(row));
+  };
 
   const fetchUserId = async () => {
     const { data } = await supabase.auth.getUser();
@@ -136,40 +166,62 @@ export function FriendSystemScreen() {
 
   const loadGroups = async (uid: string) => {
     setLoadingGroups(true);
+    setError(null);
+    let joined: GroupSummary[] = [];
+
     const { data: memberships, error: membershipError } = await supabase
       .from(GROUP_MEMBERS_TABLE)
       .select('group_id, groups ( id, name, description )')
       .eq('user_id', uid);
 
     if (membershipError) {
-      showError('Greška', 'Ne možemo učitati grupe.');
-      setLoadingGroups(false);
-      return;
+      console.error('Load groups membership error', membershipError);
+      const { data: memberIds, error: memberIdsError } = await supabase
+        .from(GROUP_MEMBERS_TABLE)
+        .select('group_id')
+        .eq('user_id', uid);
+
+      if (memberIdsError) {
+        console.error('Load groups member ids error', memberIdsError);
+        showError('Greška', 'Ne možemo učitati grupe.');
+        setLoadingGroups(false);
+        return;
+      }
+
+      const ids = (memberIds ?? []).map((row: any) => row.group_id).filter(Boolean);
+      if (ids.length) {
+        try {
+          joined = await fetchGroupsList(ids);
+        } catch (error) {
+          console.error('Load groups fallback error', error);
+          showError('Greška', 'Ne možemo učitati grupe.');
+          setLoadingGroups(false);
+          return;
+        }
+      }
+    } else {
+      joined = (memberships ?? [])
+        .map((row: any) => row.groups)
+        .filter(Boolean)
+        .map((row: any) => normalizeGroup(row));
     }
 
-    const joined = (memberships ?? [])
-      .map((row: any) => row.groups)
-      .filter(Boolean) as GroupSummary[];
     setJoinedGroups(joined);
 
-    const { data: groups, error: groupsError } = await supabase
-      .from(GROUPS_TABLE)
-      .select('id, name, description')
-      .limit(20);
-
-    if (groupsError) {
+    try {
+      const groups = await fetchGroupsList();
+      const joinedIds = new Set(joined.map((group) => group.id));
+      const shuffled = (groups ?? []).filter((group) => !joinedIds.has(group.id));
+      shuffled.sort(() => Math.random() - 0.5);
+      const recommended = shuffled.slice(0, 10) as GroupSummary[];
+      setRecommendedGroups(recommended);
+      setCached(`groups:${uid}`, { joined, recommended });
+      setUsingCache(false);
+    } catch (error) {
+      console.error('Load groups list error', error);
       showError('Greška', 'Ne možemo učitati grupe.');
-      setLoadingGroups(false);
-      return;
     }
 
-    const joinedIds = new Set(joined.map((group) => group.id));
-    const shuffled = (groups ?? []).filter((group) => !joinedIds.has(group.id));
-    shuffled.sort(() => Math.random() - 0.5);
-    const recommended = shuffled.slice(0, 10) as GroupSummary[];
-    setRecommendedGroups(recommended);
-    setCached(`groups:${uid}`, { joined, recommended });
-    setUsingCache(false);
     setLoadingGroups(false);
   };
 
@@ -559,16 +611,16 @@ export function FriendSystemScreen() {
               {loadingConnections && filteredFriends.length === 0 ? (
                 <View style={styles.skeletonGroup}>
                   {Array.from({ length: 3 }).map((_, index) => (
-                    <View key={`friend-skeleton-${index}`} style={styles.card}>
-                      <View>
-                        <SkeletonBlock width={120} height={14} />
-                        <SkeletonBlock width={80} height={10} style={{ marginTop: 8 }} />
-                      </View>
-                      <SkeletonBlock width={50} height={12} />
+                  <GlowCard key={`friend-skeleton-${index}`} style={styles.cardShell} contentStyle={styles.card}>
+                    <View>
+                      <SkeletonBlock width={120} height={14} />
+                      <SkeletonBlock width={80} height={10} style={{ marginTop: 8 }} />
                     </View>
-                  ))}
-                </View>
-              ) : filteredFriends.length === 0 ? (
+                    <SkeletonBlock width={50} height={12} />
+                  </GlowCard>
+                ))}
+              </View>
+            ) : filteredFriends.length === 0 ? (
                 <EmptyState
                   title="Još nemate prijatelja"
                   description="Povežite se sa zajednicom i pratite napredak."
@@ -576,7 +628,7 @@ export function FriendSystemScreen() {
               ) : (
                 <>
                   {visibleFriends.map((friend) => (
-                    <View key={friend.id} style={styles.card}>
+                    <GlowCard key={friend.id} style={styles.cardShell} contentStyle={styles.card}>
                       <View>
                         <Text style={styles.cardTitle}>{friend.korisnicko_ime}</Text>
                         <Text style={styles.cardSubtitle}>Poeni: {friend.ukupno_poena ?? 0}</Text>
@@ -600,7 +652,7 @@ export function FriendSystemScreen() {
                           </TouchableOpacity>
                         </View>
                       </View>
-                    </View>
+                    </GlowCard>
                   ))}
                   {filteredFriends.length > friendsVisible ? (
                     <TouchableOpacity onPress={() => setFriendsVisible((prev) => prev + 10)}>
@@ -619,12 +671,12 @@ export function FriendSystemScreen() {
               {loadingConnections && pendingIn.length === 0 && pendingOut.length === 0 ? (
                 <View style={styles.skeletonGroup}>
                   {Array.from({ length: 2 }).map((_, index) => (
-                    <View key={`request-skeleton-${index}`} style={styles.card}>
-                      <SkeletonBlock width={150} height={14} />
-                      <SkeletonBlock width={80} height={10} style={{ marginTop: 8 }} />
-                    </View>
-                  ))}
-                </View>
+                  <GlowCard key={`request-skeleton-${index}`} style={styles.cardShell} contentStyle={styles.card}>
+                    <SkeletonBlock width={150} height={14} />
+                    <SkeletonBlock width={80} height={10} style={{ marginTop: 8 }} />
+                  </GlowCard>
+                ))}
+              </View>
             ) : pendingIn.length === 0 && pendingOut.length === 0 ? (
               <EmptyState
                 title="Nema aktivnih zahtjeva"
@@ -633,22 +685,22 @@ export function FriendSystemScreen() {
             ) : (
                 <>
                   {pendingIn.map((req) => (
-                    <View key={req.id} style={styles.card}>
-                      <Text style={styles.cardTitle}>Primljen zahtjev</Text>
-                      <TouchableOpacity onPress={() => acceptRequest(req)}>
-                        <LinearGradient colors={gradients.primary} style={styles.actionButton}>
-                          <Text style={styles.actionLabel}>Prihvati</Text>
-                        </LinearGradient>
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                  {pendingOut.map((req) => (
-                    <View key={req.id} style={styles.card}>
-                      <Text style={styles.cardTitle}>Poslan zahtjev (na čekanju)</Text>
-                    </View>
-                  ))}
-                </>
-              )}
+                  <GlowCard key={req.id} style={styles.cardShell} contentStyle={styles.card}>
+                    <Text style={styles.cardTitle}>Primljen zahtjev</Text>
+                    <TouchableOpacity onPress={() => acceptRequest(req)}>
+                      <LinearGradient colors={gradients.primary} style={styles.actionButton}>
+                        <Text style={styles.actionLabel}>Prihvati</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </GlowCard>
+                ))}
+                {pendingOut.map((req) => (
+                  <GlowCard key={req.id} style={styles.cardShell} contentStyle={styles.card}>
+                    <Text style={styles.cardTitle}>Poslan zahtjev (na čekanju)</Text>
+                  </GlowCard>
+                ))}
+              </>
+            )}
             </View>
           )}
 
@@ -657,19 +709,19 @@ export function FriendSystemScreen() {
             {loadingSuggestions && suggestions.length === 0 ? (
               <View style={styles.skeletonGroup}>
                   {Array.from({ length: 3 }).map((_, index) => (
-                    <View key={`suggestion-skeleton-${index}`} style={styles.card}>
-                      <View>
-                        <SkeletonBlock width={120} height={14} />
-                        <SkeletonBlock width={80} height={10} style={{ marginTop: 8 }} />
-                      </View>
-                      <SkeletonBlock width={70} height={12} />
+                  <GlowCard key={`suggestion-skeleton-${index}`} style={styles.cardShell} contentStyle={styles.card}>
+                    <View>
+                      <SkeletonBlock width={120} height={14} />
+                      <SkeletonBlock width={80} height={10} style={{ marginTop: 8 }} />
                     </View>
-                  ))}
+                    <SkeletonBlock width={70} height={12} />
+                  </GlowCard>
+                ))}
               </View>
             ) : (
                 <>
                   {visibleSuggestions.map((suggestion) => (
-                  <View key={suggestion.id} style={styles.card}>
+                  <GlowCard key={suggestion.id} style={styles.cardShell} contentStyle={styles.card}>
                     <View>
                       <Text style={styles.cardTitle}>{suggestion.korisnicko_ime}</Text>
                       <Text style={styles.cardSubtitle}>Poeni: {suggestion.ukupno_poena ?? 0}</Text>
@@ -679,7 +731,7 @@ export function FriendSystemScreen() {
                         <Text style={styles.actionLabel}>Dodaj</Text>
                       </LinearGradient>
                     </TouchableOpacity>
-                  </View>
+                  </GlowCard>
                   ))}
                   {suggestions.length === 0 ? (
                     <EmptyState
@@ -701,19 +753,26 @@ export function FriendSystemScreen() {
 
           {activeTab === 'groups' && (
             <View style={styles.section}>
+              <View style={styles.groupActions}>
+                <TouchableOpacity onPress={() => navigation.navigate('CreateGroup')}>
+                  <LinearGradient colors={gradients.primary} style={styles.createGroupButton}>
+                    <Text style={styles.createGroupLabel}>Kreiraj grupu</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
               {loadingGroups && joinedGroups.length === 0 && recommendedGroups.length === 0 ? (
                 <View style={styles.skeletonGroup}>
                   {Array.from({ length: 3 }).map((_, index) => (
-                    <View key={`group-skeleton-${index}`} style={styles.card}>
-                      <View>
-                        <SkeletonBlock width={150} height={14} />
-                        <SkeletonBlock width={90} height={10} style={{ marginTop: 8 }} />
-                      </View>
-                      <SkeletonBlock width={70} height={12} />
+                  <GlowCard key={`group-skeleton-${index}`} style={styles.cardShell} contentStyle={styles.card}>
+                    <View>
+                      <SkeletonBlock width={150} height={14} />
+                      <SkeletonBlock width={90} height={10} style={{ marginTop: 8 }} />
                     </View>
-                  ))}
-                </View>
-              ) : (
+                    <SkeletonBlock width={70} height={12} />
+                  </GlowCard>
+                ))}
+              </View>
+            ) : (
                 <>
                 <Text style={styles.sectionTitle}>Moje grupe</Text>
                 {joinedGroups.length === 0 ? (
@@ -723,7 +782,7 @@ export function FriendSystemScreen() {
                   />
                 ) : (
                   joinedGroups.map((group) => (
-                      <View key={group.id} style={styles.card}>
+                      <GlowCard key={group.id} style={styles.cardShell} contentStyle={styles.card}>
                         <View style={styles.groupText}>
                           <Text style={styles.cardTitle}>{group.name}</Text>
                           {group.description ? (
@@ -735,9 +794,9 @@ export function FriendSystemScreen() {
                             <Text style={styles.actionLabel}>Otvori</Text>
                           </LinearGradient>
                         </TouchableOpacity>
-                      </View>
+                      </GlowCard>
                     ))
-                  )}
+                )}
                 <Text style={[styles.sectionTitle, { marginTop: spacing.md }]}>Preporučene grupe</Text>
                 {recommendedGroups.length === 0 ? (
                   <EmptyState
@@ -746,7 +805,7 @@ export function FriendSystemScreen() {
                   />
                 ) : (
                   recommendedGroups.map((group) => (
-                      <View key={group.id} style={styles.card}>
+                      <GlowCard key={group.id} style={styles.cardShell} contentStyle={styles.card}>
                         <View style={styles.groupText}>
                           <Text style={styles.cardTitle}>{group.name}</Text>
                           {group.description ? (
@@ -758,9 +817,9 @@ export function FriendSystemScreen() {
                             <Text style={styles.actionLabel}>Pridruži se</Text>
                           </LinearGradient>
                         </TouchableOpacity>
-                      </View>
+                      </GlowCard>
                     ))
-                  )}
+                )}
                 </>
               )}
             </View>
@@ -844,13 +903,10 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: spacing.lg,
   },
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
+  cardShell: {
     marginBottom: spacing.sm,
+  },
+  card: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -941,6 +997,19 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: '600',
     marginBottom: spacing.sm,
+  },
+  groupActions: {
+    marginBottom: spacing.md,
+    alignSelf: 'flex-start',
+  },
+  createGroupButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: radius.lg,
+  },
+  createGroupLabel: {
+    color: colors.text,
+    fontWeight: '600',
   },
   groupText: {
     flex: 1,

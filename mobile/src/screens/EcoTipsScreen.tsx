@@ -6,6 +6,7 @@ import { GradientBackground } from '../components/common/GradientBackground';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ScreenFade } from '../components/common/ScreenFade';
 import { BackButton } from '../components/common/BackButton';
+import { GlowCard } from '../components/common/GlowCard';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
@@ -145,20 +146,22 @@ export function EcoTipsScreen() {
 
         <View style={styles.cardGrid}>
           {filteredTips.map((tip) => (
-            <TouchableOpacity key={tip.id} style={styles.card} onPress={() => setSelectedTip(tip)}>
-              <Image source={{ uri: tip.image }} style={styles.cardImage} />
-              <View style={styles.cardContent}>
-                <View style={styles.cardHeader}>
-                  <LinearGradient colors={gradients.primary} style={styles.iconBadge}>
-                    <tip.icon size={16} color={colors.text} />
-                  </LinearGradient>
-                  <Text style={styles.cardTitle}>{tip.title}</Text>
+            <TouchableOpacity key={tip.id} style={styles.cardShell} onPress={() => setSelectedTip(tip)}>
+              <GlowCard contentStyle={styles.card}>
+                <Image source={{ uri: tip.image }} style={styles.cardImage} />
+                <View style={styles.cardContent}>
+                  <View style={styles.cardHeader}>
+                    <LinearGradient colors={gradients.primary} style={styles.iconBadge}>
+                      <tip.icon size={16} color={colors.text} />
+                    </LinearGradient>
+                    <Text style={styles.cardTitle}>{tip.title}</Text>
+                  </View>
+                  <Text style={styles.cardDescription}>{tip.description}</Text>
+                  <View style={styles.impactTag}>
+                    <Text style={styles.impactText}>{tip.impact}</Text>
+                  </View>
                 </View>
-                <Text style={styles.cardDescription}>{tip.description}</Text>
-                <View style={styles.impactTag}>
-                  <Text style={styles.impactText}>{tip.impact}</Text>
-                </View>
-              </View>
+              </GlowCard>
             </TouchableOpacity>
           ))}
         </View>
@@ -237,11 +240,11 @@ const styles = StyleSheet.create({
   cardGrid: {
     gap: spacing.md,
   },
-  card: {
-    backgroundColor: colors.card,
+  cardShell: {
     borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  card: {
     overflow: 'hidden',
   },
   cardImage: {

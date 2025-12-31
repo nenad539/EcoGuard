@@ -12,6 +12,7 @@ import { GradientBackground } from '../components/common/GradientBackground';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SkeletonBlock } from '../components/common/Skeleton';
 import { ScreenFade } from '../components/common/ScreenFade';
+import { GlowCard } from '../components/common/GlowCard';
 
 const ACTIVITY_TABLE = 'aktivnosti';
 const CACHE_TTL = 1000 * 60 * 5;
@@ -23,6 +24,14 @@ type Activity = {
   kategorija: string | null;
   status: string | null;
   kreirano_u: string | null;
+};
+
+const hexToRgba = (hex: string, alpha: number) => {
+  const normalized = hex.replace('#', '');
+  const r = parseInt(normalized.slice(0, 2), 16);
+  const g = parseInt(normalized.slice(2, 4), 16);
+  const b = parseInt(normalized.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
 export function HomeScreen() {
@@ -276,29 +285,37 @@ export function HomeScreen() {
           )}
         </View>
         <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Notifications')}>
-            <Bell color={colors.primary} size={20} />
+          <TouchableOpacity onPress={() => navigation.navigate('Notifications')} style={styles.iconButtonWrap}>
+            <LinearGradient colors={gradients.primary} style={styles.iconButton}>
+              <Bell color={colors.text} size={20} />
+            </LinearGradient>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Friends')}>
-            <Users color={colors.primary} size={20} />
+          <TouchableOpacity onPress={() => navigation.navigate('Friends')} style={styles.iconButtonWrap}>
+            <LinearGradient colors={gradients.primary} style={styles.iconButton}>
+              <Users color={colors.text} size={20} />
+            </LinearGradient>
           </TouchableOpacity>
         </View>
       </View>
 
       <View style={styles.statGrid}>
-        <View style={[styles.statCard, { borderColor: badgeColor }]}>
+        <GlowCard
+          style={styles.statCardShell}
+          contentStyle={styles.statCard}
+          gradient={[hexToRgba(badgeColor, 0.45), 'rgba(15, 23, 42, 0.95)']}
+        >
           <Medal color={badgeColor} size={26} />
           <Text style={styles.statLabel}>Bedž</Text>
           {loadingProfile ? <SkeletonBlock width={60} height={14} /> : <Text style={styles.statValue}>{badgeLabel}</Text>}
-        </View>
-        <View style={styles.statCard}>
+        </GlowCard>
+        <GlowCard style={styles.statCardShell} contentStyle={styles.statCard}>
           <Star color={colors.primary} size={26} />
           <Text style={styles.statLabel}>Ukupni poeni</Text>
           {loadingProfile ? <SkeletonBlock width={70} height={14} /> : <Text style={styles.statValue}>{userPoints}</Text>}
-        </View>
+        </GlowCard>
       </View>
 
-      <View style={styles.streakCard}>
+      <GlowCard style={styles.streakCardShell} contentStyle={styles.streakCard}>
         <View style={styles.streakRow}>
           <Flame color={colors.primary} size={24} />
           <View>
@@ -306,7 +323,7 @@ export function HomeScreen() {
             <Text style={styles.streakValue}>{userStreak} dana</Text>
           </View>
         </View>
-      </View>
+      </GlowCard>
 
       <TouchableOpacity onPress={() => navigation.navigate('Challenges')}>
         <LinearGradient colors={gradients.primary} style={styles.cta}>
@@ -321,20 +338,20 @@ export function HomeScreen() {
         {loadingActivities && activities.length === 0 ? (
           <View style={styles.skeletonGroup}>
             {Array.from({ length: 3 }).map((_, index) => (
-              <View key={`activity-skeleton-${index}`} style={styles.activityItem}>
+              <GlowCard key={`activity-skeleton-${index}`} style={styles.activityShell} contentStyle={styles.activityItem}>
                 <View style={styles.activityContent}>
                   <SkeletonBlock width="70%" height={12} />
                   <SkeletonBlock width="40%" height={10} style={{ marginTop: 8 }} />
                 </View>
                 <SkeletonBlock width={40} height={12} />
-              </View>
+              </GlowCard>
             ))}
           </View>
         ) : activities.length === 0 ? (
           <Text style={styles.empty}>Još nema aktivnosti.</Text>
         ) : (
           activities.map((activity) => (
-            <View key={activity.id} style={styles.activityItem}>
+            <GlowCard key={activity.id} style={styles.activityShell} contentStyle={styles.activityItem}>
               <View style={styles.activityContent}>
                 <Text style={styles.activityTitle}>{activity.opis}</Text>
                 <Text style={styles.activityTime}>
@@ -350,7 +367,7 @@ export function HomeScreen() {
                     : '+0'}
                 </Text>
               </View>
-            </View>
+            </GlowCard>
           ))
         )}
       </View>
@@ -358,13 +375,17 @@ export function HomeScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Brze akcije</Text>
         <View style={styles.quickRow}>
-          <TouchableOpacity style={styles.quickAction} onPress={() => navigation.navigate('EcoTips')}>
-            <Text style={styles.quickTitle}>Eko savjeti</Text>
-            <Text style={styles.quickSubtitle}>Saznaj više</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('EcoTips')} style={styles.quickShell}>
+            <GlowCard contentStyle={styles.quickAction}>
+              <Text style={styles.quickTitle}>Eko savjeti</Text>
+              <Text style={styles.quickSubtitle}>Saznaj više</Text>
+            </GlowCard>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.quickAction} onPress={() => navigation.navigate('Community')}>
-            <Text style={styles.quickTitle}>Zajednica</Text>
-            <Text style={styles.quickSubtitle}>Rang lista</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Community')} style={styles.quickShell}>
+            <GlowCard contentStyle={styles.quickAction}>
+              <Text style={styles.quickTitle}>Zajednica</Text>
+              <Text style={styles.quickSubtitle}>Rang lista</Text>
+            </GlowCard>
           </TouchableOpacity>
         </View>
       </View>
@@ -397,25 +418,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
   },
+  iconButtonWrap: {
+    borderRadius: radius.md,
+    overflow: 'hidden',
+  },
   iconButton: {
-    backgroundColor: colors.card,
     padding: spacing.sm,
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
   statGrid: {
     flexDirection: 'row',
     gap: spacing.md,
     marginBottom: spacing.md,
   },
+  statCardShell: {
+    flex: 1,
+  },
   statCard: {
     flex: 1,
-    backgroundColor: colors.card,
     padding: spacing.md,
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
   statLabel: {
     color: colors.muted,
@@ -427,13 +449,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: spacing.xs,
   },
+  streakCardShell: {
+    marginBottom: spacing.md,
+  },
   streakCard: {
-    backgroundColor: colors.card,
     padding: spacing.md,
     borderRadius: radius.md,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
   streakRow: {
     flexDirection: 'row',
@@ -473,15 +494,14 @@ const styles = StyleSheet.create({
     color: colors.muted,
     marginBottom: spacing.sm,
   },
+  activityShell: {
+    marginBottom: spacing.sm,
+  },
   activityItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: colors.card,
     padding: spacing.md,
     borderRadius: radius.md,
-    marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
     alignItems: 'center',
   },
   activityContent: {
@@ -513,13 +533,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.md,
   },
+  quickShell: {
+    flex: 1,
+  },
   quickAction: {
     flex: 1,
-    backgroundColor: colors.card,
     padding: spacing.md,
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
   quickTitle: {
     color: colors.text,

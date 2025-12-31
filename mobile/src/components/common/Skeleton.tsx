@@ -3,7 +3,7 @@ import { Animated, ViewStyle } from 'react-native';
 import { colors, radius } from '../../styles/common';
 
 type SkeletonBlockProps = {
-  width?: number | string;
+  width?: number | `${number}%`;
   height?: number;
   radiusSize?: number;
   style?: ViewStyle;

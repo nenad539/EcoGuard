@@ -10,9 +10,18 @@ import { BackButton } from '../components/common/BackButton';
 import { EmptyState } from '../components/common/EmptyState';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
+import { GlowCard } from '../components/common/GlowCard';
 
 const PHOTO_COMPLETIONS_TABLE = 'photo_challenge_completions';
 const GROUP_SUBMISSIONS_TABLE = 'group_activity_submissions';
+const STORAGE_BUCKET = 'photo-challenge-submissions';
+const PHOTO_CHALLENGE_TABLE_CANDIDATES = [
+  process.env.EXPO_PUBLIC_PHOTO_CHALLENGE_TABLE,
+  'photoChallenge',
+  'photochallenge',
+  'photo_challenges',
+  'photochallenges',
+].filter(Boolean) as string[];
 
 type PhotoQueueItem = {
   id: number;
@@ -74,6 +83,18 @@ export function AdminModerationScreen() {
   const [groups, setGroups] = useState<Record<string, GroupInfo>>({});
   const [profiles, setProfiles] = useState<Record<string, ProfileInfo>>({});
 
+  const resolveSignedUrl = async (url: string | null) => {
+    if (!url) return null;
+    const marker = `/${STORAGE_BUCKET}/`;
+    const index = url.indexOf(marker);
+    if (index === -1) return url;
+    const path = url.slice(index + marker.length);
+    if (!path) return url;
+    const { data, error } = await supabase.storage.from(STORAGE_BUCKET).createSignedUrl(path, 60 * 60);
+    if (error || !data?.signedUrl) return url;
+    return data.signedUrl;
+  };
+
   const loadUser = async () => {
     const { data } = await supabase.auth.getUser();
     const uid = data?.user?.id ?? null;
@@ -115,19 +136,34 @@ export function AdminModerationScreen() {
     }
 
     const rows = (data ?? []) as PhotoQueueItem[];
-    setPhotoQueue(rows);
+    const withImages = await Promise.all(
+      rows.map(async (row) => ({
+        ...row,
+        image_url: await resolveSignedUrl(row.image_url),
+      }))
+    );
+    setPhotoQueue(withImages);
 
     const challengeIds = Array.from(new Set(rows.map((row) => row.photo_challenge_id)));
     if (challengeIds.length) {
-      const { data: challenges } = await supabase
-        .from('photoChallenge')
-        .select('id, title, points')
-        .in('id', challengeIds);
-      const map = (challenges ?? []).reduce<Record<number, ChallengeInfo>>((acc, item) => {
-        acc[item.id] = item as ChallengeInfo;
-        return acc;
-      }, {});
-      setPhotoChallenges(map);
+      const table = await resolvePhotoChallengeTable();
+      if (!table) {
+        showError('Greška', 'Tabela foto izazova nije pronađena.');
+      } else {
+        const { data: challenges, error: challengeError } = await supabase
+          .from(table)
+          .select('id, title, points')
+          .in('id', challengeIds);
+        if (challengeError) {
+          showError('Greška', challengeError.message);
+        } else {
+          const map = (challenges ?? []).reduce<Record<number, ChallengeInfo>>((acc, item) => {
+            acc[item.id] = item as ChallengeInfo;
+            return acc;
+          }, {});
+          setPhotoChallenges(map);
+        }
+      }
     }
 
     const userIds = Array.from(new Set(rows.map((row) => row.user_id)));
@@ -148,7 +184,13 @@ export function AdminModerationScreen() {
     }
 
     const rows = (data ?? []) as GroupQueueItem[];
-    setGroupQueue(rows);
+    const withImages = await Promise.all(
+      rows.map(async (row) => ({
+        ...row,
+        image_url: await resolveSignedUrl(row.image_url),
+      }))
+    );
+    setGroupQueue(withImages);
 
     const activityIds = Array.from(new Set(rows.map((row) => row.activity_id)));
     if (activityIds.length) {
@@ -251,7 +293,7 @@ export function AdminModerationScreen() {
     const challenge = photoChallenges[item.photo_challenge_id];
     const points = challenge?.points ?? 0;
 
-    await supabase
+    const { error: approveError } = await supabase
       .from(PHOTO_COMPLETIONS_TABLE)
       .update({
         approved: true,
@@ -260,12 +302,20 @@ export function AdminModerationScreen() {
       })
       .eq('id', item.id);
 
+    if (approveError) {
+      showError('Greška', approveError.message);
+      return;
+    }
+
     if (!item.points_awarded && points > 0) {
       await awardPoints(item.user_id, points, true);
-      await supabase
+      const { error: awardError } = await supabase
         .from(PHOTO_COMPLETIONS_TABLE)
         .update({ points_awarded: true })
         .eq('id', item.id);
+      if (awardError) {
+        showError('Greška', awardError.message);
+      }
     }
 
     await logActivity({
@@ -290,7 +340,11 @@ export function AdminModerationScreen() {
   };
 
   const rejectPhoto = async (item: PhotoQueueItem) => {
-    await supabase.from(PHOTO_COMPLETIONS_TABLE).delete().eq('id', item.id);
+    const { error } = await supabase.from(PHOTO_COMPLETIONS_TABLE).delete().eq('id', item.id);
+    if (error) {
+      showError('Greška', error.message);
+      return;
+    }
     await logActivity({
       korisnik_id: item.user_id,
       opis: 'Foto izazov odbijen',
@@ -310,7 +364,7 @@ export function AdminModerationScreen() {
     const activity = groupActivities[item.activity_id];
     const points = activity?.points ?? 0;
 
-    await supabase
+    const { error: approveError } = await supabase
       .from(GROUP_SUBMISSIONS_TABLE)
       .update({
         approved: true,
@@ -319,9 +373,20 @@ export function AdminModerationScreen() {
       })
       .eq('id', item.id);
 
+    if (approveError) {
+      showError('Greška', approveError.message);
+      return;
+    }
+
     if (!item.points_awarded && points > 0) {
       await awardPoints(item.user_id, points, false);
-      await supabase.from(GROUP_SUBMISSIONS_TABLE).update({ points_awarded: true }).eq('id', item.id);
+      const { error: awardError } = await supabase
+        .from(GROUP_SUBMISSIONS_TABLE)
+        .update({ points_awarded: true })
+        .eq('id', item.id);
+      if (awardError) {
+        showError('Greška', awardError.message);
+      }
     }
 
     await logActivity({
@@ -346,7 +411,11 @@ export function AdminModerationScreen() {
   };
 
   const rejectGroup = async (item: GroupQueueItem) => {
-    await supabase.from(GROUP_SUBMISSIONS_TABLE).delete().eq('id', item.id);
+    const { error } = await supabase.from(GROUP_SUBMISSIONS_TABLE).delete().eq('id', item.id);
+    if (error) {
+      showError('Greška', error.message);
+      return;
+    }
     await logActivity({
       korisnik_id: item.user_id,
       opis: 'Grupna aktivnost odbijena',
@@ -416,7 +485,7 @@ export function AdminModerationScreen() {
                       const challenge = photoChallenges[item.photo_challenge_id];
                       const user = profiles[item.user_id];
                       return (
-                        <View key={`photo-${item.id}`} style={styles.card}>
+                        <GlowCard key={`photo-${item.id}`} style={styles.cardShell} contentStyle={styles.card}>
                           {item.image_url ? (
                             <Image source={{ uri: item.image_url }} style={styles.preview} />
                           ) : null}
@@ -439,7 +508,7 @@ export function AdminModerationScreen() {
                               </TouchableOpacity>
                             </View>
                           </View>
-                        </View>
+                        </GlowCard>
                       );
                     })
                   )}
@@ -459,7 +528,7 @@ export function AdminModerationScreen() {
                       const group = groups[item.group_id];
                       const user = profiles[item.user_id];
                       return (
-                        <View key={`group-${item.id}`} style={styles.card}>
+                        <GlowCard key={`group-${item.id}`} style={styles.cardShell} contentStyle={styles.card}>
                           {item.image_url ? (
                             <Image source={{ uri: item.image_url }} style={styles.preview} />
                           ) : null}
@@ -483,7 +552,7 @@ export function AdminModerationScreen() {
                               </TouchableOpacity>
                             </View>
                           </View>
-                        </View>
+                        </GlowCard>
                       );
                     })
                   )}
@@ -545,12 +614,11 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: spacing.lg,
   },
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
+  cardShell: {
     marginBottom: spacing.md,
+  },
+  card: {
+    borderRadius: radius.lg,
     overflow: 'hidden',
   },
   preview: {
@@ -611,3 +679,11 @@ const styles = StyleSheet.create({
     color: colors.muted,
   },
 });
+  const resolvePhotoChallengeTable = async (): Promise<string | null> => {
+    for (const candidate of PHOTO_CHALLENGE_TABLE_CANDIDATES) {
+      const { error } = await supabase.from(candidate).select('id').limit(1);
+      if (error?.code === 'PGRST205') continue;
+      return candidate;
+    }
+    return null;
+  };

@@ -15,6 +15,7 @@ import { PhotoSubmission } from '../components/PhotoSubmission';
 import { SkeletonBlock } from '../components/common/Skeleton';
 import { ScreenFade } from '../components/common/ScreenFade';
 import { RootStackParamList } from '../navigation/types';
+import { GlowCard } from '../components/common/GlowCard';
 
 const REGULAR_COMPLETION_TABLE_CANDIDATES = [
   process.env.EXPO_PUBLIC_REGULAR_COMPLETION_TABLE,
@@ -267,7 +268,7 @@ export function PhotoChallengeScreen() {
     });
     setRegularCompletedToday(completedToday);
 
-    const mapped = (ch ?? []).map((c: any) => ({
+    const mapped: RegularChallenge[] = (ch ?? []).map((c: any) => ({
       id: c.id,
       title: c.title,
       description: c.description,
@@ -413,6 +414,8 @@ export function PhotoChallengeScreen() {
   useEffect(() => {
     if (!userId) return;
     let regularChannel: ReturnType<typeof supabase.channel> | null = null;
+    let regularChallengesChannel: ReturnType<typeof supabase.channel> | null = null;
+    let photoChallengesChannel: ReturnType<typeof supabase.channel> | null = null;
     if (regularCompletionTable) {
       regularChannel = supabase
         .channel('regular-completions')
@@ -443,11 +446,41 @@ export function PhotoChallengeScreen() {
       )
       .subscribe();
 
+    if (regularChallengeTable) {
+      regularChallengesChannel = supabase
+        .channel('regular-challenges')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: regularChallengeTable,
+          },
+          () => fetchRegularChallenges()
+        )
+        .subscribe();
+    }
+
+    photoChallengesChannel = supabase
+      .channel('photo-challenges')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'photoChallenge',
+        },
+        () => fetchPhotoChallenges()
+      )
+      .subscribe();
+
     return () => {
       if (regularChannel) supabase.removeChannel(regularChannel);
+      if (regularChallengesChannel) supabase.removeChannel(regularChallengesChannel);
+      if (photoChallengesChannel) supabase.removeChannel(photoChallengesChannel);
       supabase.removeChannel(photoChannel);
     };
-  }, [userId, regularCompletionTable]);
+  }, [userId, regularCompletionTable, regularChallengeTable]);
 
   useEffect(() => {
     const awardApproved = async () => {
@@ -549,14 +582,17 @@ export function PhotoChallengeScreen() {
       showSuccess('Poslato', 'Foto izazov je poslat na provjeru.');
       return { success: true };
     } catch (err: any) {
+      console.error('Photo submission error', err);
       setPhotoCompletionMap((prev) => {
         const next = { ...prev };
         delete next[submission.challengeId];
         return next;
       });
-      setPhotoError('Greška pri završavanju foto izazova.');
-      showError('Greška', 'Ne možemo poslati foto izazov.');
-      return { success: false, error: err?.message ?? 'Ne možemo poslati foto izazov.' };
+      const message =
+        err?.message ?? err?.details ?? err?.hint ?? 'Ne možemo poslati foto izazov.';
+      setPhotoError(message);
+      showError('Greška', message);
+      return { success: false, error: message };
     }
   };
 
@@ -611,11 +647,11 @@ export function PhotoChallengeScreen() {
             {regularLoading && regularChallenges.length === 0 ? (
               <View style={styles.skeletonGroup}>
                 {Array.from({ length: 3 }).map((_, index) => (
-                  <View key={`regular-skeleton-${index}`} style={styles.card}>
+                  <GlowCard key={`regular-skeleton-${index}`} style={styles.cardShell} contentStyle={styles.card}>
                     <SkeletonBlock width="70%" height={14} />
                     <SkeletonBlock width="90%" height={10} style={{ marginTop: 8 }} />
                     <SkeletonBlock width="50%" height={12} style={{ marginTop: 12 }} />
-                  </View>
+                  </GlowCard>
                 ))}
               </View>
             ) : regularLoading ? (
@@ -632,7 +668,7 @@ export function PhotoChallengeScreen() {
             {regularChallenges.map((challenge) => {
               const Icon = iconMap[challenge.iconKey ?? 'default'] ?? iconMap.default;
               return (
-                <View key={challenge.id} style={styles.card}>
+                <GlowCard key={challenge.id} style={styles.cardShell} contentStyle={styles.card}>
                   <View style={styles.cardHeader}>
                     <View style={styles.cardIcon}>
                       <LinearGradient colors={gradients.primary} style={styles.iconBadge}>
@@ -666,7 +702,7 @@ export function PhotoChallengeScreen() {
                       </Text>
                     </LinearGradient>
                   </TouchableOpacity>
-                </View>
+                </GlowCard>
               );
             })}
           </View>
@@ -677,11 +713,11 @@ export function PhotoChallengeScreen() {
             {photoLoading && photoCards.length === 0 ? (
               <View style={styles.skeletonGroup}>
                 {Array.from({ length: 3 }).map((_, index) => (
-                  <View key={`photo-skeleton-${index}`} style={styles.card}>
+                  <GlowCard key={`photo-skeleton-${index}`} style={styles.cardShell} contentStyle={styles.card}>
                     <SkeletonBlock width="60%" height={14} />
                     <SkeletonBlock width="90%" height={10} style={{ marginTop: 8 }} />
                     <SkeletonBlock width="50%" height={12} style={{ marginTop: 12 }} />
-                  </View>
+                  </GlowCard>
                 ))}
               </View>
             ) : photoLoading ? (
@@ -701,7 +737,7 @@ export function PhotoChallengeScreen() {
                 remaining = `Preostalo ${days} dana`;
               }
               return (
-              <View key={challenge.id} style={styles.card}>
+              <GlowCard key={challenge.id} style={styles.cardShell} contentStyle={styles.card}>
                 <View style={styles.cardHeader}>
                   <View style={styles.cardText}>
                     <Text style={styles.cardTitle}>{challenge.title}</Text>
@@ -734,7 +770,7 @@ export function PhotoChallengeScreen() {
                     </Text>
                   </LinearGradient>
                 </TouchableOpacity>
-              </View>
+              </GlowCard>
             );})}
           </View>
         )}
@@ -831,12 +867,12 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   card: {
-    backgroundColor: colors.card,
     padding: spacing.md,
     borderRadius: radius.md,
     marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
+  },
+  cardShell: {
+    marginBottom: spacing.md,
   },
   cardHeader: {
     flexDirection: 'row',

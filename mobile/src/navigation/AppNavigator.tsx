@@ -22,6 +22,7 @@ import { FriendSystemScreen } from '../screens/FriendSystemScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { EcoTipsScreen } from '../screens/EcoTipsScreen';
 import { CreateChallengeScreen } from '../screens/CreateChallengeScreen';
+import { CreateGroupScreen } from '../screens/CreateGroupScreen';
 import { EditProfileScreen } from '../screens/EditProfileScreen';
 import { FriendChatScreen } from '../screens/FriendChatScreen';
 import { GroupDetailScreen } from '../screens/GroupDetailScreen';
@@ -89,8 +90,9 @@ function MainTabs() {
 }
 
 export function AppNavigator() {
-  const [initialRoute, setInitialRoute] = useState<'Splash' | 'Onboarding' | 'MainTabs'>('Splash');
+  const [initialRoute, setInitialRoute] = useState<'Splash' | 'Onboarding' | 'MainTabs' | 'Login'>('Splash');
   const [checking, setChecking] = useState(true);
+  const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
     let mounted = true;
@@ -122,7 +124,12 @@ export function AppNavigator() {
     };
   }, []);
 
-  if (checking) {
+  useEffect(() => {
+    const timer = setTimeout(() => setShowSplash(false), 1200);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (checking || showSplash) {
     return <SplashScreen />;
   }
 
@@ -145,6 +152,7 @@ export function AppNavigator() {
         <Stack.Screen name="Notifications" component={NotificationsScreen} />
         <Stack.Screen name="EcoTips" component={EcoTipsScreen} />
         <Stack.Screen name="CreateChallenge" component={CreateChallengeScreen} />
+        <Stack.Screen name="CreateGroup" component={CreateGroupScreen} />
         <Stack.Screen name="EditProfile" component={EditProfileScreen} />
         <Stack.Screen name="FriendChat" component={FriendChatScreen} />
         <Stack.Screen name="GroupDetail" component={GroupDetailScreen} />

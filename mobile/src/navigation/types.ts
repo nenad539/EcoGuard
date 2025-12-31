@@ -12,13 +12,14 @@ export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
   Terms: undefined;
-  MainTabs: undefined;
+  MainTabs: { screen?: keyof MainTabParamList } | undefined;
   Challenges: undefined;
   Community: undefined;
   Friends: undefined;
   Notifications: undefined;
   EcoTips: undefined;
   CreateChallenge: undefined;
+  CreateGroup: undefined;
   EditProfile: undefined;
   FriendChat: { friendId: string; friendName?: string };
   GroupDetail: { groupId: string };

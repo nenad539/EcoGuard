@@ -1,5 +1,7 @@
 import { supabase } from './supabase';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+import * as FileSystem from 'expo-file-system';
+import { decode } from 'base64-arraybuffer';
 
 const DEFAULT_BUCKET = 'photo-challenge-submissions';
 const imageCache = new Map<string, string>();
@@ -30,8 +32,13 @@ export const uploadPhotoChallenge = async (params: {
   onProgress?.(0.1);
   const processedUri = await compressImage(uri);
   onProgress?.(0.2);
-  const response = await fetch(processedUri);
-  const blob = await response.blob();
+
+  const contentType = 'image/jpeg';
+  const base64 = await FileSystem.readAsStringAsync(processedUri, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+  const body = decode(base64);
+
   onProgress?.(0.4);
 
   const extension = 'jpg';
@@ -39,7 +46,7 @@ export const uploadPhotoChallenge = async (params: {
 
   const { error: uploadError } = await supabase.storage
     .from(DEFAULT_BUCKET)
-    .upload(filePath, blob, { upsert: true, contentType: blob.type || 'image/jpeg' });
+    .upload(filePath, body, { upsert: true, contentType });
 
   if (uploadError) throw uploadError;
   onProgress?.(0.75);

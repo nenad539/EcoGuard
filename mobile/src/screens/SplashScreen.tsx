@@ -7,8 +7,25 @@ import { GradientBackground } from '../components/common/GradientBackground';
 export function SplashScreen() {
   const spinAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const logoAnim = useRef(new Animated.Value(0)).current;
+  const titleAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    Animated.timing(logoAnim, {
+      toValue: 1,
+      duration: 600,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+
+    Animated.timing(titleAnim, {
+      toValue: 1,
+      duration: 600,
+      delay: 250,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+
     const spin = Animated.loop(
       Animated.timing(spinAnim, {
         toValue: 1,
@@ -47,10 +64,20 @@ export function SplashScreen() {
     outputRange: ['0deg', '360deg'],
   });
 
+  const logoScale = logoAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.7, 1],
+  });
+
+  const titleTranslate = titleAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [16, 0],
+  });
+
   return (
     <GradientBackground>
       <View style={styles.container}>
-        <View style={styles.logoContainer}>
+        <Animated.View style={[styles.logoContainer, { opacity: logoAnim, transform: [{ scale: logoScale }] }]}>
           <View style={styles.logoBadge}>
             <Shield color={colors.primary} size={96} strokeWidth={1.5} />
             <Leaf color={colors.primaryDark} size={48} style={styles.leaf} />
@@ -58,10 +85,12 @@ export function SplashScreen() {
 
           <Animated.View style={[styles.loader, { transform: [{ rotate: spin }] }]} />
           <Animated.View style={[styles.glow, { transform: [{ scale: pulseAnim }] }]} />
-        </View>
+        </Animated.View>
 
-        <Text style={styles.title}>GrowWithUs</Text>
-        <Text style={styles.subtitle}>Čuvaj prirodu.</Text>
+        <Animated.View style={{ opacity: titleAnim, transform: [{ translateY: titleTranslate }] }}>
+          <Text style={styles.title}>GrowWithUs</Text>
+          <Text style={styles.subtitle}>Čuvaj prirodu.</Text>
+        </Animated.View>
       </View>
     </GradientBackground>
   );

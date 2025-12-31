@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, Text, StyleSheet, View, TouchableOpacity } from 'react-native';
-import { Bell, CheckCircle, Trash2, UserPlus } from 'lucide-react-native';
+import { Bell, CheckCircle, Trash2, UserPlus, Users } from 'lucide-react-native';
 import { supabase } from '../lib/supabase';
 import { getCached, setCached } from '../lib/cache';
 import { useRealtimeStatus } from '../lib/realtime';
@@ -12,12 +12,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { ScreenFade } from '../components/common/ScreenFade';
 import { BackButton } from '../components/common/BackButton';
 import { EmptyState } from '../components/common/EmptyState';
+import { GlowCard } from '../components/common/GlowCard';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 
 const NOTIFICATIONS_TABLE = 'notifications';
 const FRIENDS_TABLE = 'prijatelji';
+const GROUP_MEMBERS_TABLE = 'group_members';
 const CACHE_TTL = 1000 * 60 * 5;
 
 type NotificationItem = {
@@ -188,6 +190,52 @@ export function NotificationsScreen() {
     showSuccess('Uspjeh', 'Zahtjev je prihvaćen.');
   };
 
+  const acceptGroupInvite = async (item: NotificationItem) => {
+    if (!userId || !item.related_id) return;
+    const groupId = item.related_id;
+
+    const { data: existing } = await supabase
+      .from(GROUP_MEMBERS_TABLE)
+      .select('id')
+      .eq('group_id', groupId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (existing) {
+      await markRead(item.id);
+      showSuccess('Uspjeh', 'Već ste član grupe.');
+      return;
+    }
+
+    const payloads = [
+      { group_id: groupId, user_id: userId, role: 'member' },
+      { group_id: groupId, user_id: userId },
+    ];
+
+    let inserted = false;
+    let lastError: any;
+    for (const payload of payloads) {
+      const { error } = await supabase.from(GROUP_MEMBERS_TABLE).insert(payload);
+      if (!error) {
+        inserted = true;
+        break;
+      }
+      if (error?.code === '42703') {
+        lastError = error;
+        continue;
+      }
+      lastError = error;
+    }
+
+    if (!inserted) {
+      showError('Greška', lastError?.message ?? 'Ne možemo prihvatiti poziv.');
+      return;
+    }
+
+    await markRead(item.id);
+    showSuccess('Uspjeh', 'Pridruženi ste grupi.');
+  };
+
   const unreadCount = useMemo(
     () => items.filter((item) => item.status === 'unread').length,
     [items]
@@ -234,6 +282,7 @@ export function NotificationsScreen() {
   const renderIcon = (type: string | null) => {
     if (type === 'friend_request') return <UserPlus size={18} color={colors.text} />;
     if (type === 'friend_accept') return <CheckCircle size={18} color={colors.text} />;
+    if (type === 'group_invite') return <Users size={18} color={colors.text} />;
     return <Bell size={18} color={colors.text} />;
   };
 
@@ -269,7 +318,7 @@ export function NotificationsScreen() {
         {loading && items.length === 0 ? (
           <View style={styles.skeletonWrap}>
             {Array.from({ length: 4 }).map((_, index) => (
-              <View key={`skeleton-${index}`} style={styles.card}>
+              <GlowCard key={`skeleton-${index}`} style={styles.cardShell} contentStyle={styles.card}>
                 <View style={styles.cardRow}>
                   <SkeletonBlock width={36} height={36} radiusSize={18} />
                   <View style={styles.cardContent}>
@@ -278,7 +327,7 @@ export function NotificationsScreen() {
                     <SkeletonBlock width="40%" height={10} style={{ marginTop: 8 }} />
                   </View>
                 </View>
-              </View>
+              </GlowCard>
             ))}
           </View>
         ) : items.length === 0 ? (
@@ -291,7 +340,19 @@ export function NotificationsScreen() {
             <View key={group.label} style={styles.groupSection}>
               <Text style={styles.groupTitle}>{group.label}</Text>
               {group.items.map((item) => (
-                <View key={item.id} style={[styles.card, item.status === 'unread' && styles.cardUnread]}>
+                <GlowCard
+                  key={item.id}
+                  style={styles.cardShell}
+                  contentStyle={[
+                    styles.card,
+                    ...(item.status === 'unread' ? [styles.cardUnread] : []),
+                  ]}
+                  gradient={
+                    item.status === 'unread'
+                      ? (['rgba(34, 197, 94, 0.45)', 'rgba(15, 23, 42, 0.95)'] as const)
+                      : undefined
+                  }
+                >
                   <View style={styles.cardRow}>
                     <View style={styles.iconWrap}>{renderIcon(item.type)}</View>
                     <View style={styles.cardContent}>
@@ -313,6 +374,13 @@ export function NotificationsScreen() {
                         </LinearGradient>
                       </TouchableOpacity>
                     ) : null}
+                    {item.type === 'group_invite' && item.related_id ? (
+                      <TouchableOpacity onPress={() => acceptGroupInvite(item)}>
+                        <LinearGradient colors={gradients.primary} style={styles.primaryButton}>
+                          <Text style={styles.primaryLabel}>Pridruži se</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    ) : null}
                     {item.status !== 'read' && (
                       <TouchableOpacity onPress={() => markRead(item.id)} style={styles.secondaryButton}>
                         <Text style={styles.secondaryLabel}>Označi pročitano</Text>
@@ -322,7 +390,7 @@ export function NotificationsScreen() {
                       <Trash2 color={colors.muted} size={16} />
                     </TouchableOpacity>
                   </View>
-                </View>
+                </GlowCard>
               ))}
             </View>
           ))
@@ -390,16 +458,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 12,
   },
-  card: {
-    backgroundColor: colors.card,
-    padding: spacing.md,
-    borderRadius: radius.md,
+  cardShell: {
     marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
+  },
+  card: {
+    padding: spacing.md,
   },
   cardUnread: {
-    borderColor: 'rgba(34, 197, 94, 0.4)',
+    backgroundColor: 'rgba(34, 197, 94, 0.1)',
   },
   groupSection: {
     marginBottom: spacing.md,

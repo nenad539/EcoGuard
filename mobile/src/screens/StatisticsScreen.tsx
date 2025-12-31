@@ -9,6 +9,7 @@ import { GradientBackground } from '../components/common/GradientBackground';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SkeletonBlock } from '../components/common/Skeleton';
 import { ScreenFade } from '../components/common/ScreenFade';
+import { GlowCard } from '../components/common/GlowCard';
 
 const CACHE_TTL = 1000 * 60 * 5;
 
@@ -204,7 +205,7 @@ export function StatisticsScreen() {
         {error && <Text style={styles.error}>{error}</Text>}
 
         <View style={styles.summaryGrid}>
-          <View style={styles.summaryCard}>
+          <GlowCard style={styles.summaryCardShell} contentStyle={styles.summaryCard}>
             <LinearGradient colors={gradients.primary} style={styles.summaryIcon}>
               <Award size={18} color={colors.text} />
             </LinearGradient>
@@ -214,8 +215,8 @@ export function StatisticsScreen() {
             ) : (
               <Text style={styles.summaryValue}>{ukupnoPoena ?? 0}</Text>
             )}
-          </View>
-          <View style={styles.summaryCard}>
+          </GlowCard>
+          <GlowCard style={styles.summaryCardShell} contentStyle={styles.summaryCard}>
             <LinearGradient colors={gradients.primary} style={styles.summaryIcon}>
               <Target size={18} color={colors.text} />
             </LinearGradient>
@@ -225,11 +226,11 @@ export function StatisticsScreen() {
             ) : (
               <Text style={styles.summaryValue}>{izazovaZavrseno ?? 0}</Text>
             )}
-          </View>
+          </GlowCard>
         </View>
 
         <View style={styles.summaryGrid}>
-          <View style={styles.summaryCard}>
+          <GlowCard style={styles.summaryCardShell} contentStyle={styles.summaryCard}>
             <LinearGradient colors={gradients.primary} style={styles.summaryIcon}>
               <TrendingUp size={18} color={colors.text} />
             </LinearGradient>
@@ -239,8 +240,8 @@ export function StatisticsScreen() {
             ) : (
               <Text style={styles.summaryValue}>{rank ?? '-'}</Text>
             )}
-          </View>
-          <View style={styles.summaryCard}>
+          </GlowCard>
+          <GlowCard style={styles.summaryCardShell} contentStyle={styles.summaryCard}>
             <LinearGradient colors={gradients.primary} style={styles.summaryIcon}>
               <Flame size={18} color={colors.text} />
             </LinearGradient>
@@ -250,10 +251,10 @@ export function StatisticsScreen() {
             ) : (
               <Text style={styles.summaryValue}>{dnevnaSerija ?? 0}</Text>
             )}
-          </View>
+          </GlowCard>
         </View>
 
-        <View style={styles.chartCard}>
+        <GlowCard style={styles.chartShell} contentStyle={styles.chartCard}>
           <View style={styles.chartHeader}>
             <Text style={styles.chartTitle}>Poeni kroz vrijeme</Text>
             <Text style={styles.chartSubtitle}>
@@ -267,9 +268,9 @@ export function StatisticsScreen() {
               </View>
             ))}
           </View>
-        </View>
+        </GlowCard>
 
-        <View style={styles.chartCard}>
+        <GlowCard style={styles.chartShell} contentStyle={styles.chartCard}>
           <View style={styles.chartHeader}>
             <Text style={styles.chartTitle}>Reciklaža (kg)</Text>
             <Text style={styles.chartSubtitle}>Aktivnost</Text>
@@ -281,24 +282,24 @@ export function StatisticsScreen() {
               </View>
             ))}
           </View>
-        </View>
+        </GlowCard>
 
         <View style={styles.metricsGrid}>
-          <View style={styles.metricCard}>
+          <GlowCard style={styles.metricCardShell} contentStyle={styles.metricCard}>
             <Recycle size={18} color={colors.primary} />
             <Text style={styles.metricLabel}>Reciklirano</Text>
             <Text style={styles.metricValue}>{recikliranoStvari ?? 0}</Text>
-          </View>
-          <View style={styles.metricCard}>
+          </GlowCard>
+          <GlowCard style={styles.metricCardShell} contentStyle={styles.metricCard}>
             <Battery size={18} color={colors.primary} />
             <Text style={styles.metricLabel}>Energija</Text>
             <Text style={styles.metricValue}>{ustedjenaEnergija ?? 0}</Text>
-          </View>
-          <View style={styles.metricCard}>
+          </GlowCard>
+          <GlowCard style={styles.metricCardShell} contentStyle={styles.metricCard}>
             <Droplet size={18} color={colors.primary} />
             <Text style={styles.metricLabel}>CO₂</Text>
             <Text style={styles.metricValue}>{smanjenCo2 ?? 0}</Text>
-          </View>
+          </GlowCard>
         </View>
         </ScrollView>
       </ScreenFade>
@@ -364,12 +365,12 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginBottom: spacing.sm,
   },
+  summaryCardShell: {
+    flex: 1,
+  },
   summaryCard: {
     flex: 1,
-    backgroundColor: colors.card,
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
     padding: spacing.md,
   },
   summaryIcon: {
@@ -390,13 +391,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: spacing.xs,
   },
-  chartCard: {
-    backgroundColor: colors.card,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
+  chartShell: {
     marginBottom: spacing.md,
+  },
+  chartCard: {
+    borderRadius: radius.lg,
+    padding: spacing.md,
   },
   chartHeader: {
     marginBottom: spacing.sm,
@@ -436,12 +436,12 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginBottom: spacing.lg,
   },
+  metricCardShell: {
+    flex: 1,
+  },
   metricCard: {
     flex: 1,
-    backgroundColor: colors.card,
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
     padding: spacing.md,
     alignItems: 'center',
     gap: spacing.xs,

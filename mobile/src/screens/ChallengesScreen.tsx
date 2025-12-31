@@ -11,6 +11,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SkeletonBlock } from '../components/common/Skeleton';
 import { ScreenFade } from '../components/common/ScreenFade';
 import { BackButton } from '../components/common/BackButton';
+import { GlowCard } from '../components/common/GlowCard';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
@@ -139,8 +140,13 @@ export function ChallengesScreen() {
           .select('challenge_id')
           .limit(1);
 
-        if (candidateError?.code === 'PGRST205') {
+        if (candidateError?.code === 'PGRST205' || candidateError?.code === '42703') {
           continue;
+        }
+        if (candidateError) {
+          tableToUse = candidate;
+          setCompletionTable(candidate);
+          break;
         }
         tableToUse = candidate;
         setCompletionTable(candidate);
@@ -153,6 +159,7 @@ export function ChallengesScreen() {
       setError('Nije pronađena tabela za završene izazove.');
       return;
     }
+    setError(null);
 
     const challengeIds = dailyChallenges.map((challenge) => challenge.id);
     const { data, error: fetchError } = await supabase
@@ -173,6 +180,7 @@ export function ChallengesScreen() {
       const dateKey = new Date().toISOString().slice(0, 10);
       setCached(`daily-completions:${userId}:${dateKey}`, mapped);
       setUsingCache(false);
+      setError(null);
     }
   };
 
@@ -331,11 +339,11 @@ export function ChallengesScreen() {
         {loading && dailyChallenges.length === 0 ? (
           <View style={styles.skeletonGroup}>
             {Array.from({ length: 4 }).map((_, index) => (
-              <View key={`daily-skeleton-${index}`} style={styles.card}>
+              <GlowCard key={`daily-skeleton-${index}`} style={styles.cardShell} contentStyle={styles.card}>
                 <SkeletonBlock width="60%" height={14} />
                 <SkeletonBlock width="90%" height={10} style={{ marginTop: 8 }} />
                 <SkeletonBlock width="40%" height={12} style={{ marginTop: 12 }} />
-              </View>
+              </GlowCard>
             ))}
           </View>
         ) : null}
@@ -343,7 +351,7 @@ export function ChallengesScreen() {
         {dailyChallenges.map((challenge) => {
           const isCompleted = Boolean(completionMap[challenge.id]);
           return (
-            <View key={challenge.id} style={styles.card}>
+            <GlowCard key={challenge.id} style={styles.cardShell} contentStyle={styles.card}>
               <View style={styles.cardHeader}>
                 <Text style={styles.cardTitle}>{challenge.title}</Text>
                 {isCompleted && <CheckCircle2 color={colors.primary} size={18} />}
@@ -367,14 +375,14 @@ export function ChallengesScreen() {
                   </Text>
                 </LinearGradient>
               </TouchableOpacity>
-            </View>
+            </GlowCard>
           );
         })}
 
-        <View style={styles.summaryCard}>
+        <GlowCard style={styles.summaryShell} contentStyle={styles.summaryCard}>
           <Text style={styles.summaryTitle}>Poeni danas</Text>
           <Text style={styles.summaryValue}>{dailyPointsEarned}</Text>
-        </View>
+        </GlowCard>
         </ScrollView>
       </ScreenFade>
     </GradientBackground>
@@ -400,12 +408,12 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   card: {
-    backgroundColor: colors.card,
     padding: spacing.md,
     borderRadius: radius.md,
     marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
+  },
+  cardShell: {
+    marginBottom: spacing.md,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -442,14 +450,13 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: '600',
   },
-  summaryCard: {
+  summaryShell: {
     marginTop: spacing.lg,
-    backgroundColor: colors.cardAlt,
+  },
+  summaryCard: {
     padding: spacing.md,
     borderRadius: radius.md,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
   },
   summaryTitle: {
     color: colors.muted,

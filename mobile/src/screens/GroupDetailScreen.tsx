@@ -16,12 +16,15 @@ import { ScreenFade } from '../components/common/ScreenFade';
 import { BackButton } from '../components/common/BackButton';
 import { PhotoSubmission } from '../components/PhotoSubmission';
 import { EmptyState } from '../components/common/EmptyState';
+import { GlowCard } from '../components/common/GlowCard';
 
 const GROUPS_TABLE = 'groups';
 const GROUP_MEMBERS_TABLE = 'group_members';
 const GROUP_ACTIVITIES_TABLE = 'group_activities';
 const GROUP_MESSAGES_TABLE = 'group_messages';
 const GROUP_SUBMISSIONS_TABLE = 'group_activity_submissions';
+const FRIENDS_TABLE = 'prijatelji';
+const NOTIFICATIONS_TABLE = 'notifications';
 const PAGE_SIZE = 30;
 
 type Group = {
@@ -42,6 +45,8 @@ type GroupActivity = {
   title: string;
   description: string | null;
   points: number | null;
+  goal_value?: number | null;
+  goal_unit?: string | null;
   created_at: string | null;
 };
 
@@ -68,8 +73,11 @@ export function GroupDetailScreen() {
   const realtimeConnected = useRealtimeStatus();
 
   const [userId, setUserId] = useState<string | null>(null);
+  const [profileName, setProfileName] = useState('');
   const [group, setGroup] = useState<Group | null>(null);
   const [members, setMembers] = useState<GroupMember[]>([]);
+  const [inviteCandidates, setInviteCandidates] = useState<GroupMember[]>([]);
+  const [invitingIds, setInvitingIds] = useState<Record<string, boolean>>({});
   const [activities, setActivities] = useState<GroupActivity[]>([]);
   const [submissions, setSubmissions] = useState<Record<string, Submission>>({});
   const [messages, setMessages] = useState<GroupMessage[]>([]);
@@ -84,15 +92,40 @@ export function GroupDetailScreen() {
 
   const loadUser = async () => {
     const { data } = await supabase.auth.getUser();
-    setUserId(data?.user?.id ?? null);
+    const uid = data?.user?.id ?? null;
+    setUserId(uid);
+    if (!uid) return;
+    const { data: profile } = await supabase
+      .from('korisnik_profil')
+      .select('korisnicko_ime')
+      .eq('id', uid)
+      .maybeSingle();
+    if (profile?.korisnicko_ime) {
+      setProfileName(profile.korisnicko_ime);
+    }
   };
 
   const loadGroup = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from(GROUPS_TABLE)
       .select('id, name, description')
       .eq('id', groupId)
       .maybeSingle();
+    if (error?.code === '42703') {
+      const { data: fallback } = await supabase
+        .from(GROUPS_TABLE)
+        .select('id, title, description')
+        .eq('id', groupId)
+        .maybeSingle();
+      if (fallback) {
+        setGroup({
+          id: fallback.id,
+          name: fallback.title ?? 'Grupa',
+          description: fallback.description ?? null,
+        });
+      }
+      return;
+    }
     if (data) setGroup(data as Group);
   };
 
@@ -103,7 +136,29 @@ export function GroupDetailScreen() {
       .eq('group_id', groupId);
 
     if (error) {
-      console.error('Load members error', error);
+      const { data: ids, error: idError } = await supabase
+        .from(GROUP_MEMBERS_TABLE)
+        .select('user_id')
+        .eq('group_id', groupId);
+      if (idError) {
+        console.error('Load members error', error);
+        return;
+      }
+      const memberIds = (ids ?? []).map((row: any) => row.user_id).filter(Boolean);
+      if (!memberIds.length) {
+        setMembers([]);
+        setIsMember(false);
+        return;
+      }
+      const { data: profiles } = await supabase
+        .from('korisnik_profil')
+        .select('id, korisnicko_ime, ukupno_poena, trenutni_bedz')
+        .in('id', memberIds);
+      const fallbackMembers = (profiles ?? []) as GroupMember[];
+      setMembers(fallbackMembers);
+      if (userId) {
+        setIsMember(fallbackMembers.some((member) => member.id === userId));
+      }
       return;
     }
 
@@ -127,9 +182,23 @@ export function GroupDetailScreen() {
   const loadActivities = async () => {
     const { data, error } = await supabase
       .from(GROUP_ACTIVITIES_TABLE)
-      .select('id, title, description, points, created_at')
+      .select('id, title, description, points, goal_value, goal_unit, created_at')
       .eq('group_id', groupId)
       .order('created_at', { ascending: false });
+
+    if (error?.code === '42703') {
+      const { data: fallback, error: fallbackError } = await supabase
+        .from(GROUP_ACTIVITIES_TABLE)
+        .select('id, title, description, points, created_at')
+        .eq('group_id', groupId)
+        .order('created_at', { ascending: false });
+      if (fallbackError) {
+        console.error('Load activities error', fallbackError);
+        return;
+      }
+      setActivities((fallback ?? []) as GroupActivity[]);
+      return;
+    }
 
     if (error) {
       console.error('Load activities error', error);
@@ -158,6 +227,58 @@ export function GroupDetailScreen() {
     }, {});
 
     setSubmissions(map);
+  };
+
+  const loadInviteCandidates = async () => {
+    if (!userId) return;
+    const { data: links } = await supabase
+      .from(FRIENDS_TABLE)
+      .select('korisnik_od, korisnik_do, status')
+      .or(`korisnik_od.eq.${userId},korisnik_do.eq.${userId}`)
+      .eq('status', 'accepted');
+
+    const friendIds = (links ?? [])
+      .map((link: any) => (link.korisnik_od === userId ? link.korisnik_do : link.korisnik_od))
+      .filter(Boolean);
+
+    if (!friendIds.length) {
+      setInviteCandidates([]);
+      return;
+    }
+
+    const { data: profiles } = await supabase
+      .from('korisnik_profil')
+      .select('id, korisnicko_ime, ukupno_poena, trenutni_bedz')
+      .in('id', friendIds);
+
+    const memberIds = new Set(members.map((member) => member.id));
+    const candidates = (profiles ?? []).filter((profile) => !memberIds.has(profile.id));
+    setInviteCandidates(candidates as GroupMember[]);
+  };
+
+  const inviteFriend = async (friendId: string) => {
+    if (!group) return;
+    setInvitingIds((prev) => ({ ...prev, [friendId]: true }));
+    const { error } = await supabase.from(NOTIFICATIONS_TABLE).insert({
+      korisnik_id: friendId,
+      title: 'Poziv u grupu',
+      body: `${profileName || 'Korisnik'} vas poziva u grupu ${group.name ?? 'grupa'}.`,
+      type: 'group_invite',
+      related_id: groupId,
+      status: 'unread',
+    });
+
+    if (error) {
+      showError('Greška', 'Ne možemo poslati poziv.');
+    } else {
+      showSuccess('Uspjeh', 'Poziv je poslat.');
+      setInviteCandidates((prev) => prev.filter((candidate) => candidate.id !== friendId));
+    }
+    setInvitingIds((prev) => {
+      const next = { ...prev };
+      delete next[friendId];
+      return next;
+    });
   };
 
   const loadMessages = async (pageNumber = 1) => {
@@ -300,6 +421,11 @@ export function GroupDetailScreen() {
   }, [groupId]);
 
   useEffect(() => {
+    if (!userId) return;
+    loadInviteCandidates();
+  }, [userId, members]);
+
+  useEffect(() => {
     const membersChannel = supabase
       .channel('group-members')
       .on(
@@ -406,6 +532,33 @@ export function GroupDetailScreen() {
 
           {activeTab === 'members' && (
             <View style={styles.section}>
+              {isMember ? (
+                <GlowCard style={styles.cardShell} contentStyle={styles.inviteCard}>
+                  <Text style={styles.sectionTitle}>Pozovi prijatelje</Text>
+                  {inviteCandidates.length === 0 ? (
+                    <Text style={styles.muted}>Nema dostupnih prijatelja za poziv.</Text>
+                  ) : (
+                    inviteCandidates.map((candidate) => (
+                      <View key={candidate.id} style={styles.inviteRow}>
+                        <View>
+                          <Text style={styles.cardTitle}>{candidate.korisnicko_ime}</Text>
+                          <Text style={styles.cardSubtitle}>Poeni: {candidate.ukupno_poena ?? 0}</Text>
+                        </View>
+                        <TouchableOpacity
+                          onPress={() => inviteFriend(candidate.id)}
+                          disabled={invitingIds[candidate.id]}
+                        >
+                          <LinearGradient colors={gradients.primary} style={styles.inviteButton}>
+                            <Text style={styles.inviteLabel}>
+                              {invitingIds[candidate.id] ? 'Šaljem...' : 'Pozovi'}
+                            </Text>
+                          </LinearGradient>
+                        </TouchableOpacity>
+                      </View>
+                    ))
+                  )}
+                </GlowCard>
+              ) : null}
               {members.length === 0 ? (
                 <EmptyState
                   title="Nema članova"
@@ -413,13 +566,13 @@ export function GroupDetailScreen() {
                 />
               ) : (
                 members.map((member) => (
-                  <View key={member.id} style={styles.card}>
+                  <GlowCard key={member.id} style={styles.cardShell} contentStyle={styles.card}>
                     <View>
                       <Text style={styles.cardTitle}>{member.korisnicko_ime}</Text>
                       <Text style={styles.cardSubtitle}>Poeni: {member.ukupno_poena ?? 0}</Text>
                     </View>
                     <Text style={styles.badgeText}>{member.trenutni_bedz ?? 'bronze'}</Text>
-                  </View>
+                  </GlowCard>
                 ))
               )}
             </View>
@@ -434,11 +587,16 @@ export function GroupDetailScreen() {
                 />
               ) : (
                 activityCards.map((activity) => (
-                  <View key={activity.id} style={styles.card}>
+                  <GlowCard key={activity.id} style={styles.cardShell} contentStyle={styles.card}>
                     <View style={styles.cardText}>
                       <Text style={styles.cardTitle}>{activity.title}</Text>
                       {activity.description ? (
                         <Text style={styles.cardSubtitle}>{activity.description}</Text>
+                      ) : null}
+                      {activity.goal_value ? (
+                        <Text style={styles.cardSubtitle}>
+                          Cilj: {activity.goal_value} {activity.goal_unit ?? ''}
+                        </Text>
                       ) : null}
                       {activity.points ? (
                         <Text style={styles.points}>+{activity.points} poena</Text>
@@ -464,7 +622,7 @@ export function GroupDetailScreen() {
                         </Text>
                       </LinearGradient>
                     </TouchableOpacity>
-                  </View>
+                  </GlowCard>
                 ))
               )}
             </View>
@@ -608,15 +766,20 @@ const styles = StyleSheet.create({
     color: colors.muted,
   },
   card: {
-    backgroundColor: colors.card,
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
     padding: spacing.md,
     marginBottom: spacing.sm,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  inviteCard: {
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  cardShell: {
+    marginBottom: spacing.sm,
   },
   cardText: {
     flex: 1,
@@ -629,6 +792,27 @@ const styles = StyleSheet.create({
   cardSubtitle: {
     color: colors.muted,
     marginTop: spacing.xs,
+    fontSize: 12,
+  },
+  sectionTitle: {
+    color: colors.text,
+    fontWeight: '600',
+    marginBottom: spacing.sm,
+  },
+  inviteRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+  },
+  inviteButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: radius.lg,
+  },
+  inviteLabel: {
+    color: colors.text,
+    fontWeight: '600',
     fontSize: 12,
   },
   badgeText: {

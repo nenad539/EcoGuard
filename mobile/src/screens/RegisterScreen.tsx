@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Switch, TextInput } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { Leaf, Shield, Mail, Lock, User } from 'lucide-react-native';
+import { Leaf, Shield, Mail, Lock, User, Eye, EyeOff } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
@@ -19,6 +19,8 @@ export function RegisterScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -118,9 +120,19 @@ export function RegisterScreen() {
                 onChangeText={setPassword}
                 placeholder="••••••••"
                 placeholderTextColor={colors.muted}
-                secureTextEntry
+                secureTextEntry={!showPassword}
                 style={styles.input}
               />
+              <TouchableOpacity
+                onPress={() => setShowPassword((prev) => !prev)}
+                style={styles.toggleButton}
+              >
+                {showPassword ? (
+                  <EyeOff color={colors.muted} size={18} />
+                ) : (
+                  <Eye color={colors.muted} size={18} />
+                )}
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -133,9 +145,19 @@ export function RegisterScreen() {
                 onChangeText={setConfirmPassword}
                 placeholder="••••••••"
                 placeholderTextColor={colors.muted}
-                secureTextEntry
+                secureTextEntry={!showConfirmPassword}
                 style={styles.input}
               />
+              <TouchableOpacity
+                onPress={() => setShowConfirmPassword((prev) => !prev)}
+                style={styles.toggleButton}
+              >
+                {showConfirmPassword ? (
+                  <EyeOff color={colors.muted} size={18} />
+                ) : (
+                  <Eye color={colors.muted} size={18} />
+                )}
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -225,10 +247,16 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 12,
   },
+  toggleButton: {
+    position: 'absolute',
+    right: 12,
+    padding: 4,
+  },
   input: {
     color: colors.text,
     paddingVertical: 12,
     paddingHorizontal: 44,
+    paddingRight: 44,
   },
   termsRow: {
     flexDirection: 'row',

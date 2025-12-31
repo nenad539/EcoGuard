@@ -20,6 +20,8 @@
     "expo-blur": "~15.0.8",
     "expo-image-picker": "~17.0.10",
     "expo-image-manipulator": "~13.1.7",
+    "base64-arraybuffer": "^1.0.2",
+    "expo-file-system": "~18.0.12",
     "expo-linear-gradient": "~15.0.8",
     "expo-notifications": "~0.32.15",
     "expo-status-bar": "~3.0.9",
