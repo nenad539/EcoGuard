@@ -15,13 +15,7 @@ import { GlowCard } from '../components/common/GlowCard';
 const PHOTO_COMPLETIONS_TABLE = 'photo_challenge_completions';
 const GROUP_SUBMISSIONS_TABLE = 'group_activity_submissions';
 const STORAGE_BUCKET = 'photo-challenge-submissions';
-const PHOTO_CHALLENGE_TABLE_CANDIDATES = [
-  process.env.EXPO_PUBLIC_PHOTO_CHALLENGE_TABLE,
-  'photoChallenge',
-  'photochallenge',
-  'photo_challenges',
-  'photochallenges',
-].filter(Boolean) as string[];
+const PHOTO_CHALLENGE_TABLE = 'photoChallenge';
 
 type PhotoQueueItem = {
   id: number;
@@ -146,23 +140,18 @@ export function AdminModerationScreen() {
 
     const challengeIds = Array.from(new Set(rows.map((row) => row.photo_challenge_id)));
     if (challengeIds.length) {
-      const table = await resolvePhotoChallengeTable();
-      if (!table) {
-        showError('Greška', 'Tabela foto izazova nije pronađena.');
+      const { data: challenges, error: challengeError } = await supabase
+        .from(PHOTO_CHALLENGE_TABLE)
+        .select('id, title, points')
+        .in('id', challengeIds);
+      if (challengeError) {
+        showError('Greška', challengeError.message);
       } else {
-        const { data: challenges, error: challengeError } = await supabase
-          .from(table)
-          .select('id, title, points')
-          .in('id', challengeIds);
-        if (challengeError) {
-          showError('Greška', challengeError.message);
-        } else {
-          const map = (challenges ?? []).reduce<Record<number, ChallengeInfo>>((acc, item) => {
-            acc[item.id] = item as ChallengeInfo;
-            return acc;
-          }, {});
-          setPhotoChallenges(map);
-        }
+        const map = (challenges ?? []).reduce<Record<number, ChallengeInfo>>((acc, item) => {
+          acc[item.id] = item as ChallengeInfo;
+          return acc;
+        }, {});
+        setPhotoChallenges(map);
       }
     }
 
@@ -679,11 +668,3 @@ const styles = StyleSheet.create({
     color: colors.muted,
   },
 });
-  const resolvePhotoChallengeTable = async (): Promise<string | null> => {
-    for (const candidate of PHOTO_CHALLENGE_TABLE_CANDIDATES) {
-      const { error } = await supabase.from(candidate).select('id').limit(1);
-      if (error?.code === 'PGRST205') continue;
-      return candidate;
-    }
-    return null;
-  };
