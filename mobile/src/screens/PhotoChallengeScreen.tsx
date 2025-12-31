@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { Camera, CheckCircle2, AlertTriangle, Recycle, TreePine, Droplet } from 'lucide-react-native';
+import { Camera, CheckCircle2, AlertTriangle, Recycle, TreePine, Droplet, Plus } from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
 import { getCached, setCached } from '../lib/cache';
 import { useRealtimeStatus } from '../lib/realtime';
@@ -11,6 +13,8 @@ import { GradientBackground } from '../components/common/GradientBackground';
 import { LinearGradient } from 'expo-linear-gradient';
 import { PhotoSubmission } from '../components/PhotoSubmission';
 import { SkeletonBlock } from '../components/common/Skeleton';
+import { ScreenFade } from '../components/common/ScreenFade';
+import { RootStackParamList } from '../navigation/types';
 
 const REGULAR_COMPLETION_TABLE_CANDIDATES = [
   process.env.EXPO_PUBLIC_REGULAR_COMPLETION_TABLE,
@@ -66,6 +70,7 @@ type PhotoCompletion = {
 };
 
 export function PhotoChallengeScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const realtimeConnected = useRealtimeStatus();
   const [activeTab, setActiveTab] = useState<'regular' | 'photo'>('regular');
   const [userId, setUserId] = useState<string | null>(null);
@@ -569,9 +574,22 @@ export function PhotoChallengeScreen() {
 
   return (
     <GradientBackground>
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>Izazovi</Text>
-        <Text style={styles.subtitle}>Regularni i foto izazovi</Text>
+      <ScreenFade>
+        <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.titleRow}>
+          <View>
+            <Text style={styles.title}>Izazovi</Text>
+            <Text style={styles.subtitle}>Regularni i foto izazovi</Text>
+          </View>
+          {activeTab === 'photo' ? (
+            <TouchableOpacity onPress={() => navigation.navigate('CreateChallenge')}>
+              <LinearGradient colors={gradients.primary} style={styles.createButton}>
+                <Plus color={colors.text} size={16} />
+                <Text style={styles.createLabel}>Kreiraj</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          ) : null}
+        </View>
 
         <View style={styles.tabs}>
           <TouchableOpacity
@@ -731,7 +749,8 @@ export function PhotoChallengeScreen() {
             onCancel={() => setActiveSubmission(null)}
           />
         ) : null}
-      </ScrollView>
+        </ScrollView>
+      </ScreenFade>
     </GradientBackground>
   );
 }
@@ -748,6 +767,25 @@ const styles = StyleSheet.create({
   subtitle: {
     color: colors.softGreen,
     marginBottom: spacing.md,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  createButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: radius.lg,
+  },
+  createLabel: {
+    color: colors.text,
+    fontWeight: '600',
+    fontSize: 12,
   },
   tabs: {
     flexDirection: 'row',

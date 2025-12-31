@@ -1,6 +1,22 @@
 import { supabase } from './supabase';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 
 const DEFAULT_BUCKET = 'photo-challenge-submissions';
+const imageCache = new Map<string, string>();
+
+const compressImage = async (uri: string) => {
+  if (imageCache.has(uri)) {
+    return imageCache.get(uri) as string;
+  }
+
+  const result = await manipulateAsync(
+    uri,
+    [{ resize: { width: 1280 } }],
+    { compress: 0.7, format: SaveFormat.JPEG }
+  );
+  imageCache.set(uri, result.uri);
+  return result.uri;
+};
 
 export const uploadPhotoChallenge = async (params: {
   uri: string;
@@ -12,11 +28,13 @@ export const uploadPhotoChallenge = async (params: {
   if (!uri) throw new Error('Nedostaje URI fotografije.');
 
   onProgress?.(0.1);
-  const response = await fetch(uri);
+  const processedUri = await compressImage(uri);
+  onProgress?.(0.2);
+  const response = await fetch(processedUri);
   const blob = await response.blob();
   onProgress?.(0.4);
 
-  const extension = uri.split('.').pop() ?? 'jpg';
+  const extension = 'jpg';
   const filePath = `${userId}/${challengeId}/${Date.now()}.${extension}`;
 
   const { error: uploadError } = await supabase.storage

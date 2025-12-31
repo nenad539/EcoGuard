@@ -9,6 +9,7 @@ import { useRealtimeStatus } from '../lib/realtime';
 import { colors, radius, spacing, gradients } from '../styles/common';
 import { GradientBackground } from '../components/common/GradientBackground';
 import { SkeletonBlock } from '../components/common/Skeleton';
+import { ScreenFade } from '../components/common/ScreenFade';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
@@ -88,6 +89,33 @@ export function ProfileScreen() {
     return streak;
   };
 
+  const syncBadgeFromLeaderboard = async (
+    uid: string,
+    currentBadge: 'gold' | 'silver' | 'bronze'
+  ) => {
+    const { data, error } = await supabase
+      .from('korisnik_profil')
+      .select('id')
+      .order('ukupno_poena', { ascending: false })
+      .limit(10);
+
+    if (error) {
+      console.error('Badge sync error', error);
+      return currentBadge;
+    }
+
+    const rankIndex = (data ?? []).findIndex((row) => row.id === uid);
+    let nextBadge: 'gold' | 'silver' | 'bronze' = 'bronze';
+    if (rankIndex >= 0 && rankIndex < 5) nextBadge = 'gold';
+    else if (rankIndex >= 0 && rankIndex < 10) nextBadge = 'silver';
+
+    if (nextBadge !== currentBadge) {
+      await supabase.from('korisnik_profil').update({ trenutni_bedz: nextBadge }).eq('id', uid);
+    }
+
+    return nextBadge;
+  };
+
   const loadUserData = async () => {
     const userId = await getUserId();
     if (!userId) return;
@@ -102,9 +130,11 @@ export function ProfileScreen() {
     setUserName(profile?.korisnicko_ime ?? 'Korisnik');
     setUserPoints(String(profile?.ukupno_poena ?? 0));
     setUserCompleted(String(profile?.izazova_zavrseno ?? 0));
-    if (profile?.trenutni_bedz) setUserBadge(profile.trenutni_bedz);
+    const profileBadge = (profile?.trenutni_bedz as 'gold' | 'silver' | 'bronze' | null) ?? 'bronze';
+    const nextBadge = await syncBadgeFromLeaderboard(userId, profileBadge);
+    setUserBadge(nextBadge);
     if (profile) {
-      setCached(`profile:${userId}`, profile);
+      setCached(`profile:${userId}`, { ...profile, trenutni_bedz: nextBadge });
       setUsingCache(false);
     }
     setLoadingProfile(false);
@@ -231,7 +261,8 @@ export function ProfileScreen() {
 
   return (
     <GradientBackground>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScreenFade>
+        <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate('Home')}>
             <ArrowLeft color={colors.softGreen} size={18} />
@@ -384,7 +415,8 @@ export function ProfileScreen() {
             <Text style={styles.logoutText}>Odjavi se</Text>
           </TouchableOpacity>
         </View>
-      </ScrollView>
+        </ScrollView>
+      </ScreenFade>
     </GradientBackground>
   );
 }

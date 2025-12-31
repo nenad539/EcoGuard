@@ -11,6 +11,7 @@ import { colors, radius, spacing, gradients } from '../styles/common';
 import { GradientBackground } from '../components/common/GradientBackground';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SkeletonBlock } from '../components/common/Skeleton';
+import { ScreenFade } from '../components/common/ScreenFade';
 
 const ACTIVITY_TABLE = 'aktivnosti';
 const CACHE_TTL = 1000 * 60 * 5;
@@ -100,6 +101,33 @@ export function HomeScreen() {
     return newStreak;
   };
 
+  const syncBadgeFromLeaderboard = async (
+    uid: string,
+    currentBadge: 'gold' | 'silver' | 'bronze'
+  ) => {
+    const { data, error } = await supabase
+      .from('korisnik_profil')
+      .select('id')
+      .order('ukupno_poena', { ascending: false })
+      .limit(10);
+
+    if (error) {
+      console.error('Badge sync error', error);
+      return currentBadge;
+    }
+
+    const rankIndex = (data ?? []).findIndex((row) => row.id === uid);
+    let nextBadge: 'gold' | 'silver' | 'bronze' = 'bronze';
+    if (rankIndex >= 0 && rankIndex < 5) nextBadge = 'gold';
+    else if (rankIndex >= 0 && rankIndex < 10) nextBadge = 'silver';
+
+    if (nextBadge !== currentBadge) {
+      await supabase.from('korisnik_profil').update({ trenutni_bedz: nextBadge }).eq('id', uid);
+    }
+
+    return nextBadge;
+  };
+
   useEffect(() => {
     updateAndGetStreak().then((streak) => setUserStreak(String(streak)));
   }, []);
@@ -123,13 +151,13 @@ export function HomeScreen() {
 
     setUserName(data.korisnicko_ime ?? 'Korisnik');
     setUserPoints(data.ukupno_poena ?? 0);
-    if (data.trenutni_bedz) {
-      setUserBadge(data.trenutni_bedz);
-    }
+    const profileBadge = (data.trenutni_bedz as 'gold' | 'silver' | 'bronze' | null) ?? 'bronze';
+    const nextBadge = await syncBadgeFromLeaderboard(uid, profileBadge);
+    setUserBadge(nextBadge);
     setCached(`home-profile:${uid}`, {
       korisnicko_ime: data.korisnicko_ime ?? 'Korisnik',
       ukupno_poena: data.ukupno_poena ?? 0,
-      trenutni_bedz: data.trenutni_bedz ?? 'bronze',
+      trenutni_bedz: nextBadge,
     });
     setUsingCache(false);
     setLoadingProfile(false);
@@ -232,7 +260,8 @@ export function HomeScreen() {
 
   return (
     <GradientBackground>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScreenFade>
+        <ScrollView contentContainerStyle={styles.content}>
       <View style={styles.headerRow}>
         <View>
           {loadingProfile ? (
@@ -339,7 +368,8 @@ export function HomeScreen() {
           </TouchableOpacity>
         </View>
       </View>
-      </ScrollView>
+        </ScrollView>
+      </ScreenFade>
     </GradientBackground>
   );
 }

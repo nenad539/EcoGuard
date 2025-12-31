@@ -20,4 +20,7 @@ export type RootStackParamList = {
   EcoTips: undefined;
   CreateChallenge: undefined;
   EditProfile: undefined;
+  FriendChat: { friendId: string; friendName?: string };
+  GroupDetail: { groupId: string };
+  AdminModeration: undefined;
 };

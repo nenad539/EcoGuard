@@ -10,6 +10,7 @@ import { colors, radius, spacing, gradients } from '../styles/common';
 import { GradientBackground } from '../components/common/GradientBackground';
 import { LinearGradient } from 'expo-linear-gradient';
 import { showError, showSuccess } from '../lib/toast';
+import { ScreenFade } from '../components/common/ScreenFade';
 
 export function LoginScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -57,7 +58,8 @@ export function LoginScreen() {
 
   return (
     <GradientBackground>
-      <View style={styles.container}>
+      <ScreenFade>
+        <View style={styles.container}>
         <View style={styles.header}>
           <View style={styles.logoRow}>
             <View style={styles.logoCircle}>
@@ -148,7 +150,8 @@ export function LoginScreen() {
             </TouchableOpacity>
           </BlurView>
         )}
-      </View>
+        </View>
+      </ScreenFade>
     </GradientBackground>
   );
 }

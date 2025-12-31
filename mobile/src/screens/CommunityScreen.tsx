@@ -8,6 +8,12 @@ import { colors, radius, spacing, gradients } from '../styles/common';
 import { GradientBackground } from '../components/common/GradientBackground';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SkeletonBlock } from '../components/common/Skeleton';
+import { ScreenFade } from '../components/common/ScreenFade';
+import { BackButton } from '../components/common/BackButton';
+import { EmptyState } from '../components/common/EmptyState';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../navigation/types';
 
 type Profile = {
   id: string;
@@ -32,8 +38,10 @@ const filterOptions = [
   { id: 'bronze', label: 'Bronze' },
 ];
 const CACHE_TTL = 1000 * 60 * 5;
+const PAGE_SIZE = 20;
 
 export function CommunityScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const realtimeConnected = useRealtimeStatus();
   const [users, setUsers] = useState<Profile[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -41,25 +49,37 @@ export function CommunityScreen() {
   const [filter, setFilter] = useState<'all' | 'gold' | 'silver' | 'bronze'>('all');
   const [loading, setLoading] = useState(true);
   const [usingCache, setUsingCache] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  const loadLeaderboard = async () => {
-    setLoading(true);
-    const { data, error } = await supabase
+  const loadLeaderboard = async (pageNumber = 1, append = false) => {
+    if (append) setLoadingMore(true);
+    else setLoading(true);
+    const start = (pageNumber - 1) * PAGE_SIZE;
+    const end = start + PAGE_SIZE - 1;
+    const { data, error, count } = await supabase
       .from('korisnik_profil')
-      .select('id, korisnicko_ime, ukupno_poena, trenutni_bedz')
+      .select('id, korisnicko_ime, ukupno_poena, trenutni_bedz', { count: 'exact' })
       .order('ukupno_poena', { ascending: false })
-      .limit(50);
+      .range(start, end);
 
     if (error) {
       setError('Greška pri učitavanju rang liste.');
       setLoading(false);
+      setLoadingMore(false);
       return;
     }
 
-    setUsers((data ?? []) as Profile[]);
-    setCached('community-leaderboard', (data ?? []) as Profile[]);
+    const nextUsers = (data ?? []) as Profile[];
+    setUsers((prev) => (append ? [...prev, ...nextUsers] : nextUsers));
+    if (!append) {
+      setCached('community-leaderboard', nextUsers);
+    }
+    setHasMore(Boolean(count && count > end + 1));
     setUsingCache(false);
     setLoading(false);
+    setLoadingMore(false);
   };
 
   useEffect(() => {
@@ -70,7 +90,7 @@ export function CommunityScreen() {
         setUsingCache(cached.isStale);
         setLoading(false);
       }
-      loadLeaderboard();
+      loadLeaderboard(1, false);
     };
     init();
   }, []);
@@ -81,7 +101,10 @@ export function CommunityScreen() {
       .on(
         'postgres_changes',
           { event: '*', schema: 'public', table: 'korisnik_profil' },
-          () => loadLeaderboard()
+          () => {
+            setPage(1);
+            loadLeaderboard(1, false);
+          }
         )
         .subscribe();
 
@@ -93,10 +116,15 @@ export function CommunityScreen() {
   useEffect(() => {
     if (realtimeConnected) return;
     const interval = setInterval(() => {
-      loadLeaderboard();
+      loadLeaderboard(1, false);
     }, 20000);
     return () => clearInterval(interval);
   }, [realtimeConnected]);
+
+  useEffect(() => {
+    if (page === 1) return;
+    loadLeaderboard(page, true);
+  }, [page]);
 
   const filtered = useMemo(() => {
     return users.filter((user) => {
@@ -112,7 +140,9 @@ export function CommunityScreen() {
 
   return (
     <GradientBackground>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScreenFade>
+        <ScrollView contentContainerStyle={styles.content}>
+        <BackButton onPress={() => navigation.goBack()} />
         <View style={styles.header}>
           <Text style={styles.title}>Zajednica</Text>
           <Text style={styles.subtitle}>Top rang lista i bedževi</Text>
@@ -194,28 +224,47 @@ export function CommunityScreen() {
               })}
             </View>
 
-            <View style={styles.listSection}>
-              {rest.map((user, index) => {
-                const rank = index + 4;
-                const badge = user.trenutni_bedz ?? 'bronze';
-                const badgeColor = badge === 'gold' ? colors.gold : badge === 'silver' ? colors.silver : colors.bronze;
-                return (
-                  <View key={user.id} style={[styles.listItem, { borderColor: badgeColor }]}> 
-                    <View>
-                      <Text style={styles.listName}>{rank}. {user.korisnicko_ime}</Text>
-                      <Text style={styles.listLevel}>{levelLabelFromPoints(user.ukupno_poena ?? 0)}</Text>
+            {filtered.length === 0 ? (
+              <EmptyState
+                title="Nema rezultata"
+                description="Pokušajte sa drugim filtrom ili pretragom."
+              />
+            ) : (
+              <View style={styles.listSection}>
+                {rest.map((user, index) => {
+                  const rank = index + 4;
+                  const badge = user.trenutni_bedz ?? 'bronze';
+                  const badgeColor = badge === 'gold' ? colors.gold : badge === 'silver' ? colors.silver : colors.bronze;
+                  return (
+                    <View key={user.id} style={[styles.listItem, { borderColor: badgeColor }]}>
+                      <View>
+                        <Text style={styles.listName}>{rank}. {user.korisnicko_ime}</Text>
+                        <Text style={styles.listLevel}>{levelLabelFromPoints(user.ukupno_poena ?? 0)}</Text>
+                      </View>
+                      <View style={styles.listPoints}>
+                        <Text style={styles.pointsValue}>{user.ukupno_poena ?? 0}</Text>
+                        <Text style={[styles.badgeText, { color: badgeColor }]}>{badge}</Text>
+                      </View>
                     </View>
-                    <View style={styles.listPoints}>
-                      <Text style={styles.pointsValue}>{user.ukupno_poena ?? 0}</Text>
-                      <Text style={[styles.badgeText, { color: badgeColor }]}>{badge}</Text>
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
+                  );
+                })}
+              </View>
+            )}
+            {hasMore ? (
+              <TouchableOpacity
+                onPress={() => setPage((prev) => prev + 1)}
+                style={styles.loadMoreButton}
+                disabled={loadingMore}
+              >
+                <LinearGradient colors={gradients.primary} style={styles.loadMoreInner}>
+                  <Text style={styles.loadMoreText}>{loadingMore ? 'Učitavanje...' : 'Prikaži više'}</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            ) : null}
           </>
         )}
-      </ScrollView>
+        </ScrollView>
+      </ScreenFade>
     </GradientBackground>
   );
 }
@@ -382,5 +431,18 @@ const styles = StyleSheet.create({
   },
   skeletonWrap: {
     gap: spacing.md,
+  },
+  loadMoreButton: {
+    alignSelf: 'center',
+    marginTop: spacing.md,
+  },
+  loadMoreInner: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: radius.lg,
+  },
+  loadMoreText: {
+    color: colors.text,
+    fontWeight: '600',
   },
 });

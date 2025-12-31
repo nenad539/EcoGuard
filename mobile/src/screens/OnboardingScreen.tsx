@@ -7,13 +7,15 @@ import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, gradients } from '../styles/common';
 import { GradientBackground } from '../components/common/GradientBackground';
 import { LinearGradient } from 'expo-linear-gradient';
+import { ScreenFade } from '../components/common/ScreenFade';
 
 export function OnboardingScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   return (
     <GradientBackground>
-      <View style={styles.container}>
+      <ScreenFade>
+        <View style={styles.container}>
         <View style={styles.hero}>
           <Leaf size={48} color={colors.primary} />
           <Text style={styles.title}>Dobro došli u EcoGuard</Text>
@@ -35,7 +37,8 @@ export function OnboardingScreen() {
         <TouchableOpacity onPress={() => navigation.navigate('Terms')} style={styles.link}>
           <Text style={styles.linkMuted}>Uslovi korišćenja</Text>
         </TouchableOpacity>
-      </View>
+        </View>
+      </ScreenFade>
     </GradientBackground>
   );
 }

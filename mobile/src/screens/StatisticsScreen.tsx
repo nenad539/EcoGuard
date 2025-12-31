@@ -8,6 +8,7 @@ import { colors, radius, spacing, gradients } from '../styles/common';
 import { GradientBackground } from '../components/common/GradientBackground';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SkeletonBlock } from '../components/common/Skeleton';
+import { ScreenFade } from '../components/common/ScreenFade';
 
 const CACHE_TTL = 1000 * 60 * 5;
 
@@ -177,7 +178,8 @@ export function StatisticsScreen() {
 
   return (
     <GradientBackground>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScreenFade>
+        <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
           <Text style={styles.title}>Statistika</Text>
           <Text style={styles.subtitle}>Pratite svoj napredak</Text>
@@ -298,7 +300,8 @@ export function StatisticsScreen() {
             <Text style={styles.metricValue}>{smanjenCo2 ?? 0}</Text>
           </View>
         </View>
-      </ScrollView>
+        </ScrollView>
+      </ScreenFade>
     </GradientBackground>
   );
 }

@@ -1,16 +1,34 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Switch, ScrollView } from 'react-native';
 import { ArrowLeft, Bell, Globe, Shield, Info, ChevronRight } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, radius, spacing, gradients } from '../styles/common';
 import { GradientBackground } from '../components/common/GradientBackground';
+import { ScreenFade } from '../components/common/ScreenFade';
+import { supabase } from '../lib/supabase';
 
 export function SettingsScreen() {
   const navigation = useNavigation();
   const [settings, setSettings] = useState({
     notifications: true,
   });
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const loadAdmin = async () => {
+      const { data } = await supabase.auth.getUser();
+      const uid = data?.user?.id;
+      if (!uid) return;
+      const { data: adminRow } = await supabase
+        .from('admin_users')
+        .select('user_id')
+        .eq('user_id', uid)
+        .maybeSingle();
+      setIsAdmin(Boolean(adminRow));
+    };
+    loadAdmin();
+  }, []);
 
   const sections = [
     {
@@ -59,11 +77,29 @@ export function SettingsScreen() {
         },
       ],
     },
+    ...(isAdmin
+      ? [
+          {
+            title: 'Administracija',
+            items: [
+              {
+                id: 'moderation',
+                icon: Shield,
+                label: 'Moderacija prijava',
+                description: 'Odobri ili odbij foto i grupne prijave',
+                type: 'link' as const,
+                onPress: () => navigation.navigate('AdminModeration' as never),
+              },
+            ],
+          },
+        ]
+      : []),
   ];
 
   return (
     <GradientBackground>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScreenFade>
+        <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
             <ArrowLeft size={18} color={colors.softGreen} />
@@ -128,7 +164,8 @@ export function SettingsScreen() {
             <Text style={styles.contactText}>📱 Pratite nas na društvenim mrežama</Text>
           </TouchableOpacity>
         </View>
-      </ScrollView>
+        </ScrollView>
+      </ScreenFade>
     </GradientBackground>
   );
 }

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, Text, StyleSheet, View, TouchableOpacity, TextInput } from 'react-native';
-import { Search, Users, UserPlus, Mail } from 'lucide-react-native';
+import { Search, Users, UserPlus, Mail, MessageCircle } from 'lucide-react-native';
 import { supabase } from '../lib/supabase';
 import { getCached, setCached } from '../lib/cache';
 import { useRealtimeStatus } from '../lib/realtime';
@@ -9,9 +9,18 @@ import { colors, radius, spacing, gradients } from '../styles/common';
 import { GradientBackground } from '../components/common/GradientBackground';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SkeletonBlock } from '../components/common/Skeleton';
+import { ScreenFade } from '../components/common/ScreenFade';
+import { BackButton } from '../components/common/BackButton';
+import { EmptyState } from '../components/common/EmptyState';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../navigation/types';
 
 const FRIENDS_TABLE = 'prijatelji';
 const NOTIFICATIONS_TABLE = 'notifications';
+const GROUPS_TABLE = 'groups';
+const GROUP_MEMBERS_TABLE = 'group_members';
+const DIRECT_MESSAGES_TABLE = 'direct_messages';
 const CACHE_TTL = 1000 * 60 * 5;
 
 type Profile = {
@@ -28,21 +37,35 @@ type FriendLink = {
   status: 'pending' | 'accepted';
 };
 
-type TabKey = 'friends' | 'requests' | 'suggestions';
+type GroupSummary = {
+  id: string;
+  name: string;
+  description: string | null;
+};
+
+type TabKey = 'friends' | 'requests' | 'suggestions' | 'groups';
 
 export function FriendSystemScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const realtimeConnected = useRealtimeStatus();
   const [userId, setUserId] = useState<string | null>(null);
   const [friends, setFriends] = useState<Profile[]>([]);
   const [pendingIn, setPendingIn] = useState<FriendLink[]>([]);
   const [pendingOut, setPendingOut] = useState<FriendLink[]>([]);
+  const [friendLinks, setFriendLinks] = useState<Record<string, FriendLink>>({});
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const [suggestions, setSuggestions] = useState<Profile[]>([]);
+  const [joinedGroups, setJoinedGroups] = useState<GroupSummary[]>([]);
+  const [recommendedGroups, setRecommendedGroups] = useState<GroupSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<TabKey>('friends');
   const [loadingConnections, setLoadingConnections] = useState(true);
   const [loadingSuggestions, setLoadingSuggestions] = useState(true);
+  const [loadingGroups, setLoadingGroups] = useState(true);
   const [usingCache, setUsingCache] = useState(false);
+  const [friendsVisible, setFriendsVisible] = useState(10);
+  const [suggestionsVisible, setSuggestionsVisible] = useState(10);
 
   const fetchUserId = async () => {
     const { data } = await supabase.auth.getUser();
@@ -70,6 +93,12 @@ export function FriendSystemScreen() {
     setPendingOut(nextPendingOut);
 
     const accepted = links.filter((l) => l.status === 'accepted');
+    const linkMap = accepted.reduce<Record<string, FriendLink>>((acc, link) => {
+      const otherId = link.korisnik_od === uid ? link.korisnik_do : link.korisnik_od;
+      acc[otherId] = link;
+      return acc;
+    }, {});
+    setFriendLinks(linkMap);
     const otherIds = accepted.map((l) => (l.korisnik_od === uid ? l.korisnik_do : l.korisnik_od));
     if (otherIds.length === 0) {
       setFriends([]);
@@ -105,6 +134,66 @@ export function FriendSystemScreen() {
     setLoadingSuggestions(false);
   };
 
+  const loadGroups = async (uid: string) => {
+    setLoadingGroups(true);
+    const { data: memberships, error: membershipError } = await supabase
+      .from(GROUP_MEMBERS_TABLE)
+      .select('group_id, groups ( id, name, description )')
+      .eq('user_id', uid);
+
+    if (membershipError) {
+      showError('Greška', 'Ne možemo učitati grupe.');
+      setLoadingGroups(false);
+      return;
+    }
+
+    const joined = (memberships ?? [])
+      .map((row: any) => row.groups)
+      .filter(Boolean) as GroupSummary[];
+    setJoinedGroups(joined);
+
+    const { data: groups, error: groupsError } = await supabase
+      .from(GROUPS_TABLE)
+      .select('id, name, description')
+      .limit(20);
+
+    if (groupsError) {
+      showError('Greška', 'Ne možemo učitati grupe.');
+      setLoadingGroups(false);
+      return;
+    }
+
+    const joinedIds = new Set(joined.map((group) => group.id));
+    const shuffled = (groups ?? []).filter((group) => !joinedIds.has(group.id));
+    shuffled.sort(() => Math.random() - 0.5);
+    const recommended = shuffled.slice(0, 10) as GroupSummary[];
+    setRecommendedGroups(recommended);
+    setCached(`groups:${uid}`, { joined, recommended });
+    setUsingCache(false);
+    setLoadingGroups(false);
+  };
+
+  const loadUnreadCounts = async (uid: string) => {
+    const { data, error } = await supabase
+      .from(DIRECT_MESSAGES_TABLE)
+      .select('sender_id')
+      .eq('recipient_id', uid)
+      .eq('is_read', false);
+
+    if (error) {
+      return;
+    }
+
+    const counts = (data ?? []).reduce<Record<string, number>>((acc, row: any) => {
+      const senderId = row.sender_id;
+      if (!senderId) return acc;
+      acc[senderId] = (acc[senderId] ?? 0) + 1;
+      return acc;
+    }, {});
+
+    setUnreadCounts(counts);
+  };
+
   useEffect(() => {
     const init = async () => {
       const uid = await fetchUserId();
@@ -127,8 +216,20 @@ export function FriendSystemScreen() {
         setUsingCache(cachedSuggestions.isStale);
         setLoadingSuggestions(false);
       }
+      const cachedGroups = await getCached<{ joined: GroupSummary[]; recommended: GroupSummary[] }>(
+        `groups:${uid}`,
+        CACHE_TTL
+      );
+      if (cachedGroups?.value) {
+        setJoinedGroups(cachedGroups.value.joined ?? []);
+        setRecommendedGroups(cachedGroups.value.recommended ?? []);
+        setUsingCache(cachedGroups.isStale);
+        setLoadingGroups(false);
+      }
       await loadConnections(uid);
       await loadSuggestions(uid);
+      await loadGroups(uid);
+      await loadUnreadCounts(uid);
     };
     init();
   }, []);
@@ -163,9 +264,53 @@ export function FriendSystemScreen() {
       )
       .subscribe();
 
+    const groupMembership = supabase
+      .channel('group-membership')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: GROUP_MEMBERS_TABLE,
+          filter: `user_id=eq.${userId}`,
+        },
+        () => loadGroups(userId)
+      )
+      .subscribe();
+
+    const groupsChannel = supabase
+      .channel('groups-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: GROUPS_TABLE,
+        },
+        () => loadGroups(userId)
+      )
+      .subscribe();
+
+    const messagesChannel = supabase
+      .channel('direct-messages-unread')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: DIRECT_MESSAGES_TABLE,
+          filter: `recipient_id=eq.${userId}`,
+        },
+        () => loadUnreadCounts(userId)
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(inbound);
       supabase.removeChannel(outbound);
+      supabase.removeChannel(groupMembership);
+      supabase.removeChannel(groupsChannel);
+      supabase.removeChannel(messagesChannel);
     };
   }, [userId]);
 
@@ -174,6 +319,8 @@ export function FriendSystemScreen() {
     const interval = setInterval(() => {
       loadConnections(userId);
       loadSuggestions(userId);
+      loadGroups(userId);
+      loadUnreadCounts(userId);
     }, 20000);
     return () => clearInterval(interval);
   }, [userId, realtimeConnected]);
@@ -282,157 +429,344 @@ export function FriendSystemScreen() {
     await loadConnections(userId);
   };
 
+  const removeFriend = async (friendId: string) => {
+    if (!userId) return;
+    const link = friendLinks[friendId];
+    if (!link) return;
+
+    const previous = friends;
+    setFriends((prev) => prev.filter((friend) => friend.id !== friendId));
+    const { error: deleteError } = await supabase.from(FRIENDS_TABLE).delete().eq('id', link.id);
+
+    if (deleteError) {
+      setFriends(previous);
+      showError('Greška', 'Ne možemo ukloniti prijatelja.');
+      return;
+    }
+
+    showSuccess('Uklonjeno', 'Prijatelj je uklonjen.');
+    await loadConnections(userId);
+  };
+
+  const startChat = (friend: Profile) => {
+    navigation.navigate('FriendChat', { friendId: friend.id, friendName: friend.korisnicko_ime });
+  };
+
+  const joinGroup = async (groupId: string) => {
+    if (!userId) return;
+    const group = recommendedGroups.find((item) => item.id === groupId);
+    const previousRecommended = recommendedGroups;
+    const previousJoined = joinedGroups;
+    setRecommendedGroups((prev) => prev.filter((item) => item.id !== groupId));
+    if (group) setJoinedGroups((prev) => [group, ...prev]);
+
+    const { error: insertError } = await supabase.from(GROUP_MEMBERS_TABLE).insert({
+      group_id: groupId,
+      user_id: userId,
+      role: 'member',
+    });
+
+    if (insertError) {
+      showError('Greška', 'Ne možemo se pridružiti grupi.');
+      setRecommendedGroups(previousRecommended);
+      setJoinedGroups(previousJoined);
+      return;
+    }
+
+    showSuccess('Uspjeh', 'Pridružili ste se grupi.');
+    await loadGroups(userId);
+  };
+
+  const openGroup = (groupId: string) => {
+    navigation.navigate('GroupDetail', { groupId });
+  };
+
   const filteredFriends = useMemo(() => {
     return friends.filter((friend) =>
       friend.korisnicko_ime?.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [friends, searchQuery]);
 
+  const visibleFriends = filteredFriends.slice(0, friendsVisible);
+  const visibleSuggestions = suggestions.slice(0, suggestionsVisible);
+
   return (
     <GradientBackground>
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Prijatelji</Text>
-          <Text style={styles.subtitle}>Poveži se s eko zajednicom</Text>
-        </View>
+      <ScreenFade>
+        <ScrollView contentContainerStyle={styles.content}>
+          <BackButton onPress={() => navigation.goBack()} />
+          <View style={styles.header}>
+            <Text style={styles.title}>Prijatelji</Text>
+            <Text style={styles.subtitle}>Poveži se s eko zajednicom</Text>
+          </View>
 
-        <View style={styles.searchWrap}>
-          <Search size={16} color={colors.muted} style={styles.searchIcon} />
-          <TextInput
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder="Pretraži prijatelje..."
-            placeholderTextColor={colors.muted}
-            style={styles.searchInput}
-          />
-        </View>
+          <View style={styles.searchWrap}>
+            <Search size={16} color={colors.muted} style={styles.searchIcon} />
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Pretraži prijatelje..."
+              placeholderTextColor={colors.muted}
+              style={styles.searchInput}
+            />
+          </View>
 
-        <View style={styles.tabs}>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'friends' && styles.tabActive]}
-            onPress={() => setActiveTab('friends')}
-          >
-            <Users size={16} color={activeTab === 'friends' ? colors.softGreen : colors.muted} />
-            <Text style={[styles.tabText, activeTab === 'friends' && styles.tabTextActive]}>Prijatelji</Text>
-            <Text style={styles.tabCount}>{friends.length}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'requests' && styles.tabActive]}
-            onPress={() => setActiveTab('requests')}
-          >
-            <Mail size={16} color={activeTab === 'requests' ? colors.softGreen : colors.muted} />
-            <Text style={[styles.tabText, activeTab === 'requests' && styles.tabTextActive]}>Zahtjevi</Text>
-            <Text style={styles.tabCount}>{pendingIn.length}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'suggestions' && styles.tabActive]}
-            onPress={() => setActiveTab('suggestions')}
-          >
-            <UserPlus size={16} color={activeTab === 'suggestions' ? colors.softGreen : colors.muted} />
-            <Text style={[styles.tabText, activeTab === 'suggestions' && styles.tabTextActive]}>Preporuke</Text>
-          </TouchableOpacity>
-        </View>
+          <View style={styles.tabs}>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'friends' && styles.tabActive]}
+              onPress={() => setActiveTab('friends')}
+            >
+              <Users size={16} color={activeTab === 'friends' ? colors.softGreen : colors.muted} />
+              <Text style={[styles.tabText, activeTab === 'friends' && styles.tabTextActive]}>
+                Prijatelji
+              </Text>
+              <Text style={styles.tabCount}>{friends.length}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'requests' && styles.tabActive]}
+              onPress={() => setActiveTab('requests')}
+            >
+              <Mail size={16} color={activeTab === 'requests' ? colors.softGreen : colors.muted} />
+              <Text style={[styles.tabText, activeTab === 'requests' && styles.tabTextActive]}>
+                Zahtjevi
+              </Text>
+              <Text style={styles.tabCount}>{pendingIn.length}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'groups' && styles.tabActive]}
+              onPress={() => setActiveTab('groups')}
+            >
+              <Users size={16} color={activeTab === 'groups' ? colors.softGreen : colors.muted} />
+              <Text style={[styles.tabText, activeTab === 'groups' && styles.tabTextActive]}>Grupe</Text>
+              <Text style={styles.tabCount}>{joinedGroups.length}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'suggestions' && styles.tabActive]}
+              onPress={() => setActiveTab('suggestions')}
+            >
+              <UserPlus size={16} color={activeTab === 'suggestions' ? colors.softGreen : colors.muted} />
+              <Text style={[styles.tabText, activeTab === 'suggestions' && styles.tabTextActive]}>
+                Preporuke
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-        {error && <Text style={styles.error}>{error}</Text>}
-        {usingCache && <Text style={styles.cacheNote}>Prikazujem keširane podatke.</Text>}
+          {error && <Text style={styles.error}>{error}</Text>}
+          {usingCache && <Text style={styles.cacheNote}>Prikazujem keširane podatke.</Text>}
 
-        {activeTab === 'friends' && (
-          <View style={styles.section}>
-            {loadingConnections && filteredFriends.length === 0 ? (
-              <View style={styles.skeletonGroup}>
-                {Array.from({ length: 3 }).map((_, index) => (
-                  <View key={`friend-skeleton-${index}`} style={styles.card}>
-                    <View>
-                      <SkeletonBlock width={120} height={14} />
+          {activeTab === 'friends' && (
+            <View style={styles.section}>
+              {loadingConnections && filteredFriends.length === 0 ? (
+                <View style={styles.skeletonGroup}>
+                  {Array.from({ length: 3 }).map((_, index) => (
+                    <View key={`friend-skeleton-${index}`} style={styles.card}>
+                      <View>
+                        <SkeletonBlock width={120} height={14} />
+                        <SkeletonBlock width={80} height={10} style={{ marginTop: 8 }} />
+                      </View>
+                      <SkeletonBlock width={50} height={12} />
+                    </View>
+                  ))}
+                </View>
+              ) : filteredFriends.length === 0 ? (
+                <EmptyState
+                  title="Još nemate prijatelja"
+                  description="Povežite se sa zajednicom i pratite napredak."
+                />
+              ) : (
+                <>
+                  {visibleFriends.map((friend) => (
+                    <View key={friend.id} style={styles.card}>
+                      <View>
+                        <Text style={styles.cardTitle}>{friend.korisnicko_ime}</Text>
+                        <Text style={styles.cardSubtitle}>Poeni: {friend.ukupno_poena ?? 0}</Text>
+                      </View>
+                      <View style={styles.friendActions}>
+                        <Text style={styles.badgeText}>{friend.trenutni_bedz ?? 'bronze'}</Text>
+                        <View style={styles.friendButtons}>
+                          <TouchableOpacity onPress={() => startChat(friend)}>
+                            <LinearGradient colors={gradients.primary} style={styles.chatButton}>
+                              <MessageCircle size={14} color={colors.text} />
+                              <Text style={styles.chatText}>Chat</Text>
+                            </LinearGradient>
+                          </TouchableOpacity>
+                          {unreadCounts[friend.id] ? (
+                            <View style={styles.unreadBadge}>
+                              <Text style={styles.unreadText}>{unreadCounts[friend.id]}</Text>
+                            </View>
+                          ) : null}
+                          <TouchableOpacity onPress={() => removeFriend(friend.id)} style={styles.removeButton}>
+                            <Text style={styles.removeText}>Ukloni</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    </View>
+                  ))}
+                  {filteredFriends.length > friendsVisible ? (
+                    <TouchableOpacity onPress={() => setFriendsVisible((prev) => prev + 10)}>
+                      <LinearGradient colors={gradients.primary} style={styles.loadMoreButton}>
+                        <Text style={styles.loadMoreText}>Prikaži više</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  ) : null}
+                </>
+              )}
+            </View>
+          )}
+
+          {activeTab === 'requests' && (
+            <View style={styles.section}>
+              {loadingConnections && pendingIn.length === 0 && pendingOut.length === 0 ? (
+                <View style={styles.skeletonGroup}>
+                  {Array.from({ length: 2 }).map((_, index) => (
+                    <View key={`request-skeleton-${index}`} style={styles.card}>
+                      <SkeletonBlock width={150} height={14} />
                       <SkeletonBlock width={80} height={10} style={{ marginTop: 8 }} />
                     </View>
-                    <SkeletonBlock width={50} height={12} />
-                  </View>
-                ))}
-              </View>
-            ) : filteredFriends.length === 0 ? (
-              <Text style={styles.muted}>Još nemate prijatelja.</Text>
-            ) : (
-              filteredFriends.map((friend) => (
-                <View key={friend.id} style={styles.card}>
-                  <View>
-                    <Text style={styles.cardTitle}>{friend.korisnicko_ime}</Text>
-                    <Text style={styles.cardSubtitle}>Poeni: {friend.ukupno_poena ?? 0}</Text>
-                  </View>
-                  <Text style={styles.badgeText}>{friend.trenutni_bedz ?? 'bronze'}</Text>
+                  ))}
                 </View>
-              ))
-            )}
-          </View>
-        )}
-
-        {activeTab === 'requests' && (
-          <View style={styles.section}>
-            {loadingConnections && pendingIn.length === 0 && pendingOut.length === 0 ? (
-              <View style={styles.skeletonGroup}>
-                {Array.from({ length: 2 }).map((_, index) => (
-                  <View key={`request-skeleton-${index}`} style={styles.card}>
-                    <SkeletonBlock width={150} height={14} />
-                    <SkeletonBlock width={80} height={10} style={{ marginTop: 8 }} />
-                  </View>
-                ))}
-              </View>
             ) : pendingIn.length === 0 && pendingOut.length === 0 ? (
-              <Text style={styles.muted}>Nema aktivnih zahtjeva.</Text>
+              <EmptyState
+                title="Nema aktivnih zahtjeva"
+                description="Novi zahtjevi će se pojaviti ovdje."
+              />
             ) : (
-              <>
-                {pendingIn.map((req) => (
-                  <View key={req.id} style={styles.card}>
-                    <Text style={styles.cardTitle}>Primljen zahtjev</Text>
-                    <TouchableOpacity onPress={() => acceptRequest(req)}>
+                <>
+                  {pendingIn.map((req) => (
+                    <View key={req.id} style={styles.card}>
+                      <Text style={styles.cardTitle}>Primljen zahtjev</Text>
+                      <TouchableOpacity onPress={() => acceptRequest(req)}>
+                        <LinearGradient colors={gradients.primary} style={styles.actionButton}>
+                          <Text style={styles.actionLabel}>Prihvati</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                  {pendingOut.map((req) => (
+                    <View key={req.id} style={styles.card}>
+                      <Text style={styles.cardTitle}>Poslan zahtjev (na čekanju)</Text>
+                    </View>
+                  ))}
+                </>
+              )}
+            </View>
+          )}
+
+          {activeTab === 'suggestions' && (
+            <View style={styles.section}>
+            {loadingSuggestions && suggestions.length === 0 ? (
+              <View style={styles.skeletonGroup}>
+                  {Array.from({ length: 3 }).map((_, index) => (
+                    <View key={`suggestion-skeleton-${index}`} style={styles.card}>
+                      <View>
+                        <SkeletonBlock width={120} height={14} />
+                        <SkeletonBlock width={80} height={10} style={{ marginTop: 8 }} />
+                      </View>
+                      <SkeletonBlock width={70} height={12} />
+                    </View>
+                  ))}
+              </View>
+            ) : (
+                <>
+                  {visibleSuggestions.map((suggestion) => (
+                  <View key={suggestion.id} style={styles.card}>
+                    <View>
+                      <Text style={styles.cardTitle}>{suggestion.korisnicko_ime}</Text>
+                      <Text style={styles.cardSubtitle}>Poeni: {suggestion.ukupno_poena ?? 0}</Text>
+                    </View>
+                    <TouchableOpacity onPress={() => sendRequest(suggestion.id)}>
                       <LinearGradient colors={gradients.primary} style={styles.actionButton}>
-                        <Text style={styles.actionLabel}>Prihvati</Text>
+                        <Text style={styles.actionLabel}>Dodaj</Text>
                       </LinearGradient>
                     </TouchableOpacity>
                   </View>
-                ))}
-                {pendingOut.map((req) => (
-                  <View key={req.id} style={styles.card}>
-                    <Text style={styles.cardTitle}>Poslan zahtjev (na čekanju)</Text>
-                  </View>
-                ))}
-              </>
+                  ))}
+                  {suggestions.length === 0 ? (
+                    <EmptyState
+                      title="Nema preporuka"
+                      description="Pokušaćemo da pronađemo nove korisnike."
+                    />
+                  ) : null}
+                  {suggestions.length > suggestionsVisible ? (
+                    <TouchableOpacity onPress={() => setSuggestionsVisible((prev) => prev + 10)}>
+                      <LinearGradient colors={gradients.primary} style={styles.loadMoreButton}>
+                        <Text style={styles.loadMoreText}>Prikaži više</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  ) : null}
+                </>
             )}
           </View>
         )}
 
-        {activeTab === 'suggestions' && (
-          <View style={styles.section}>
-            {loadingSuggestions && suggestions.length === 0 ? (
-              <View style={styles.skeletonGroup}>
-                {Array.from({ length: 3 }).map((_, index) => (
-                  <View key={`suggestion-skeleton-${index}`} style={styles.card}>
-                    <View>
-                      <SkeletonBlock width={120} height={14} />
-                      <SkeletonBlock width={80} height={10} style={{ marginTop: 8 }} />
+          {activeTab === 'groups' && (
+            <View style={styles.section}>
+              {loadingGroups && joinedGroups.length === 0 && recommendedGroups.length === 0 ? (
+                <View style={styles.skeletonGroup}>
+                  {Array.from({ length: 3 }).map((_, index) => (
+                    <View key={`group-skeleton-${index}`} style={styles.card}>
+                      <View>
+                        <SkeletonBlock width={150} height={14} />
+                        <SkeletonBlock width={90} height={10} style={{ marginTop: 8 }} />
+                      </View>
+                      <SkeletonBlock width={70} height={12} />
                     </View>
-                    <SkeletonBlock width={70} height={12} />
-                  </View>
-                ))}
-              </View>
-            ) : (
-              suggestions.map((suggestion) => (
-              <View key={suggestion.id} style={styles.card}>
-                <View>
-                  <Text style={styles.cardTitle}>{suggestion.korisnicko_ime}</Text>
-                  <Text style={styles.cardSubtitle}>Poeni: {suggestion.ukupno_poena ?? 0}</Text>
+                  ))}
                 </View>
-                <TouchableOpacity onPress={() => sendRequest(suggestion.id)}>
-                  <LinearGradient colors={gradients.primary} style={styles.actionButton}>
-                    <Text style={styles.actionLabel}>Dodaj</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              </View>
-            ))
-            )}
-          </View>
-        )}
-      </ScrollView>
+              ) : (
+                <>
+                <Text style={styles.sectionTitle}>Moje grupe</Text>
+                {joinedGroups.length === 0 ? (
+                  <EmptyState
+                    title="Niste član nijedne grupe"
+                    description="Pridružite se grupi i pratite zajedničke izazove."
+                  />
+                ) : (
+                  joinedGroups.map((group) => (
+                      <View key={group.id} style={styles.card}>
+                        <View style={styles.groupText}>
+                          <Text style={styles.cardTitle}>{group.name}</Text>
+                          {group.description ? (
+                            <Text style={styles.cardSubtitle}>{group.description}</Text>
+                          ) : null}
+                        </View>
+                        <TouchableOpacity onPress={() => openGroup(group.id)}>
+                          <LinearGradient colors={gradients.primary} style={styles.actionButton}>
+                            <Text style={styles.actionLabel}>Otvori</Text>
+                          </LinearGradient>
+                        </TouchableOpacity>
+                      </View>
+                    ))
+                  )}
+                <Text style={[styles.sectionTitle, { marginTop: spacing.md }]}>Preporučene grupe</Text>
+                {recommendedGroups.length === 0 ? (
+                  <EmptyState
+                    title="Trenutno nema preporučenih grupa"
+                    description="Vrati se kasnije za nove preporuke."
+                  />
+                ) : (
+                  recommendedGroups.map((group) => (
+                      <View key={group.id} style={styles.card}>
+                        <View style={styles.groupText}>
+                          <Text style={styles.cardTitle}>{group.name}</Text>
+                          {group.description ? (
+                            <Text style={styles.cardSubtitle}>{group.description}</Text>
+                          ) : null}
+                        </View>
+                        <TouchableOpacity onPress={() => joinGroup(group.id)}>
+                          <LinearGradient colors={gradients.primary} style={styles.actionButton}>
+                            <Text style={styles.actionLabel}>Pridruži se</Text>
+                          </LinearGradient>
+                        </TouchableOpacity>
+                      </View>
+                    ))
+                  )}
+                </>
+              )}
+            </View>
+          )}
+        </ScrollView>
+      </ScreenFade>
     </GradientBackground>
   );
 }
@@ -534,6 +868,55 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '600',
   },
+  friendActions: {
+    alignItems: 'flex-end',
+    gap: spacing.xs,
+  },
+  friendButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  chatButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: radius.sm,
+  },
+  chatText: {
+    color: colors.text,
+    fontWeight: '600',
+    fontSize: 12,
+  },
+  removeButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+  },
+  removeText: {
+    color: '#f87171',
+    fontWeight: '600',
+    fontSize: 12,
+  },
+  unreadBadge: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.softGreen,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+  unreadText: {
+    color: '#0f172a',
+    fontWeight: '700',
+    fontSize: 12,
+  },
   actionButton: {
     paddingVertical: 8,
     paddingHorizontal: 16,
@@ -553,6 +936,26 @@ const styles = StyleSheet.create({
   cacheNote: {
     color: colors.muted,
     marginBottom: spacing.sm,
+  },
+  sectionTitle: {
+    color: colors.text,
+    fontWeight: '600',
+    marginBottom: spacing.sm,
+  },
+  groupText: {
+    flex: 1,
+    paddingRight: spacing.sm,
+  },
+  loadMoreButton: {
+    alignSelf: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: radius.lg,
+    marginTop: spacing.sm,
+  },
+  loadMoreText: {
+    color: colors.text,
+    fontWeight: '600',
   },
   skeletonGroup: {
     gap: spacing.sm,

@@ -23,6 +23,9 @@ import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { EcoTipsScreen } from '../screens/EcoTipsScreen';
 import { CreateChallengeScreen } from '../screens/CreateChallengeScreen';
 import { EditProfileScreen } from '../screens/EditProfileScreen';
+import { FriendChatScreen } from '../screens/FriendChatScreen';
+import { GroupDetailScreen } from '../screens/GroupDetailScreen';
+import { AdminModerationScreen } from '../screens/AdminModerationScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -143,6 +146,9 @@ export function AppNavigator() {
         <Stack.Screen name="EcoTips" component={EcoTipsScreen} />
         <Stack.Screen name="CreateChallenge" component={CreateChallengeScreen} />
         <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+        <Stack.Screen name="FriendChat" component={FriendChatScreen} />
+        <Stack.Screen name="GroupDetail" component={GroupDetailScreen} />
+        <Stack.Screen name="AdminModeration" component={AdminModerationScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

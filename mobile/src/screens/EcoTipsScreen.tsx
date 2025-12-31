@@ -4,6 +4,11 @@ import { Lightbulb, Zap, Droplet, Recycle, Home, Wind, X } from 'lucide-react-na
 import { colors, radius, spacing, gradients } from '../styles/common';
 import { GradientBackground } from '../components/common/GradientBackground';
 import { LinearGradient } from 'expo-linear-gradient';
+import { ScreenFade } from '../components/common/ScreenFade';
+import { BackButton } from '../components/common/BackButton';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../navigation/types';
 
 type EcoTip = {
   id: number;
@@ -101,6 +106,7 @@ const categories = [
 ];
 
 export function EcoTipsScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [selectedTip, setSelectedTip] = useState<EcoTip | null>(null);
   const [selectedCategory, setSelectedCategory] = useState('all');
 
@@ -112,7 +118,9 @@ export function EcoTipsScreen() {
 
   return (
     <GradientBackground>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScreenFade>
+        <ScrollView contentContainerStyle={styles.content}>
+        <BackButton onPress={() => navigation.goBack()} />
         <View style={styles.header}>
           <Text style={styles.title}>Eko savjeti</Text>
           <Text style={styles.subtitle}>Pametne navike za čistiju planetu</Text>
@@ -176,7 +184,8 @@ export function EcoTipsScreen() {
             </View>
           </View>
         </Modal>
-      </ScrollView>
+        </ScrollView>
+      </ScreenFade>
     </GradientBackground>
   );
 }

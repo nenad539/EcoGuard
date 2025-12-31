@@ -9,6 +9,12 @@ import { colors, gradients, radius, spacing } from '../styles/common';
 import { GradientBackground } from '../components/common/GradientBackground';
 import { SkeletonBlock } from '../components/common/Skeleton';
 import { LinearGradient } from 'expo-linear-gradient';
+import { ScreenFade } from '../components/common/ScreenFade';
+import { BackButton } from '../components/common/BackButton';
+import { EmptyState } from '../components/common/EmptyState';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../navigation/types';
 
 const NOTIFICATIONS_TABLE = 'notifications';
 const FRIENDS_TABLE = 'prijatelji';
@@ -25,6 +31,7 @@ type NotificationItem = {
 };
 
 export function NotificationsScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const realtimeConnected = useRealtimeStatus();
   const [userId, setUserId] = useState<string | null>(null);
   const [profileName, setProfileName] = useState('');
@@ -232,7 +239,9 @@ export function NotificationsScreen() {
 
   return (
     <GradientBackground>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScreenFade>
+        <ScrollView contentContainerStyle={styles.content}>
+        <BackButton onPress={() => navigation.goBack()} />
         <View style={styles.header}>
           <View style={styles.headerRow}>
             <Text style={styles.title}>Obavještenja</Text>
@@ -273,7 +282,10 @@ export function NotificationsScreen() {
             ))}
           </View>
         ) : items.length === 0 ? (
-          <Text style={styles.muted}>Nema obavještenja.</Text>
+          <EmptyState
+            title="Nema obavještenja"
+            description="Kada stignu nova obavještenja, biće prikazana ovdje."
+          />
         ) : (
           grouped.map((group) => (
             <View key={group.label} style={styles.groupSection}>
@@ -315,7 +327,8 @@ export function NotificationsScreen() {
             </View>
           ))
         )}
-      </ScrollView>
+        </ScrollView>
+      </ScreenFade>
     </GradientBackground>
   );
 }

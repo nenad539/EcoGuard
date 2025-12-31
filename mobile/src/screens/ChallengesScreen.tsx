@@ -9,6 +9,11 @@ import { colors, radius, spacing, gradients } from '../styles/common';
 import { GradientBackground } from '../components/common/GradientBackground';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SkeletonBlock } from '../components/common/Skeleton';
+import { ScreenFade } from '../components/common/ScreenFade';
+import { BackButton } from '../components/common/BackButton';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../navigation/types';
 
 const COMPLETION_TABLE_CANDIDATES = [
   process.env.EXPO_PUBLIC_DAILY_COMPLETION_TABLE,
@@ -48,6 +53,7 @@ function getDailyChallengeIds(): number[] {
 }
 
 export function ChallengesScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const realtimeConnected = useRealtimeStatus();
   const [dailyChallenges, setDailyChallenges] = useState<DailyChallenge[]>([]);
   const [completionMap, setCompletionMap] = useState<Record<number, ChallengeCompletion>>({});
@@ -315,7 +321,9 @@ export function ChallengesScreen() {
 
   return (
     <GradientBackground>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScreenFade>
+        <ScrollView contentContainerStyle={styles.content}>
+        <BackButton onPress={() => navigation.goBack()} />
         <Text style={styles.title}>Dnevni izazovi</Text>
         {usingCache && <Text style={styles.cacheNote}>Prikazujem keširane podatke.</Text>}
         {error && <Text style={styles.error}>{error}</Text>}
@@ -367,7 +375,8 @@ export function ChallengesScreen() {
           <Text style={styles.summaryTitle}>Poeni danas</Text>
           <Text style={styles.summaryValue}>{dailyPointsEarned}</Text>
         </View>
-      </ScrollView>
+        </ScrollView>
+      </ScreenFade>
     </GradientBackground>
   );
 }

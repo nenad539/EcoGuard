@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase';
 import { colors, radius, spacing, gradients } from '../styles/common';
 import { GradientBackground } from '../components/common/GradientBackground';
 import { showError, showSuccess } from '../lib/toast';
+import { ScreenFade } from '../components/common/ScreenFade';
 
 export function EditProfileScreen() {
   const navigation = useNavigation();
@@ -92,7 +93,8 @@ export function EditProfileScreen() {
 
   return (
     <GradientBackground>
-      <View style={styles.container}>
+      <ScreenFade>
+        <View style={styles.container}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <ArrowLeft size={18} color={colors.softGreen} />
           <Text style={styles.backText}>Nazad</Text>
@@ -167,7 +169,8 @@ export function EditProfileScreen() {
             </LinearGradient>
           </TouchableOpacity>
         </View>
-      </View>
+        </View>
+      </ScreenFade>
     </GradientBackground>
   );
 }

@@ -1,18 +1,25 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { colors, radius, spacing, gradients } from '../styles/common';
 import { FormInput } from '../components/common/FormInput';
 import { supabase } from '../lib/supabase';
 import { GradientBackground } from '../components/common/GradientBackground';
 import { LinearGradient } from 'expo-linear-gradient';
 import { showError, showSuccess } from '../lib/toast';
+import { ScreenFade } from '../components/common/ScreenFade';
+import { BackButton } from '../components/common/BackButton';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../navigation/types';
 
 export function CreateChallengeScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
   const [durationDays, setDurationDays] = useState('7');
   const [points, setPoints] = useState('100');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async () => {
     if (!title || !points || !durationDays) {
@@ -55,7 +62,9 @@ export function CreateChallengeScreen() {
       status: 'available',
     };
 
+    setIsSubmitting(true);
     const { error } = await supabase.from('photoChallenge').insert(payload);
+    setIsSubmitting(false);
 
     if (error) {
       showError('Greška', error.message);
@@ -72,26 +81,29 @@ export function CreateChallengeScreen() {
 
   return (
     <GradientBackground>
-      <View style={styles.container}>
-        <Text style={styles.title}>Kreiraj foto izazov</Text>
-        <View style={styles.card}>
-        <FormInput label="Naziv" value={title} onChangeText={setTitle} />
-        <FormInput label="Opis" value={description} onChangeText={setDescription} />
-        <FormInput label="Lokacija" value={location} onChangeText={setLocation} />
-        <FormInput
-          label="Trajanje (dana)"
-          value={durationDays}
-          onChangeText={setDurationDays}
-          keyboardType="numeric"
-        />
-        <FormInput label="Poeni" value={points} onChangeText={setPoints} keyboardType="numeric" />
-        <TouchableOpacity onPress={handleSubmit}>
-          <LinearGradient colors={gradients.primary} style={styles.actionButton}>
-            <Text style={styles.actionLabel}>Kreiraj</Text>
-          </LinearGradient>
-        </TouchableOpacity>
+      <ScreenFade>
+        <View style={styles.container}>
+          <BackButton onPress={() => navigation.goBack()} />
+          <Text style={styles.title}>Kreiraj foto izazov</Text>
+          <View style={styles.card}>
+            <FormInput label="Naziv" value={title} onChangeText={setTitle} />
+            <FormInput label="Opis" value={description} onChangeText={setDescription} />
+            <FormInput label="Lokacija" value={location} onChangeText={setLocation} />
+            <FormInput
+              label="Trajanje (dana)"
+              value={durationDays}
+              onChangeText={setDurationDays}
+              keyboardType="numeric"
+            />
+            <FormInput label="Poeni" value={points} onChangeText={setPoints} keyboardType="numeric" />
+            <TouchableOpacity onPress={handleSubmit} disabled={isSubmitting}>
+              <LinearGradient colors={gradients.primary} style={styles.actionButton}>
+                {isSubmitting ? <ActivityIndicator color={colors.text} /> : <Text style={styles.actionLabel}>Kreiraj</Text>}
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      </ScreenFade>
     </GradientBackground>
   );
 }

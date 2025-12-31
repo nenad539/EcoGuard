@@ -10,6 +10,8 @@ import { colors, radius, spacing, gradients } from '../styles/common';
 import { GradientBackground } from '../components/common/GradientBackground';
 import { LinearGradient } from 'expo-linear-gradient';
 import { showError, showSuccess } from '../lib/toast';
+import { ScreenFade } from '../components/common/ScreenFade';
+import { BackButton } from '../components/common/BackButton';
 
 export function RegisterScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -60,10 +62,9 @@ export function RegisterScreen() {
 
   return (
     <GradientBackground>
-      <View style={styles.container}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.back}>Nazad</Text>
-        </TouchableOpacity>
+      <ScreenFade>
+        <View style={styles.container}>
+        <BackButton onPress={() => navigation.goBack()} />
 
         <View style={styles.header}>
           <View style={styles.logoRow}>
@@ -153,7 +154,8 @@ export function RegisterScreen() {
             <Text style={styles.linkMuted}>Već imate nalog? Prijavite se</Text>
           </TouchableOpacity>
         </BlurView>
-      </View>
+        </View>
+      </ScreenFade>
     </GradientBackground>
   );
 }
@@ -162,10 +164,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: spacing.lg,
-  },
-  back: {
-    color: colors.softGreen,
-    marginBottom: spacing.md,
   },
   header: {
     alignItems: 'center',
