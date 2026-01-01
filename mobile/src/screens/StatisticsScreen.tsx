@@ -12,7 +12,6 @@ import { ScreenFade } from '../components/common/ScreenFade';
 import { GlowCard } from '../components/common/GlowCard';
 import { trackEvent } from '../lib/analytics';
 import { triggerHaptic } from '../lib/haptics';
-import { useLanguage } from '../lib/language';
 
 const CACHE_TTL = 1000 * 60 * 5;
 const ACTIVITY_TABLE = 'aktivnosti';
@@ -31,7 +30,6 @@ type TypeTotals = Record<string, { count: number; points: number }>;
 
 export function StatisticsScreen() {
   const realtimeConnected = useRealtimeStatus();
-  const { t } = useLanguage();
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('week');
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [activityLoading, setActivityLoading] = useState(false);
@@ -52,7 +50,7 @@ export function StatisticsScreen() {
   const [typeTotals, setTypeTotals] = useState<TypeTotals>({});
 
   const timeFilterLabel =
-    timeFilter === 'day' ? t('statsFilterDay') : timeFilter === 'week' ? t('statsFilterWeek') : t('statsFilterMonth');
+    timeFilter === 'day' ? "Dan" : timeFilter === 'week' ? "Sedmica" : "Mesec";
 
   const getUserId = async (): Promise<string | undefined> => {
     if (userId) return userId;
@@ -94,13 +92,13 @@ export function StatisticsScreen() {
       start.setHours(0, 0, 0, 0);
       start.setDate(start.getDate() - 6);
       const dayLabels = [
-        t('daySunShort'),
-        t('dayMonShort'),
-        t('dayTueShort'),
-        t('dayWedShort'),
-        t('dayThuShort'),
-        t('dayFriShort'),
-        t('daySatShort'),
+        "Ned",
+        "Pon",
+        "Uto",
+        "Sre",
+        "Cet",
+        "Pet",
+        "Sub",
       ];
       for (let i = 0; i < 7; i += 1) {
         const bucketStart = new Date(start.getTime() + i * 24 * 60 * 60 * 1000);
@@ -121,7 +119,7 @@ export function StatisticsScreen() {
       const bucketStart = new Date(start.getTime() + i * 7 * 24 * 60 * 60 * 1000);
       const bucketEnd = new Date(bucketStart.getTime() + 7 * 24 * 60 * 60 * 1000);
       buckets.push({
-        label: t('weekLabel').replace('{week}', String(i + 1)),
+        label: "Sedmica {week}".replace('{week}', String(i + 1)),
         start: bucketStart,
         end: i === 3 ? now : bucketEnd,
       });
@@ -298,7 +296,7 @@ export function StatisticsScreen() {
         await refreshActivityStats();
     } catch (err) {
       console.error(err);
-      setError(t('statsLoadError'));
+      setError("Ne mogu ucitati statistiku.");
     } finally {
         if (mounted) {
           setSummaryLoading(false);
@@ -377,7 +375,7 @@ export function StatisticsScreen() {
         await refreshActivityStats();
     } catch (err) {
       console.error(err);
-      setError(t('statsLoadError'));
+      setError("Ne mogu ucitati statistiku.");
     } finally {
       setActivityLoading(false);
     }
@@ -399,19 +397,19 @@ export function StatisticsScreen() {
     });
 
     return [
-      build('regular', t('statsBreakdownRegular'), Target, colors.primary),
-      build('photo', t('statsBreakdownPhoto'), Camera, '#38bdf8'),
-      build('group', t('statsBreakdownGroup'), Users, '#f59e0b'),
+      build('regular', "Redovni izazovi", Target, colors.primary),
+      build('photo', "Foto izazovi", Camera, '#38bdf8'),
+      build('group', "Grupni izazovi", Users, '#f59e0b'),
     ];
-  }, [typeTotals, t]);
+  }, [typeTotals]);
 
   return (
     <GradientBackground>
       <ScreenFade>
         <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.title}>{t('statsTitle')}</Text>
-          <Text style={styles.subtitle}>{t('statsSubtitle')}</Text>
+          <Text style={styles.title}>{"Statistika"}</Text>
+          <Text style={styles.subtitle}>{"Vas napredak kroz vreme"}</Text>
         </View>
 
         <View style={styles.filterRow}>
@@ -425,12 +423,12 @@ export function StatisticsScreen() {
                 setTimeFilter(filter);
               }}
               accessibilityRole="button"
-              accessibilityLabel={`${t('statsFilterLabel')} ${
-                filter === 'day' ? t('statsFilterDay') : filter === 'week' ? t('statsFilterWeek') : t('statsFilterMonth')
+              accessibilityLabel={`${"Filter"} ${
+                filter === 'day' ? "Dan" : filter === 'week' ? "Sedmica" : "Mesec"
               }`}
             >
               <Text style={[styles.filterText, timeFilter === filter && styles.filterTextActive]}>
-                {filter === 'day' ? t('statsFilterDay') : filter === 'week' ? t('statsFilterWeek') : t('statsFilterMonth')}
+                {filter === 'day' ? "Dan" : filter === 'week' ? "Sedmica" : "Mesec"}
               </Text>
             </TouchableOpacity>
           ))}
@@ -470,7 +468,7 @@ export function StatisticsScreen() {
             <LinearGradient colors={gradients.primary} style={styles.summaryIcon}>
               <TrendingUp size={18} color={colors.text} />
             </LinearGradient>
-            <Text style={styles.summaryLabel}>{t('statsRankLabel')}</Text>
+            <Text style={styles.summaryLabel}>{"Rang"}</Text>
             {summaryLoading && rank == null ? (
               <SkeletonBlock width={40} height={14} />
             ) : (
@@ -495,7 +493,7 @@ export function StatisticsScreen() {
             <LinearGradient colors={gradients.primary} style={styles.summaryIcon}>
               <Award size={18} color={colors.text} />
             </LinearGradient>
-            <Text style={styles.summaryLabel}>{t('statsPeriodPointsLabel')}</Text>
+            <Text style={styles.summaryLabel}>{"Poeni u periodu"}</Text>
             {activityLoading ? (
               <SkeletonBlock width={60} height={14} />
             ) : (
@@ -506,7 +504,7 @@ export function StatisticsScreen() {
             <LinearGradient colors={gradients.primary} style={styles.summaryIcon}>
               <Target size={18} color={colors.text} />
             </LinearGradient>
-            <Text style={styles.summaryLabel}>{t('statsPeriodCompletionsLabel')}</Text>
+            <Text style={styles.summaryLabel}>{"Zavrseni u periodu"}</Text>
             {activityLoading ? (
               <SkeletonBlock width={60} height={14} />
             ) : (
@@ -517,7 +515,7 @@ export function StatisticsScreen() {
 
         <GlowCard style={styles.chartShell} contentStyle={styles.chartCard}>
           <View style={styles.chartHeader}>
-            <Text style={styles.chartTitle}>{t('statsPointsOverTimeTitle')}</Text>
+            <Text style={styles.chartTitle}>{"Poeni kroz vreme"}</Text>
             <Text style={styles.chartSubtitle}>{timeFilterLabel}</Text>
           </View>
           <View style={styles.barRow}>
@@ -534,7 +532,7 @@ export function StatisticsScreen() {
 
         <GlowCard style={styles.chartShell} contentStyle={styles.chartCard}>
           <View style={styles.chartHeader}>
-            <Text style={styles.chartTitle}>{t('statsCompletionsTitle')}</Text>
+            <Text style={styles.chartTitle}>{"Zavrseni izazovi"}</Text>
             <Text style={styles.chartSubtitle}>{timeFilterLabel}</Text>
           </View>
           <View style={styles.barRow}>

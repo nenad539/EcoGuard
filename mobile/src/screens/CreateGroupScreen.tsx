@@ -13,7 +13,6 @@ import { FormInput } from '../components/common/FormInput';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
-import { useLanguage } from '../lib/language';
 
 const FRIENDS_TABLE = 'prijatelji';
 const GROUPS_TABLE = 'groups';
@@ -30,7 +29,6 @@ type Profile = {
 
 export function CreateGroupScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { t } = useLanguage();
   const [userId, setUserId] = useState<string | null>(null);
   const [profileName, setProfileName] = useState('');
   const [groupName, setGroupName] = useState('');
@@ -120,7 +118,7 @@ export function CreateGroupScreen() {
       lastError = error;
     }
 
-    throw lastError ?? new Error(t('createGroupCreateError'));
+    throw lastError ?? new Error("Greska pri kreiranju grupe.");
   };
 
   const insertMembership = async (uid: string, groupId: string) => {
@@ -198,9 +196,9 @@ export function CreateGroupScreen() {
     if (!invitedIds.length) return;
     const payload = invitedIds.map((friendId) => ({
       korisnik_id: friendId,
-      title: t('notificationGroupInviteTitle'),
-      body: t('notificationGroupInviteBody')
-        .replace('{name}', profileName || t('defaultUserLabel'))
+      title: "Poziv za grupu",
+      body: "{name} te je pozvao u grupu {group}."
+        .replace('{name}', profileName || "Korisnik")
         .replace('{group}', groupName.trim()),
       type: 'group_invite',
       related_id: groupId,
@@ -211,19 +209,19 @@ export function CreateGroupScreen() {
 
   const handleSubmit = async () => {
     if (!userId) {
-      showError("Gre\u0161ka", t('createGroupLoginRequired'));
+      showError("Gre\u0161ka", "Morate biti prijavljeni.");
       return;
     }
     if (!canSubmit) {
-      showError("Gre\u0161ka", t('createGroupMissingFields'));
+      showError("Gre\u0161ka", "Popunite obavezna polja.");
       return;
     }
     if (points.trim() && !Number.isFinite(Number(points))) {
-      showError("Gre\u0161ka", t('createGroupPointsNumeric'));
+      showError("Gre\u0161ka", "Poeni moraju biti broj.");
       return;
     }
     if (goalValue.trim() && !Number.isFinite(Number(goalValue))) {
-      showError("Gre\u0161ka", t('createGroupGoalNumeric'));
+      showError("Gre\u0161ka", "Cilj mora biti broj.");
       return;
     }
 
@@ -233,10 +231,10 @@ export function CreateGroupScreen() {
       await insertMembership(userId, groupId);
       await insertActivity(userId, groupId);
       await sendInvites(groupId);
-      showSuccess("Uspjeh", t('createGroupSuccess'));
+      showSuccess("Uspjeh", "Grupa je kreirana.");
       navigation.navigate('GroupDetail', { groupId });
     } catch (error: any) {
-      showError("Gre\u0161ka", error?.message ?? t('createGroupCreateError'));
+      showError("Gre\u0161ka", error?.message ?? "Greska pri kreiranju grupe.");
     } finally {
       setSubmitting(false);
     }
@@ -247,16 +245,16 @@ export function CreateGroupScreen() {
       <ScreenFade>
         <ScrollView contentContainerStyle={styles.container}>
           <BackButton onPress={() => navigation.goBack()} />
-          <Text style={styles.title}>{t('createGroupTitle')}</Text>
+          <Text style={styles.title}>{"Kreiraj grupu"}</Text>
 
           <GlowCard style={styles.cardShell} contentStyle={styles.card}>
-            <Text style={styles.sectionTitle}>{t('createGroupDetailsTitle')}</Text>
-            <FormInput label={t('createGroupNameLabel')} value={groupName} onChangeText={setGroupName} />
-            <Text style={styles.label}>{t('createGroupDescriptionLabel')}</Text>
+            <Text style={styles.sectionTitle}>{"Detalji grupe"}</Text>
+            <FormInput label={"Naziv grupe"} value={groupName} onChangeText={setGroupName} />
+            <Text style={styles.label}>{"Opis grupe"}</Text>
             <TextInput
               value={groupDescription}
               onChangeText={setGroupDescription}
-              placeholder={t('createGroupDescriptionPlaceholder')}
+              placeholder={"Dodaj kratak opis"}
               placeholderTextColor={colors.muted}
               multiline
               style={styles.textArea}
@@ -264,17 +262,17 @@ export function CreateGroupScreen() {
           </GlowCard>
 
           <GlowCard style={styles.cardShell} contentStyle={styles.card}>
-            <Text style={styles.sectionTitle}>{t('createGroupActivityTitle')}</Text>
+            <Text style={styles.sectionTitle}>{"Aktivnost grupe"}</Text>
             <FormInput
-              label={t('createGroupActivityNameLabel')}
+              label={"Naziv aktivnosti"}
               value={activityTitle}
               onChangeText={setActivityTitle}
             />
-            <Text style={styles.label}>{t('createGroupActivityDescriptionLabel')}</Text>
+            <Text style={styles.label}>{"Opis aktivnosti"}</Text>
             <TextInput
               value={activityDescription}
               onChangeText={setActivityDescription}
-              placeholder={t('createGroupActivityDescriptionPlaceholder')}
+              placeholder={"Dodaj opis aktivnosti"}
               placeholderTextColor={colors.muted}
               multiline
               style={styles.textArea}
@@ -282,7 +280,7 @@ export function CreateGroupScreen() {
             <View style={styles.inlineRow}>
               <View style={styles.inlineField}>
                 <FormInput
-                  label={t('createGroupPointsLabel')}
+                  label={"Poeni"}
                   value={points}
                   onChangeText={setPoints}
                   keyboardType="numeric"
@@ -290,7 +288,7 @@ export function CreateGroupScreen() {
               </View>
               <View style={styles.inlineField}>
                 <FormInput
-                  label={t('createGroupGoalValueLabel')}
+                  label={"Cilj (vrednost)"}
                   value={goalValue}
                   onChangeText={setGoalValue}
                   keyboardType="numeric"
@@ -298,7 +296,7 @@ export function CreateGroupScreen() {
               </View>
             </View>
             <FormInput
-              label={t('createGroupGoalUnitLabel')}
+              label={"Cilj (jedinica)"}
               value={goalUnit}
               onChangeText={setGoalUnit}
             />
@@ -306,11 +304,11 @@ export function CreateGroupScreen() {
 
           <GlowCard style={styles.cardShell} contentStyle={styles.card}>
             <View style={styles.sectionRow}>
-              <Text style={styles.sectionTitle}>{t('createGroupInviteTitle')}</Text>
+              <Text style={styles.sectionTitle}>{"Pozovi prijatelje"}</Text>
               <Users size={16} color={colors.softGreen} />
             </View>
             {friends.length === 0 ? (
-              <Text style={styles.muted}>{t('createGroupNoFriends')}</Text>
+              <Text style={styles.muted}>{"Nema prijatelja za poziv."}</Text>
             ) : (
               friends.map((friend) => {
                 const invited = invitedIds.includes(friend.id);
@@ -328,7 +326,7 @@ export function CreateGroupScreen() {
                         style={styles.inviteButton}
                       >
                         <Text style={styles.inviteLabel}>
-                          {invited ? t('inviteRemoveLabel') : t('inviteAddLabel')}
+                          {invited ? "Ukloni" : "Dodaj"}
                         </Text>
                       </LinearGradient>
                     </TouchableOpacity>

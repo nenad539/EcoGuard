@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "EcoGuard",
-    "slug": "ecoguard",
+    "name": "Grow With Us",
+    "slug": "growwithus",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -20,10 +20,16 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.nenad539.growwithus"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "29ffc291-84d1-43b6-8d98-af25a3aa5da0"
+      }
     }
   }
 }

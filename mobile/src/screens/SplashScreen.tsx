@@ -3,10 +3,8 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Leaf, Shield } from 'lucide-react-native';
 import { colors, spacing } from '../styles/common';
 import { GradientBackground } from '../components/common/GradientBackground';
-import { useLanguage } from '../lib/language';
 
 export function SplashScreen() {
-  const { t } = useLanguage();
   return (
     <GradientBackground>
       <View style={styles.container}>

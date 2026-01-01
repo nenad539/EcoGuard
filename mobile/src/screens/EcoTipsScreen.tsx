@@ -10,7 +10,6 @@ import { GlowCard } from '../components/common/GlowCard';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
-import { useLanguage } from '../lib/language';
 
 type EcoTip = {
   id: number;
@@ -25,90 +24,89 @@ type EcoTip = {
 
 export function EcoTipsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { t } = useLanguage();
   const [selectedTip, setSelectedTip] = useState<EcoTip | null>(null);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const tips = useMemo<EcoTip[]>(
     () => [
       {
         id: 1,
-        title: t('ecoTip1Title'),
-        description: t('ecoTip1Description'),
-        details: t('ecoTip1Details'),
+        title: "Gasi svetla",
+        description: "Smanji potrosnju energije gasenjem svetla kada nisu potrebna.",
+        details: "Koristi LED sijalice i iskljuci uredjaje iz uticnice kada ih ne koristis.",
         category: 'energy',
         icon: Zap,
         image:
           'https://images.unsplash.com/photo-1737372805905-be0b91ec86fb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxlY28lMjB0aXBzJTIwc3VzdGFpbmFibGV8ZW58MXx8fHwxNzYwOTAyMzA4fDA&ixlib=rb-4.1.0&q=80&w=1080',
-        impact: t('ecoTip1Impact'),
+        impact: "Manja potrosnja struje",
       },
       {
         id: 2,
-        title: t('ecoTip2Title'),
-        description: t('ecoTip2Description'),
-        details: t('ecoTip2Details'),
+        title: "Razdvajaj otpad",
+        description: "Odvajaj plastiku, papir i staklo kako bi reciklaza bila efikasna.",
+        details: "Isperi ambalazu pre bacanja i koristi posebne kante za otpad.",
         category: 'recycling',
         icon: Recycle,
         image:
           'https://images.unsplash.com/photo-1654718421032-8aee5603b51f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHxyZWN5Y2xpbmclMjBib3R0bGVzJTIwZWNvfGVufDF8fHx8MTc2MDg3OTYwNHww&ixlib=rb-4.1.0&q=80&w=1080',
-        impact: t('ecoTip2Impact'),
+        impact: "Manje otpada",
       },
       {
         id: 3,
-        title: t('ecoTip3Title'),
-        description: t('ecoTip3Description'),
-        details: t('ecoTip3Details'),
+        title: "Kreci se zelenije",
+        description: "Biraj pesacenje, bicikl ili javni prevoz kad god mozes.",
+        details: "Kratke voznje automobilom zameni pesacenjem ili biciklom.",
         category: 'transport',
         icon: Wind,
         image:
           'https://images.unsplash.com/photo-1656370465119-cb8d6735bda3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHxjb21tdW5pdHklMjBwZW9wbGUlMjB0b2dldGhlcnxlbnwxfHx8fDE3NjA4NjEwNDd8MA&ixlib=rb-4.1.0&q=80&w=1080',
-        impact: t('ecoTip3Impact'),
+        impact: "Manje CO2",
       },
       {
         id: 4,
-        title: t('ecoTip4Title'),
-        description: t('ecoTip4Description'),
-        details: t('ecoTip4Details'),
+        title: "Stedi vodu",
+        description: "Smanji potrosnju vode u kupatilu i kuhinji.",
+        details: "Zatvori cesmu dok peres zube i koristi krace tusiranje.",
         category: 'water',
         icon: Droplet,
         image:
           'https://images.unsplash.com/photo-1580933907066-9a0a6fe5fc13?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHxncmVlbiUyMGhvdXNlJTIwdHJlZXN8ZW58MXx8fHwxNzYwOTAyMzA4fDA&ixlib=rb-4.1.0&q=80&w=1080',
-        impact: t('ecoTip4Impact'),
+        impact: "Ustedjena voda",
       },
       {
         id: 5,
-        title: t('ecoTip5Title'),
-        description: t('ecoTip5Description'),
-        details: t('ecoTip5Details'),
+        title: "Visekratna upotreba",
+        description: "Koristi visekratne kese i ambalazu umesto jednokratne.",
+        details: "Ponesi svoju kesu i bocu kako bi smanjio plastiku.",
         category: 'home',
         icon: Home,
         image:
           'https://images.unsplash.com/photo-1580933907066-9a0a6fe5fc13?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHxncmVlbiUyMGhvdXNlJTIwdHJlZXN8ZW58MXx8fHwxNzYwOTAyMzA4fDA&ixlib=rb-4.1.0&q=80&w=1080',
-        impact: t('ecoTip5Impact'),
+        impact: "Manje plastike",
       },
       {
         id: 6,
-        title: t('ecoTip6Title'),
-        description: t('ecoTip6Description'),
-        details: t('ecoTip6Details'),
+        title: "Ponovo iskoristi",
+        description: "Popravi ili ponovo iskoristi stvari pre nego sto ih bacis.",
+        details: "Doniraj odecu ili popravi uredjaje kad god je moguce.",
         category: 'recycling',
         icon: Recycle,
         image:
           'https://images.unsplash.com/photo-1654718421032-8aee5603b51f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHxyZWN5Y2xpbmclMjBib3R0bGVzJTIwZWNvfGVufDF8fHx8MTc2MDg3OTYwNHww&ixlib=rb-4.1.0&q=80&w=1080',
-        impact: t('ecoTip6Impact'),
+        impact: "Manje bacanja",
       },
     ],
-    [t]
+    []
   );
   const categories = useMemo(
     () => [
-      { id: 'all', label: t('ecoCategoryAll'), icon: Lightbulb },
-      { id: 'energy', label: t('ecoCategoryEnergy'), icon: Zap },
-      { id: 'water', label: t('ecoCategoryWater'), icon: Droplet },
-      { id: 'recycling', label: t('ecoCategoryRecycling'), icon: Recycle },
-      { id: 'transport', label: t('ecoCategoryTransport'), icon: Wind },
-      { id: 'home', label: t('ecoCategoryHome'), icon: Home },
+      { id: 'all', label: "Sve", icon: Lightbulb },
+      { id: 'energy', label: "Energija", icon: Zap },
+      { id: 'water', label: "Voda", icon: Droplet },
+      { id: 'recycling', label: "Reciklaza", icon: Recycle },
+      { id: 'transport', label: "Transport", icon: Wind },
+      { id: 'home', label: "Dom", icon: Home },
     ],
-    [t]
+    []
   );
   const categoryLabelMap = useMemo(
     () =>
@@ -131,8 +129,8 @@ export function EcoTipsScreen() {
         <ScrollView contentContainerStyle={styles.content}>
           <BackButton onPress={() => navigation.goBack()} />
           <View style={styles.header}>
-            <Text style={styles.title}>{t('ecoTipsTitle')}</Text>
-            <Text style={styles.subtitle}>{t('ecoTipsSubtitle')}</Text>
+            <Text style={styles.title}>{"Eko saveti"}</Text>
+            <Text style={styles.subtitle}>{"Prakticni saveti za svakodnevni zivot"}</Text>
           </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryRow}>

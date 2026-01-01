@@ -5,12 +5,9 @@ import { colors, spacing } from '../styles/common';
 import { GradientBackground } from '../components/common/GradientBackground';
 import { ScreenFade } from '../components/common/ScreenFade';
 import { BackButton } from '../components/common/BackButton';
-import { useLanguage } from '../lib/language';
 
 export function PrivacyScreen() {
   const navigation = useNavigation();
-  const { t } = useLanguage();
-
   return (
     <GradientBackground>
       <ScreenFade>

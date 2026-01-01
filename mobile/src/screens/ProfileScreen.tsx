@@ -17,7 +17,6 @@ import { GlowCard } from '../components/common/GlowCard';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
-import { useLanguage } from '../lib/language';
 
 type Activity = {
   id: string;
@@ -31,7 +30,6 @@ const CACHE_TTL = 1000 * 60 * 5;
 
 export function ProfileScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { t } = useLanguage();
   const ACTIVITY_TABLE = 'aktivnosti';
   const realtimeConnected = useRealtimeStatus();
 
@@ -80,7 +78,7 @@ export function ProfileScreen() {
       auth?.user?.user_metadata?.name ??
       auth?.user?.user_metadata?.full_name ??
       auth?.user?.email ??
-      t('defaultUserLabel');
+      "Korisnik";
     const { data: inserted, error: insertError } = await supabase
       .from('korisnik_profil')
       .insert({ id: uid, korisnicko_ime: fallbackName })
@@ -90,7 +88,7 @@ export function ProfileScreen() {
       console.error('Profile insert error', insertError);
       if (insertError.code === '42501') {
         profileInsertBlocked.current = true;
-        showError("Gre\u0161ka", t('profileCreatePermissionError'));
+        showError("Gre\u0161ka", "Nemate dozvolu za kreiranje profila.");
       }
       return null;
     }
@@ -162,7 +160,7 @@ export function ProfileScreen() {
 
     const profile = await ensureProfile(userId);
     if (!profile) {
-      setUserName(t('defaultUserLabel'));
+      setUserName("Korisnik");
       setUserPoints('0');
       setUserCompleted('0');
       setUserBadge('bronze');
@@ -170,7 +168,7 @@ export function ProfileScreen() {
       return;
     }
 
-    setUserName(profile?.korisnicko_ime ?? t('defaultUserLabel'));
+    setUserName(profile?.korisnicko_ime ?? "Korisnik");
     setUserPoints(String(profile?.ukupno_poena ?? 0));
     setUserCompleted(String(profile?.izazova_zavrseno ?? 0));
     const profileBadge = (profile?.trenutni_bedz as 'gold' | 'silver' | 'bronze' | null) ?? 'bronze';
@@ -214,7 +212,7 @@ export function ProfileScreen() {
           trenutni_bedz: 'gold' | 'silver' | 'bronze' | null;
         }>(`profile:${uid}`, CACHE_TTL);
         if (cachedProfile?.value) {
-          setUserName(cachedProfile.value.korisnicko_ime ?? t('defaultUserLabel'));
+          setUserName(cachedProfile.value.korisnicko_ime ?? "Korisnik");
           setUserPoints(String(cachedProfile.value.ukupno_poena ?? 0));
           setUserCompleted(String(cachedProfile.value.izazova_zavrseno ?? 0));
           if (cachedProfile.value.trenutni_bedz) setUserBadge(cachedProfile.value.trenutni_bedz);
@@ -352,7 +350,7 @@ export function ProfileScreen() {
               navigation.navigate('MainTabs', { screen: 'Home' });
             }}
             accessibilityRole="button"
-            accessibilityLabel={t('profileBackToHomeLabel')}
+            accessibilityLabel={"Nazad na pocetnu"}
           >
             <ArrowLeft color={colors.softGreen} size={18} />
             <Text style={styles.backText}>{"Nazad"}</Text>
@@ -486,7 +484,7 @@ export function ProfileScreen() {
                 <View style={styles.activityContent}>
                   <Text style={styles.activityAction}>{activity.opis}</Text>
                   <Text style={styles.activityDate}>
-                    {activity.kategorija ?? t('activityFallbackLabel')} ·{' '}
+                    {activity.kategorija ?? "Aktivnost"} ·{' '}
                     {activity.kreirano_u ? new Date(activity.kreirano_u).toLocaleString() : "Nedavno"}
                   </Text>
                 </View>

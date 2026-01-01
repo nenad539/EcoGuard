@@ -9,11 +9,9 @@ import { GradientBackground } from '../components/common/GradientBackground';
 import { showError, showSuccess } from '../lib/toast';
 import { ScreenFade } from '../components/common/ScreenFade';
 import { GlowCard } from '../components/common/GlowCard';
-import { useLanguage } from '../lib/language';
 
 export function EditProfileScreen() {
   const navigation = useNavigation();
-  const { t } = useLanguage();
   const [name, setName] = useState('');
   const [loadingName, setLoadingName] = useState(false);
   const [newPassword, setNewPassword] = useState('');
@@ -46,7 +44,7 @@ export function EditProfileScreen() {
     if (!userId) return;
 
     if (!name.trim()) {
-      showError("Gre\u0161ka", t('editProfileNameMissing'));
+      showError("Gre\u0161ka", "Unesite ime.");
       return;
     }
 
@@ -63,22 +61,22 @@ export function EditProfileScreen() {
       return;
     }
 
-    showSuccess("Uspjeh", t('editProfileNameSaved'));
+    showSuccess("Uspjeh", "Ime je sacuvano.");
   };
 
   const handleResetPassword = async () => {
     if (!newPassword || !confirmPassword) {
-      showError("Gre\u0161ka", t('editProfilePasswordMissing'));
+      showError("Gre\u0161ka", "Unesite novu lozinku.");
       return;
     }
 
     if (newPassword.length < 6) {
-      showError("Gre\u0161ka", t('editProfilePasswordLength'));
+      showError("Gre\u0161ka", "Lozinka mora imati najmanje 6 karaktera.");
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      showError("Gre\u0161ka", t('editProfilePasswordMismatch'));
+      showError("Gre\u0161ka", "Lozinke se ne poklapaju.");
       return;
     }
 
@@ -93,7 +91,7 @@ export function EditProfileScreen() {
 
     setNewPassword('');
     setConfirmPassword('');
-    showSuccess("Uspjeh", t('editProfilePasswordSaved'));
+    showSuccess("Uspjeh", "Lozinka je azurirana.");
   };
 
   return (
@@ -105,23 +103,23 @@ export function EditProfileScreen() {
           <Text style={styles.backText}>{"Nazad"}</Text>
         </TouchableOpacity>
 
-        <Text style={styles.title}>{t('editProfileTitle')}</Text>
-        <Text style={styles.subtitle}>{t('editProfileSubtitle')}</Text>
+        <Text style={styles.title}>{"Uredi profil"}</Text>
+        <Text style={styles.subtitle}>{"Azuriraj svoje podatke"}</Text>
 
         <GlowCard contentStyle={styles.card}>
           <View style={styles.cardHeader}>
             <LinearGradient colors={gradients.primary} style={styles.iconBadge}>
               <User size={16} color={colors.text} />
             </LinearGradient>
-            <Text style={styles.cardTitle}>{t('editProfileBasicsTitle')}</Text>
+            <Text style={styles.cardTitle}>{"Osnovne informacije"}</Text>
           </View>
 
-          <Text style={styles.label}>{t('editProfileNameLabel')}</Text>
+          <Text style={styles.label}>{"Ime"}</Text>
           <View style={styles.inputWrapper}>
             <TextInput
               value={name}
               onChangeText={setName}
-              placeholder={t('editProfileNamePlaceholder')}
+              placeholder={"Unesi svoje ime"}
               placeholderTextColor={colors.muted}
               style={styles.input}
             />
@@ -130,7 +128,7 @@ export function EditProfileScreen() {
           <TouchableOpacity onPress={handleSaveName} disabled={loadingName}>
             <LinearGradient colors={gradients.primary} style={styles.primaryButton}>
               <Text style={styles.primaryText}>
-                {loadingName ? t('savingLabel') : t('editProfileSaveNameLabel')}
+                {loadingName ? "Cuvanje..." : "Sacuvaj ime"}
               </Text>
             </LinearGradient>
           </TouchableOpacity>
@@ -141,10 +139,10 @@ export function EditProfileScreen() {
             <LinearGradient colors={gradients.primary} style={styles.iconBadge}>
               <Lock size={16} color={colors.text} />
             </LinearGradient>
-            <Text style={styles.cardTitle}>{t('editProfilePasswordTitle')}</Text>
+            <Text style={styles.cardTitle}>{"Lozinka"}</Text>
           </View>
 
-          <Text style={styles.label}>{t('editProfileNewPasswordLabel')}</Text>
+          <Text style={styles.label}>{"Nova lozinka"}</Text>
           <View style={styles.inputWrapper}>
             <TextInput
               value={newPassword}
@@ -166,7 +164,7 @@ export function EditProfileScreen() {
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.label}>{t('editProfileConfirmPasswordLabel')}</Text>
+          <Text style={styles.label}>{"Potvrdi lozinku"}</Text>
           <View style={styles.inputWrapper}>
             <TextInput
               value={confirmPassword}
@@ -191,7 +189,7 @@ export function EditProfileScreen() {
           <TouchableOpacity onPress={handleResetPassword} disabled={loadingPassword}>
             <LinearGradient colors={gradients.primary} style={styles.primaryButton}>
               <Text style={styles.primaryText}>
-                {loadingPassword ? t('updatingLabel') : t('editProfileSavePasswordLabel')}
+                {loadingPassword ? "Azuriranje..." : "Sacuvaj lozinku"}
               </Text>
             </LinearGradient>
           </TouchableOpacity>

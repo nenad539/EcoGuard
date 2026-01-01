@@ -8,30 +8,28 @@ import { colors, radius, spacing, gradients } from '../styles/common';
 import { GradientBackground } from '../components/common/GradientBackground';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ScreenFade } from '../components/common/ScreenFade';
-import { useLanguage } from '../lib/language';
 
 export function OnboardingScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { t } = useLanguage();
   const [currentSlide, setCurrentSlide] = useState(0);
   const slides = [
     {
-      title: t('onboardingSlide1Title'),
-      description: t('onboardingSlide1Desc'),
+      title: "Pametna reciklaza",
+      description: "Saznaj kako da pravilno odvajas otpad i zaradis poene.",
       image:
         'https://images.unsplash.com/photo-1654718421032-8aee5603b51f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyZWN5Y2xpbmclMjBib3R0bGVzJTIwZWNvfGVufDF8fHx8MTc2MDg3OTYwNHww&ixlib=rb-4.1.0&q=80&w=1080',
       icon: Recycle,
     },
     {
-      title: t('onboardingSlide2Title'),
-      description: t('onboardingSlide2Desc'),
+      title: "Stedi resurse",
+      description: "Male promene kod kuce donose veliku ustedu energije i vode.",
       image:
         'https://images.unsplash.com/photo-1580933907066-9a0a6fe5fc13?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHxncmVlbiUyMGhvdXNlJTIwdHJlZXN8ZW58MXx8fHwxNzYwOTAyMzA4fDA&ixlib=rb-4.1.0&q=80&w=1080',
       icon: Home,
     },
     {
-      title: t('onboardingSlide3Title'),
-      description: t('onboardingSlide3Desc'),
+      title: "Zajedno je lakse",
+      description: "Povezi se sa prijateljima kroz eko izazove.",
       image:
         'https://images.unsplash.com/photo-1656370465119-cb8d6735bda3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHxjb21tdW5pdHklMjBwZW9wbGUlMjB0b2dldGhlcnxlbnwxfHx8fDE3NjA4NjEwNDd8MA&ixlib=rb-4.1.0&q=80&w=1080',
       icon: Users,
@@ -58,7 +56,7 @@ export function OnboardingScreen() {
         <View style={styles.container}>
           <View style={styles.skipRow}>
             <TouchableOpacity onPress={handleSkip}>
-              <Text style={styles.skipText}>{t('onboardingSkipLabel')}</Text>
+              <Text style={styles.skipText}>{"Preskoci"}</Text>
             </TouchableOpacity>
           </View>
 
@@ -85,7 +83,7 @@ export function OnboardingScreen() {
           <TouchableOpacity onPress={handleNext}>
             <LinearGradient colors={gradients.primary} style={styles.primaryButton}>
               <Text style={styles.primaryLabel}>
-                {currentSlide < slides.length - 1 ? t('nextLabel') : t('onboardingStartLabel')}
+                {currentSlide < slides.length - 1 ? "Dalje" : "Kreni"}
               </Text>
             </LinearGradient>
           </TouchableOpacity>

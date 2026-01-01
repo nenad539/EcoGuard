@@ -13,7 +13,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SkeletonBlock } from '../components/common/Skeleton';
 import { ScreenFade } from '../components/common/ScreenFade';
 import { GlowCard } from '../components/common/GlowCard';
-import { useLanguage } from '../lib/language';
 
 const ACTIVITY_TABLE = 'aktivnosti';
 const CACHE_TTL = 1000 * 60 * 5;
@@ -38,7 +37,6 @@ const hexToRgba = (hex: string, alpha: number) => {
 export function HomeScreen() {
   const realtimeConnected = useRealtimeStatus();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { t } = useLanguage();
   const [userId, setUserId] = useState<string | null>(null);
   const [userName, setUserName] = useState('');
   const [userPoints, setUserPoints] = useState(0);
@@ -163,20 +161,20 @@ export function HomeScreen() {
       return;
     }
     if (!data) {
-      setUserName(t('defaultUserLabel'));
+      setUserName("Korisnik");
       setUserPoints(0);
       setUserBadge('bronze');
       setLoadingProfile(false);
       return;
     }
 
-    setUserName(data.korisnicko_ime ?? t('defaultUserLabel'));
+    setUserName(data.korisnicko_ime ?? "Korisnik");
     setUserPoints(data.ukupno_poena ?? 0);
     const profileBadge = (data.trenutni_bedz as 'gold' | 'silver' | 'bronze' | null) ?? 'bronze';
     const nextBadge = await syncBadgeFromLeaderboard(uid, profileBadge);
     setUserBadge(nextBadge);
     setCached(`home-profile:${uid}`, {
-      korisnicko_ime: data.korisnicko_ime ?? t('defaultUserLabel'),
+      korisnicko_ime: data.korisnicko_ime ?? "Korisnik",
       ukupno_poena: data.ukupno_poena ?? 0,
       trenutni_bedz: nextBadge,
     });
@@ -376,7 +374,7 @@ export function HomeScreen() {
               <View style={styles.activityPointsWrap}>
                 <Text style={styles.activityPoints}>
                   {activity.status === 'pending'
-                    ? t('statusPendingLabel')
+                    ? "Na cekanju"
                     : activity.poena_dodato != null
                     ? `+${activity.poena_dodato}`
                     : '+0'}

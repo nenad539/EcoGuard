@@ -23,7 +23,6 @@ import { BackButton } from '../components/common/BackButton';
 import { EmptyState } from '../components/common/EmptyState';
 import { useRealtimeStatus } from '../lib/realtime';
 import { showError } from '../lib/toast';
-import { useLanguage } from '../lib/language';
 
 const DIRECT_MESSAGES_TABLE = 'direct_messages';
 const PAGE_SIZE = 30;
@@ -41,13 +40,11 @@ export function FriendChatScreen() {
   const route = useRoute<RouteProp<RootStackParamList, 'FriendChat'>>();
   const { friendId, friendName } = route.params;
   const realtimeConnected = useRealtimeStatus();
-  const { t } = useLanguage();
-
   const [userId, setUserId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
-  const [title, setTitle] = useState(friendName ?? t('friendChatDefaultTitle'));
+  const [title, setTitle] = useState(friendName ?? "Razgovor");
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
 
@@ -80,7 +77,7 @@ export function FriendChatScreen() {
       .range(0, Math.max(0, limit - 1));
 
     if (error) {
-      showError("Gre\u0161ka", t('friendChatLoadError'));
+      showError("Gre\u0161ka", "Greska pri ucitavanju poruka.");
       setLoading(false);
       return;
     }
@@ -174,7 +171,7 @@ export function FriendChatScreen() {
     });
 
     if (error) {
-      showError("Gre\u0161ka", t('friendChatSendError'));
+      showError("Gre\u0161ka", "Greska pri slanju poruke.");
       setMessages((prev) => prev.filter((item) => item.id !== optimistic.id));
       setMessage(optimistic.content);
     }
@@ -199,10 +196,10 @@ export function FriendChatScreen() {
           <View style={styles.header}>
             <View>
               <Text style={styles.title}>{title}</Text>
-              <Text style={styles.subtitle}>{t('friendChatSubtitle')}</Text>
+              <Text style={styles.subtitle}>{"Privatni razgovor"}</Text>
             </View>
             <View style={styles.statusPill}>
-              <Text style={styles.statusText}>{t('friendChatStatusOnline')}</Text>
+              <Text style={styles.statusText}>{"Na mrezi"}</Text>
             </View>
           </View>
 
@@ -211,13 +208,13 @@ export function FriendChatScreen() {
             {loading ? <Text style={styles.muted}>{"U\u010ditavanje..."}</Text> : null}
             {!loading && rendered.length === 0 ? (
               <EmptyState
-                title={t('friendChatEmptyTitle')}
-                description={t('friendChatEmptyDesc')}
+                title={"Nema poruka"}
+                description={"Posalji prvu poruku."}
               />
             ) : null}
             {hasMore ? (
               <TouchableOpacity onPress={() => setPage((prev) => prev + 1)} style={styles.loadMore}>
-                <Text style={styles.loadMoreText}>{t('friendChatLoadMoreLabel')}</Text>
+                <Text style={styles.loadMoreText}>{"Ucitaj jos"}</Text>
               </TouchableOpacity>
             ) : null}
             {rendered.map((msg) => {
@@ -248,7 +245,7 @@ export function FriendChatScreen() {
             <TextInput
               value={message}
               onChangeText={setMessage}
-              placeholder={t('friendChatPlaceholder')}
+              placeholder={"Napisi poruku..."}
               placeholderTextColor={colors.muted}
               style={styles.input}
             />

@@ -16,7 +16,6 @@ import { GlowCard } from '../components/common/GlowCard';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
-import { useLanguage } from '../lib/language';
 
 const NOTIFICATIONS_TABLE = 'notifications';
 const FRIENDS_TABLE = 'prijatelji';
@@ -36,7 +35,6 @@ type NotificationItem = {
 export function NotificationsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const realtimeConnected = useRealtimeStatus();
-  const { t } = useLanguage();
   const [userId, setUserId] = useState<string | null>(null);
   const [profileName, setProfileName] = useState('');
   const [items, setItems] = useState<NotificationItem[]>([]);
@@ -55,8 +53,8 @@ export function NotificationsScreen() {
       .limit(50);
 
     if (error) {
-      setError(t('notificationsLoadError'));
-      showError("Gre\u0161ka", t('notificationsLoadErrorToast'));
+      setError("Ne mogu ucitati obavestenja.");
+      showError("Gre\u0161ka", "Greska pri ucitavanju obavestenja.");
       setLoading(false);
       return;
     }
@@ -140,10 +138,10 @@ export function NotificationsScreen() {
       .eq('korisnik_id', userId)
       .eq('status', 'unread');
     if (updateError) {
-      showError("Gre\u0161ka", t('notificationsMarkAllError'));
+      showError("Gre\u0161ka", "Ne mogu oznaciti sve.");
       return;
     }
-    showSuccess("Uspjeh", t('notificationsMarkAllSuccess'));
+    showSuccess("Uspjeh", "Sve je oznaceno kao procitano.");
   };
 
   const acceptFriendRequest = async (item: NotificationItem) => {
@@ -155,12 +153,12 @@ export function NotificationsScreen() {
       .maybeSingle();
 
     if (linkError || !link) {
-      showError("Gre\u0161ka", t('notificationsFriendRequestNotFound'));
+      showError("Gre\u0161ka", "Zahtev nije pronadjen.");
       return;
     }
 
     if (link.korisnik_do !== userId) {
-      showError("Gre\u0161ka", t('notificationsFriendRequestNoPermission'));
+      showError("Gre\u0161ka", "Nemate dozvolu za ovaj zahtev.");
       return;
     }
 
@@ -175,21 +173,21 @@ export function NotificationsScreen() {
       .eq('id', link.id);
 
     if (updateError) {
-      showError("Gre\u0161ka", t('notificationsFriendRequestAcceptError'));
+      showError("Gre\u0161ka", "Greska pri prihvatanju zahteva.");
       return;
     }
 
     await supabase.from(NOTIFICATIONS_TABLE).insert({
       korisnik_id: link.korisnik_od,
-      title: t('notificationFriendAcceptTitle'),
-      body: t('notificationFriendAcceptBody').replace('{name}', profileName || t('defaultUserLabel')),
+      title: "Zahtev prihvacen",
+      body: "{name} je prihvatio zahtev.".replace('{name}', profileName || "Korisnik"),
       type: 'friend_accept',
       related_id: link.id,
       status: 'unread',
     });
 
     await markRead(item.id);
-    showSuccess("Uspjeh", t('notificationsFriendRequestAcceptSuccess'));
+    showSuccess("Uspjeh", "Zahtev je prihvacen.");
   };
 
   const acceptGroupInvite = async (item: NotificationItem) => {
@@ -205,7 +203,7 @@ export function NotificationsScreen() {
 
     if (existing) {
       await markRead(item.id);
-      showSuccess("Uspjeh", t('notificationsGroupAlreadyMember'));
+      showSuccess("Uspjeh", "Vec ste clan grupe.");
       return;
     }
 
@@ -230,12 +228,12 @@ export function NotificationsScreen() {
     }
 
     if (!inserted) {
-      showError("Gre\u0161ka", lastError?.message ?? t('notificationsGroupAcceptError'));
+      showError("Gre\u0161ka", lastError?.message ?? "Greska pri prihvatanju poziva.");
       return;
     }
 
     await markRead(item.id);
-    showSuccess("Uspjeh", t('notificationsGroupAcceptSuccess'));
+    showSuccess("Uspjeh", "Pridruzili ste se grupi.");
   };
 
   const unreadCount = useMemo(
@@ -249,7 +247,7 @@ export function NotificationsScreen() {
     const { error: deleteError } = await supabase.from(NOTIFICATIONS_TABLE).delete().eq('id', id);
     if (deleteError) {
       setItems(prev);
-      showError("Gre\u0161ka", t('notificationsDeleteError'));
+      showError("Gre\u0161ka", "Ne mogu obrisati obavestenje.");
     }
   };
 
@@ -274,12 +272,12 @@ export function NotificationsScreen() {
       return new Date(item.created_at) < sevenDaysAgo;
     });
 
-    if (todayItems.length) groups.push({ label: t('notificationsGroupToday'), items: todayItems });
-    if (weekItems.length) groups.push({ label: t('notificationsGroupWeek'), items: weekItems });
-    if (olderItems.length) groups.push({ label: t('notificationsGroupEarlier'), items: olderItems });
+    if (todayItems.length) groups.push({ label: "Danas", items: todayItems });
+    if (weekItems.length) groups.push({ label: "Ove sedmice", items: weekItems });
+    if (olderItems.length) groups.push({ label: "Ranije", items: olderItems });
 
     return groups;
-  }, [items, t]);
+  }, [items]);
 
   const renderIcon = (type: string | null) => {
     if (type === 'friend_request') return <UserPlus size={18} color={colors.text} />;
@@ -295,7 +293,7 @@ export function NotificationsScreen() {
           <BackButton onPress={() => navigation.goBack()} />
           <View style={styles.header}>
             <View style={styles.headerRow}>
-              <Text style={styles.title}>{t('notificationsTitle')}</Text>
+              <Text style={styles.title}>{"Obavestenja"}</Text>
               {unreadCount > 0 && (
                 <View style={styles.unreadBadge}>
                   <Text style={styles.unreadBadgeText}>{unreadCount}</Text>
@@ -304,13 +302,13 @@ export function NotificationsScreen() {
             </View>
             <Text style={styles.subtitle}>
               {unreadCount > 0
-                ? t('notificationsUnreadSubtitle').replace('{count}', String(unreadCount))
-                : t('notificationsAllReadSubtitle')}
+                ? "Imate {count} neprocitanih".replace('{count}', String(unreadCount))
+                : "Sve je procitano."}
             </Text>
             {unreadCount > 0 && (
               <TouchableOpacity onPress={markAllRead}>
                 <LinearGradient colors={gradients.primary} style={styles.headerAction}>
-                  <Text style={styles.headerActionText}>{t('notificationsMarkAllLabel')}</Text>
+                  <Text style={styles.headerActionText}>{"Oznaci sve"}</Text>
                 </LinearGradient>
               </TouchableOpacity>
             )}
@@ -336,8 +334,8 @@ export function NotificationsScreen() {
           </View>
         ) : items.length === 0 ? (
           <EmptyState
-            title={t('notificationsEmptyTitle')}
-            description={t('notificationsEmptyDesc')}
+            title={"Nema obavestenja"}
+            description={"Novi dogadjaji ce se pojaviti ovde."}
           />
         ) : (
           grouped.map((group) => (
@@ -361,7 +359,7 @@ export function NotificationsScreen() {
                     <View style={styles.iconWrap}>{renderIcon(item.type)}</View>
                     <View style={styles.cardContent}>
                       <View style={styles.cardTitleRow}>
-                        <Text style={styles.cardTitle}>{item.title ?? t('notificationFallbackTitle')}</Text>
+                        <Text style={styles.cardTitle}>{item.title ?? "Obavestenje"}</Text>
                         {item.status === 'unread' && <View style={styles.unreadDot} />}
                       </View>
                       {item.body ? <Text style={styles.cardBody}>{item.body}</Text> : null}
@@ -387,7 +385,7 @@ export function NotificationsScreen() {
                     ) : null}
                     {item.status !== 'read' && (
                       <TouchableOpacity onPress={() => markRead(item.id)} style={styles.secondaryButton}>
-                        <Text style={styles.secondaryLabel}>{t('notificationsMarkReadLabel')}</Text>
+                        <Text style={styles.secondaryLabel}>{"Oznaci kao procitano"}</Text>
                       </TouchableOpacity>
                     )}
                     <TouchableOpacity onPress={() => removeNotification(item.id)} style={styles.iconButton}>

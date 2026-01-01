@@ -13,11 +13,9 @@ import { showError, showSuccess } from '../lib/toast';
 import { ScreenFade } from '../components/common/ScreenFade';
 import { trackEvent } from '../lib/analytics';
 import { triggerHaptic } from '../lib/haptics';
-import { useLanguage } from '../lib/language';
 
 export function LoginScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { t } = useLanguage();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);

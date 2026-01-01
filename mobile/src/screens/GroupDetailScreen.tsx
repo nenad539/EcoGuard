@@ -26,7 +26,6 @@ import { BackButton } from '../components/common/BackButton';
 import { PhotoSubmission } from '../components/PhotoSubmission';
 import { EmptyState } from '../components/common/EmptyState';
 import { GlowCard } from '../components/common/GlowCard';
-import { useLanguage } from '../lib/language';
 
 const GROUPS_TABLE = 'groups';
 const GROUP_MEMBERS_TABLE = 'group_members';
@@ -81,8 +80,6 @@ export function GroupDetailScreen() {
   const route = useRoute<RouteProp<RootStackParamList, 'GroupDetail'>>();
   const groupId = String(route.params?.groupId ?? '');
   const realtimeConnected = useRealtimeStatus();
-  const { t } = useLanguage();
-
   const [userId, setUserId] = useState<string | null>(null);
   const [profileName, setProfileName] = useState('');
   const [group, setGroup] = useState<Group | null>(null);
@@ -119,7 +116,7 @@ export function GroupDetailScreen() {
 
   const loadGroup = async () => {
     if (!groupId) {
-      setLoadError(t('groupsUnavailableError'));
+      setLoadError("Grupe trenutno nisu dostupne.");
       return;
     }
     const { data, error } = await supabase
@@ -136,23 +133,23 @@ export function GroupDetailScreen() {
       if (fallback) {
         setGroup({
           id: fallback.id,
-          name: fallback.title ?? t('groupsFallbackName'),
+          name: fallback.title ?? "Grupa",
           description: fallback.description ?? null,
         });
         setLoadError(null);
       }
-      setLoadError(t('groupLoadError'));
+      setLoadError("Greska pri ucitavanju grupe.");
       return;
     }
     if (error) {
-      setLoadError(t('groupLoadError'));
+      setLoadError("Greska pri ucitavanju grupe.");
       return;
     }
     if (data) {
       setGroup(data as Group);
       setLoadError(null);
     } else {
-      setLoadError(t('groupNotFoundError'));
+      setLoadError("Grupa nije pronadjena.");
     }
   };
 
@@ -288,19 +285,19 @@ export function GroupDetailScreen() {
     setInvitingIds((prev) => ({ ...prev, [friendId]: true }));
     const { error } = await supabase.from(NOTIFICATIONS_TABLE).insert({
       korisnik_id: friendId,
-      title: t('notificationGroupInviteTitle'),
-      body: t('notificationGroupInviteBody')
-        .replace('{name}', profileName || t('defaultUserLabel'))
-        .replace('{group}', group.name ?? t('groupsFallbackName')),
+      title: "Poziv za grupu",
+      body: "{name} te je pozvao u grupu {group}."
+        .replace('{name}', profileName || "Korisnik")
+        .replace('{group}', group.name ?? "Grupa"),
       type: 'group_invite',
       related_id: groupId,
       status: 'unread',
     });
 
     if (error) {
-      showError("Gre\u0161ka", t('groupInviteSendError'));
+      showError("Gre\u0161ka", "Ne mogu poslati poziv.");
     } else {
-      showSuccess("Uspjeh", t('groupInviteSendSuccess'));
+      showSuccess("Uspjeh", "Poziv je poslat.");
       setInviteCandidates((prev) => prev.filter((candidate) => candidate.id !== friendId));
     }
     setInvitingIds((prev) => {
@@ -371,7 +368,7 @@ export function GroupDetailScreen() {
     });
 
     if (error) {
-      showError("Gre\u0161ka", t('groupChatSendError'));
+      showError("Gre\u0161ka", "Ne mogu poslati poruku.");
       setMessages((prev) => prev.filter((msg) => msg.id !== optimistic.id));
       setChatText(content);
     }
@@ -381,7 +378,7 @@ export function GroupDetailScreen() {
     submission: { challengeId: number; photoUri: string; description: string; location?: string },
     onProgress?: (value: number) => void
   ): Promise<{ success: boolean; error?: string }> => {
-    if (!userId) return { success: false, error: t('groupSubmissionLoginRequired') };
+    if (!userId) return { success: false, error: "Potrebna je prijava." };
 
     try {
       const optimistic: Submission = {
@@ -413,7 +410,7 @@ export function GroupDetailScreen() {
 
       await loadSubmissions();
       setActiveActivity(null);
-      showSuccess("Poslato", t('groupSubmissionSuccess'));
+      showSuccess("Poslato", "Prijava je poslata.");
       return { success: true };
     } catch (err: any) {
       setSubmissions((prev) => {
@@ -421,8 +418,8 @@ export function GroupDetailScreen() {
         delete next[submission.challengeId];
         return next;
       });
-      showError("Gre\u0161ka", t('groupSubmissionError'));
-      return { success: false, error: err?.message ?? t('groupSubmissionError') };
+      showError("Gre\u0161ka", "Ne mogu poslati prijavu.");
+      return { success: false, error: err?.message ?? "Ne mogu poslati prijavu." };
     }
   };
 
@@ -539,7 +536,7 @@ export function GroupDetailScreen() {
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           <BackButton onPress={() => navigation.goBack()} />
           <View style={styles.header}>
-            <Text style={styles.title}>{group?.name ?? t('groupsFallbackName')}</Text>
+            <Text style={styles.title}>{group?.name ?? "Grupa"}</Text>
             {group?.description ? <Text style={styles.subtitle}>{group.description}</Text> : null}
             {!isMember ? (
               <TouchableOpacity onPress={joinGroup}>
@@ -552,9 +549,9 @@ export function GroupDetailScreen() {
 
           <View style={styles.tabs}>
             {([
-              { key: 'members', label: t('groupTabMembers'), icon: Users },
-              { key: 'activities', label: t('groupTabActivities'), icon: Camera },
-              { key: 'chat', label: t('groupTabChat'), icon: MessageCircle },
+              { key: 'members', label: "Clanovi", icon: Users },
+              { key: 'activities', label: "Aktivnosti", icon: Camera },
+              { key: 'chat', label: "Chat", icon: MessageCircle },
             ] as const).map((tab) => (
               <TouchableOpacity
                 key={tab.key}
@@ -576,9 +573,9 @@ export function GroupDetailScreen() {
             <View style={styles.section}>
               {isMember ? (
                 <GlowCard style={styles.cardShell} contentStyle={styles.inviteCard}>
-                  <Text style={styles.sectionTitle}>{t('groupInviteTitle')}</Text>
+                  <Text style={styles.sectionTitle}>{"Pozovi clanove"}</Text>
                   {inviteCandidates.length === 0 ? (
-                    <Text style={styles.muted}>{t('groupInviteEmpty')}</Text>
+                    <Text style={styles.muted}>{"Nema dostupnih prijatelja."}</Text>
                   ) : (
                     inviteCandidates.map((candidate) => (
                       <View key={candidate.id} style={styles.inviteRow}>
@@ -594,7 +591,7 @@ export function GroupDetailScreen() {
                         >
                           <LinearGradient colors={gradients.primary} style={styles.inviteButton}>
                             <Text style={styles.inviteLabel}>
-                              {invitingIds[candidate.id] ? t('sendingLabel') : t('groupInviteButtonLabel')}
+                              {invitingIds[candidate.id] ? "Slanje..." : "Posalji poziv"}
                             </Text>
                           </LinearGradient>
                         </TouchableOpacity>
@@ -605,8 +602,8 @@ export function GroupDetailScreen() {
               ) : null}
               {members.length === 0 ? (
                 <EmptyState
-                  title={t('groupMembersEmptyTitle')}
-                  description={t('groupMembersEmptyDesc')}
+                  title={"Nema clanova"}
+                  description={"Jos nema clanova u grupi."}
                 />
               ) : (
                 members.map((member) => (
@@ -630,8 +627,8 @@ export function GroupDetailScreen() {
             <View style={styles.section}>
               {activityCards.length === 0 ? (
                 <EmptyState
-                  title={t('groupActivitiesEmptyTitle')}
-                  description={t('groupActivitiesEmptyDesc')}
+                  title={"Nema aktivnosti"}
+                  description={"Jos nema aktivnosti u grupi."}
                 />
               ) : (
                 activityCards.map((activity) => (
@@ -643,7 +640,7 @@ export function GroupDetailScreen() {
                       ) : null}
                       {activity.goal_value ? (
                         <Text style={styles.cardSubtitle}>
-                          {t('groupActivityGoalLabel')}: {activity.goal_value} {activity.goal_unit ?? ''}
+                          {"Cilj"}: {activity.goal_value} {activity.goal_unit ?? ''}
                         </Text>
                       ) : null}
                       {activity.points ? (
@@ -665,10 +662,10 @@ export function GroupDetailScreen() {
                       >
                         <Text style={styles.actionLabel}>
                           {activity.status === 'approved'
-                            ? t('groupActivityStatusApproved')
+                            ? "Odobreno"
                             : activity.status === 'pending'
-                            ? t('groupActivityStatusPending')
-                            : t('groupActivitySendPhotoLabel')}
+                            ? "Na cekanju"
+                            : "Posalji fotografiju"}
                         </Text>
                       </LinearGradient>
                     </TouchableOpacity>
@@ -684,8 +681,8 @@ export function GroupDetailScreen() {
                 <ScrollView contentContainerStyle={styles.chatMessages} nestedScrollEnabled>
                   {messages.length === 0 ? (
                     <EmptyState
-                      title={t('groupChatEmptyTitle')}
-                      description={t('groupChatEmptyDesc')}
+                      title={"Nema poruka"}
+                      description={"Posalji prvu poruku."}
                     />
                   ) : null}
                   {hasMoreMessages ? (
@@ -693,7 +690,7 @@ export function GroupDetailScreen() {
                       onPress={() => setMessagePage((prev) => prev + 1)}
                       style={styles.loadMore}
                     >
-                      <Text style={styles.loadMoreText}>{t('groupChatLoadMoreLabel')}</Text>
+                      <Text style={styles.loadMoreText}>{"Ucitaj jos"}</Text>
                     </TouchableOpacity>
                   ) : null}
                   {messages.map((msg) => {
@@ -713,7 +710,7 @@ export function GroupDetailScreen() {
                     }
                     return (
                       <View key={msg.id} style={[styles.bubble, styles.bubbleOther]}>
-                        <Text style={styles.bubbleName}>{namesById[msg.user_id] ?? t('defaultUserLabel')}</Text>
+                        <Text style={styles.bubbleName}>{namesById[msg.user_id] ?? "Korisnik"}</Text>
                         <Text style={styles.bubbleText}>{msg.content}</Text>
                         <Text style={styles.bubbleTime}>{timeLabel}</Text>
                       </View>
@@ -725,7 +722,7 @@ export function GroupDetailScreen() {
                 <TextInput
                   value={chatText}
                   onChangeText={setChatText}
-                  placeholder={t('groupChatPlaceholder')}
+                  placeholder={"Napisi poruku..."}
                   placeholderTextColor={colors.muted}
                   style={styles.input}
                 />

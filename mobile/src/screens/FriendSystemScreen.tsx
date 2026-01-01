@@ -16,7 +16,6 @@ import { GlowCard } from '../components/common/GlowCard';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
-import { useLanguage } from '../lib/language';
 
 const FRIENDS_TABLE = 'prijatelji';
 const NOTIFICATIONS_TABLE = 'notifications';
@@ -50,7 +49,6 @@ type TabKey = 'friends' | 'requests' | 'suggestions' | 'groups';
 export function FriendSystemScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const realtimeConnected = useRealtimeStatus();
-  const { t } = useLanguage();
   const [userId, setUserId] = useState<string | null>(null);
   const [friends, setFriends] = useState<Profile[]>([]);
   const [pendingIn, setPendingIn] = useState<FriendLink[]>([]);
@@ -73,7 +71,7 @@ export function FriendSystemScreen() {
 
   const normalizeGroup = (row: any): GroupSummary => ({
     id: row.id,
-    name: row.name ?? row.title ?? t('groupsFallbackName'),
+    name: row.name ?? row.title ?? "Grupa",
     description: row.description ?? null,
   });
 
@@ -451,13 +449,13 @@ export function FriendSystemScreen() {
       .select('korisnicko_ime')
       .eq('id', userId)
       .maybeSingle();
-    const senderName = profile?.korisnicko_ime ?? t('defaultUserLabel');
+    const senderName = profile?.korisnicko_ime ?? "Korisnik";
 
     if (link?.id) {
       await supabase.from(NOTIFICATIONS_TABLE).insert({
         korisnik_id: targetId,
-        title: t('notificationFriendRequestTitle'),
-        body: t('notificationFriendRequestBody').replace('{name}', senderName),
+        title: "Novi zahtev za prijateljstvo",
+        body: "{name} ti je poslao zahtev za prijateljstvo.".replace('{name}', senderName),
         type: 'friend_request',
         related_id: link.id,
         status: 'unread',
@@ -488,7 +486,7 @@ export function FriendSystemScreen() {
       .select('korisnicko_ime')
       .eq('id', userId)
       .maybeSingle();
-    const receiverName = profile?.korisnicko_ime ?? t('defaultUserLabel');
+    const receiverName = profile?.korisnicko_ime ?? "Korisnik";
 
     const { data: friendProfile } = await supabase
       .from('korisnik_profil')
@@ -501,8 +499,8 @@ export function FriendSystemScreen() {
 
     await supabase.from(NOTIFICATIONS_TABLE).insert({
       korisnik_id: link.korisnik_od,
-      title: t('notificationFriendAcceptTitle'),
-      body: t('notificationFriendAcceptBody').replace('{name}', receiverName),
+      title: "Zahtev prihvacen",
+      body: "{name} je prihvatio zahtev.".replace('{name}', receiverName),
       type: 'friend_accept',
       related_id: link.id,
       status: 'unread',
@@ -544,7 +542,7 @@ export function FriendSystemScreen() {
   const joinGroup = async (groupId: string) => {
     if (!userId) return;
     if (!groupId) {
-      showError("Gre\u0161ka", t('groupsUnavailableError'));
+      showError("Gre\u0161ka", "Grupe trenutno nisu dostupne.");
       return;
     }
     const group = recommendedGroups.find((item) => item.id === groupId);
@@ -572,7 +570,7 @@ export function FriendSystemScreen() {
 
   const openGroup = (groupId: string) => {
     if (!groupId) {
-      showError("Gre\u0161ka", t('groupsUnavailableError'));
+      showError("Gre\u0161ka", "Grupe trenutno nisu dostupne.");
       return;
     }
     navigation.navigate('GroupDetail', { groupId: String(groupId) });

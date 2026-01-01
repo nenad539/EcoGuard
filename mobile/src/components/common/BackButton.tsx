@@ -3,7 +3,6 @@ import { TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { ArrowLeft } from 'lucide-react-native';
 import { colors, spacing } from '../../styles/common';
 import { triggerHaptic } from '../../lib/haptics';
-import { useLanguage } from '../../lib/language';
 
 type BackButtonProps = {
   label?: string;
@@ -11,7 +10,6 @@ type BackButtonProps = {
 };
 
 export function BackButton({ label = 'Nazad', onPress }: BackButtonProps) {
-  const { t } = useLanguage();
   const resolvedLabel = label === 'Nazad' ? "Nazad" : label;
 
   return (

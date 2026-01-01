@@ -12,11 +12,9 @@ import { GlowCard } from '../components/common/GlowCard';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
-import { useLanguage } from '../lib/language';
 
 export function CreateChallengeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { t } = useLanguage();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
@@ -26,26 +24,26 @@ export function CreateChallengeScreen() {
 
   const handleSubmit = async () => {
     if (!title || !points || !durationDays) {
-      showError("Gre\u0161ka", t('createPhotoChallengeMissingFields'));
+      showError("Gre\u0161ka", "Popunite obavezna polja.");
       return;
     }
 
     const days = Number(durationDays);
     if (!Number.isFinite(days) || days <= 0) {
-      showError("Gre\u0161ka", t('createPhotoChallengeInvalidDuration'));
+      showError("Gre\u0161ka", "Trajanje mora biti pozitivan broj.");
       return;
     }
 
     const pointsValue = Number(points);
     if (!Number.isFinite(pointsValue) || pointsValue <= 0) {
-      showError("Gre\u0161ka", t('createPhotoChallengeInvalidPoints'));
+      showError("Gre\u0161ka", "Poeni moraju biti pozitivan broj.");
       return;
     }
 
     const { data: auth } = await supabase.auth.getUser();
     const userId = auth?.user?.id;
     if (!userId) {
-      showError("Gre\u0161ka", t('createPhotoChallengeLoginRequired'));
+      showError("Gre\u0161ka", "Morate biti prijavljeni.");
       return;
     }
 
@@ -74,7 +72,7 @@ export function CreateChallengeScreen() {
       return;
     }
 
-    showSuccess("Uspjeh", t('createPhotoChallengeSuccess'));
+    showSuccess("Uspjeh", "Foto izazov je kreiran.");
     setTitle('');
     setDescription('');
     setLocation('');
@@ -87,27 +85,27 @@ export function CreateChallengeScreen() {
       <ScreenFade>
         <View style={styles.container}>
           <BackButton onPress={() => navigation.goBack()} />
-          <Text style={styles.title}>{t('createPhotoChallengeTitle')}</Text>
+          <Text style={styles.title}>{"Kreiraj foto izazov"}</Text>
           <GlowCard contentStyle={styles.card}>
-            <FormInput label={t('createPhotoChallengeNameLabel')} value={title} onChangeText={setTitle} />
+            <FormInput label={"Naziv izazova"} value={title} onChangeText={setTitle} />
             <FormInput
-              label={t('createPhotoChallengeDescriptionLabel')}
+              label={"Opis"}
               value={description}
               onChangeText={setDescription}
             />
             <FormInput
-              label={t('createPhotoChallengeLocationLabel')}
+              label={"Lokacija"}
               value={location}
               onChangeText={setLocation}
             />
             <FormInput
-              label={t('createPhotoChallengeDurationLabel')}
+              label={"Trajanje (dana)"}
               value={durationDays}
               onChangeText={setDurationDays}
               keyboardType="numeric"
             />
             <FormInput
-              label={t('createPhotoChallengePointsLabel')}
+              label={"Poeni"}
               value={points}
               onChangeText={setPoints}
               keyboardType="numeric"
@@ -117,7 +115,7 @@ export function CreateChallengeScreen() {
                 {isSubmitting ? (
                   <ActivityIndicator color={colors.text} />
                 ) : (
-                  <Text style={styles.actionLabel}>{t('createPhotoChallengeSubmitLabel')}</Text>
+                  <Text style={styles.actionLabel}>{"Sacuvaj izazov"}</Text>
                 )}
               </LinearGradient>
             </TouchableOpacity>

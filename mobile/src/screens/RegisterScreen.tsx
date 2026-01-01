@@ -14,11 +14,9 @@ import { ScreenFade } from '../components/common/ScreenFade';
 import { BackButton } from '../components/common/BackButton';
 import { trackEvent } from '../lib/analytics';
 import { triggerHaptic } from '../lib/haptics';
-import { useLanguage } from '../lib/language';
 
 export function RegisterScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { t } = useLanguage();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

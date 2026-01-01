@@ -11,7 +11,6 @@ import { EmptyState } from '../components/common/EmptyState';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { GlowCard } from '../components/common/GlowCard';
-import { useLanguage } from '../lib/language';
 
 const PHOTO_COMPLETIONS_TABLE = 'photo_challenge_completions';
 const GROUP_SUBMISSIONS_TABLE = 'group_activity_submissions';
@@ -66,7 +65,6 @@ type ProfileInfo = {
 
 export function AdminModerationScreen() {
   const navigation = useNavigation();
-  const { t } = useLanguage();
   const [userId, setUserId] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -127,7 +125,7 @@ export function AdminModerationScreen() {
       .limit(50);
 
     if (error) {
-      showError("Gre\u0161ka", t('adminPhotoLoadError'));
+      showError("Gre\u0161ka", "Ne mogu ucitati foto prijave.");
       return;
     }
 
@@ -170,7 +168,7 @@ export function AdminModerationScreen() {
       .limit(50);
 
     if (error) {
-      showError("Gre\u0161ka", t('adminGroupLoadError'));
+      showError("Gre\u0161ka", "Ne mogu ucitati grupne prijave.");
       return;
     }
 
@@ -312,7 +310,7 @@ export function AdminModerationScreen() {
 
     await logActivity({
       korisnik_id: item.user_id,
-      opis: t('adminPhotoApprovedActivity').replace('{title}', challenge?.title ?? t('challengeFallbackTitle')),
+      opis: "Foto prijava odobrena: {title}".replace('{title}', challenge?.title ?? "Izazov"),
       poena: points,
       kategorija: 'photo',
       status: 'approved',
@@ -322,12 +320,12 @@ export function AdminModerationScreen() {
 
     await notifyUser(
       item.user_id,
-      t('adminPhotoApprovedTitle'),
-      t('adminPhotoApprovedBody').replace('{title}', challenge?.title ?? t('photoChallengeFallbackTitle')),
+      "Foto prijava odobrena",
+      "Vasa foto prijava za {title} je odobrena.".replace('{title}', challenge?.title ?? "Foto izazov"),
       String(item.id)
     );
 
-    showSuccess("Uspjeh", t('adminPhotoApprovedSuccess'));
+    showSuccess("Uspjeh", "Foto prijava je odobrena.");
     loadPhotoQueue();
   };
 
@@ -339,7 +337,7 @@ export function AdminModerationScreen() {
     }
     await logActivity({
       korisnik_id: item.user_id,
-      opis: t('adminPhotoRejectedActivity'),
+      opis: "Foto prijava odbijena",
       poena: 0,
       kategorija: 'photo',
       status: 'rejected',
@@ -348,11 +346,11 @@ export function AdminModerationScreen() {
     });
     await notifyUser(
       item.user_id,
-      t('adminPhotoRejectedTitle'),
-      t('adminPhotoRejectedBody'),
+      "Foto prijava odbijena",
+      "Tvoja foto prijava je odbijena.",
       String(item.id)
     );
-    showSuccess("Uspjeh", t('adminSubmissionRejectedSuccess'));
+    showSuccess("Uspjeh", "Prijava je odbijena.");
     loadPhotoQueue();
   };
 
@@ -388,7 +386,7 @@ export function AdminModerationScreen() {
 
     await logActivity({
       korisnik_id: item.user_id,
-      opis: t('adminGroupApprovedActivity').replace('{title}', activity?.title ?? t('activityFallbackTitle')),
+      opis: "Grupna aktivnost odobrena: {title}".replace('{title}', activity?.title ?? "Aktivnost"),
       poena: points ?? 0,
       kategorija: 'group',
       status: 'approved',
@@ -398,12 +396,12 @@ export function AdminModerationScreen() {
 
     await notifyUser(
       item.user_id,
-      t('adminGroupApprovedTitle'),
-      t('adminGroupApprovedBody').replace('{title}', activity?.title ?? t('groupActivityFallbackTitle')),
+      "Grupna aktivnost odobrena",
+      "Tvoja prijava za grupnu aktivnost {title} je odobrena.".replace('{title}', activity?.title ?? "Aktivnost"),
       String(item.id)
     );
 
-    showSuccess("Uspjeh", t('adminGroupApprovedSuccess'));
+    showSuccess("Uspjeh", "Prijava za grupu je odobrena.");
     loadGroupQueue();
   };
 
@@ -415,7 +413,7 @@ export function AdminModerationScreen() {
     }
     await logActivity({
       korisnik_id: item.user_id,
-      opis: t('adminGroupRejectedActivity'),
+      opis: "Grupna prijava odbijena",
       poena: 0,
       kategorija: 'group',
       status: 'rejected',
@@ -424,11 +422,11 @@ export function AdminModerationScreen() {
     });
     await notifyUser(
       item.user_id,
-      t('adminGroupRejectedTitle'),
-      t('adminGroupRejectedBody'),
+      "Grupna prijava odbijena",
+      "Tvoja prijava za grupnu aktivnost je odbijena.",
       String(item.id)
     );
-    showSuccess("Uspjeh", t('adminSubmissionRejectedSuccess'));
+    showSuccess("Uspjeh", "Prijava je odbijena.");
     loadGroupQueue();
   };
 
@@ -441,14 +439,14 @@ export function AdminModerationScreen() {
         <ScrollView contentContainerStyle={styles.content}>
           <BackButton onPress={() => navigation.goBack()} />
           <View style={styles.header}>
-            <Text style={styles.title}>{t('adminModerationTitle')}</Text>
-            <Text style={styles.subtitle}>{t('adminModerationSubtitle')}</Text>
+            <Text style={styles.title}>{"Moderacija prijava"}</Text>
+            <Text style={styles.subtitle}>{"Odobri ili odbij foto i grupne prijave."}</Text>
           </View>
 
           {!isAdmin ? (
             <EmptyState
-              title={t('adminNoAccessTitle')}
-              description={t('adminNoAccessDesc')}
+              title={"Nemate pristup"}
+              description={"Samo administratori mogu pristupiti ovom ekranu."}
             />
           ) : (
             <>
@@ -459,7 +457,7 @@ export function AdminModerationScreen() {
                 >
                   <Camera size={16} color={activeTab === 'photo' ? colors.softGreen : colors.muted} />
                   <Text style={[styles.tabText, activeTab === 'photo' && styles.tabTextActive]}>
-                    {t('adminTabPhoto')}
+                    {"Foto"}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -468,7 +466,7 @@ export function AdminModerationScreen() {
                 >
                   <Users size={16} color={activeTab === 'group' ? colors.softGreen : colors.muted} />
                   <Text style={[styles.tabText, activeTab === 'group' && styles.tabTextActive]}>
-                    {t('adminTabGroup')}
+                    {"Grupe"}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -479,8 +477,8 @@ export function AdminModerationScreen() {
                 <View style={styles.section}>
                   {photoCards.length === 0 && !loading ? (
                     <EmptyState
-                      title={t('adminPhotoEmptyTitle')}
-                      description={t('adminPhotoEmptyDesc')}
+                      title={"Nema foto prijava"}
+                      description={"Trenutno nema foto prijava."}
                     />
                   ) : (
                     photoCards.map((item) => {
@@ -493,19 +491,19 @@ export function AdminModerationScreen() {
                           ) : null}
                           <View style={styles.cardBody}>
                             <Text style={styles.cardTitle}>
-                              {challenge?.title ?? t('photoChallengeFallbackTitle')}
+                              {challenge?.title ?? "Foto izazov"}
                             </Text>
                             <Text style={styles.cardMeta}>
-                              {t('adminUserLabel')}: {user?.korisnicko_ime ?? t('defaultUserLabel')}
+                              {"Korisnik"}: {user?.korisnicko_ime ?? "Korisnik"}
                             </Text>
                             {item.description ? (
                               <Text style={styles.cardMeta}>
-                                {t('adminDescriptionLabel')}: {item.description}
+                                {"Opis"}: {item.description}
                               </Text>
                             ) : null}
                             {item.location ? (
                               <Text style={styles.cardMeta}>
-                                {t('adminLocationLabel')}: {item.location}
+                                {"Lokacija"}: {item.location}
                               </Text>
                             ) : null}
                             <Text style={styles.points}>
@@ -515,12 +513,12 @@ export function AdminModerationScreen() {
                               <TouchableOpacity onPress={() => approvePhoto(item)}>
                                 <LinearGradient colors={gradients.primary} style={styles.actionButton}>
                                   <CheckCircle2 size={16} color={colors.text} />
-                                  <Text style={styles.actionText}>{t('adminApproveLabel')}</Text>
+                                  <Text style={styles.actionText}>{"Odobri"}</Text>
                                 </LinearGradient>
                               </TouchableOpacity>
                               <TouchableOpacity onPress={() => rejectPhoto(item)} style={styles.rejectButton}>
                                 <XCircle size={16} color={colors.danger} />
-                                <Text style={styles.rejectText}>{t('adminRejectLabel')}</Text>
+                                <Text style={styles.rejectText}>{"Odbij"}</Text>
                               </TouchableOpacity>
                             </View>
                           </View>
@@ -535,8 +533,8 @@ export function AdminModerationScreen() {
                 <View style={styles.section}>
                   {groupCards.length === 0 && !loading ? (
                     <EmptyState
-                      title={t('adminGroupEmptyTitle')}
-                      description={t('adminGroupEmptyDesc')}
+                      title={"Nema grupnih prijava"}
+                      description={"Trenutno nema grupnih prijava."}
                     />
                   ) : (
                     groupCards.map((item) => {
@@ -550,22 +548,22 @@ export function AdminModerationScreen() {
                           ) : null}
                           <View style={styles.cardBody}>
                             <Text style={styles.cardTitle}>
-                              {activity?.title ?? t('groupActivityFallbackTitle')}
+                              {activity?.title ?? "Aktivnost"}
                             </Text>
                             <Text style={styles.cardMeta}>
-                              {t('adminGroupLabel')}: {group?.name ?? t('groupsFallbackName')}
+                              {"Grupa"}: {group?.name ?? "Grupa"}
                             </Text>
                             <Text style={styles.cardMeta}>
-                              {t('adminUserLabel')}: {user?.korisnicko_ime ?? t('defaultUserLabel')}
+                              {"Korisnik"}: {user?.korisnicko_ime ?? "Korisnik"}
                             </Text>
                             {item.description ? (
                               <Text style={styles.cardMeta}>
-                                {t('adminDescriptionLabel')}: {item.description}
+                                {"Opis"}: {item.description}
                               </Text>
                             ) : null}
                             {item.location ? (
                               <Text style={styles.cardMeta}>
-                                {t('adminLocationLabel')}: {item.location}
+                                {"Lokacija"}: {item.location}
                               </Text>
                             ) : null}
                             <Text style={styles.points}>
@@ -575,12 +573,12 @@ export function AdminModerationScreen() {
                               <TouchableOpacity onPress={() => approveGroup(item)}>
                                 <LinearGradient colors={gradients.primary} style={styles.actionButton}>
                                   <CheckCircle2 size={16} color={colors.text} />
-                                  <Text style={styles.actionText}>{t('adminApproveLabel')}</Text>
+                                  <Text style={styles.actionText}>{"Odobri"}</Text>
                                 </LinearGradient>
                               </TouchableOpacity>
                               <TouchableOpacity onPress={() => rejectGroup(item)} style={styles.rejectButton}>
                                 <XCircle size={16} color={colors.danger} />
-                                <Text style={styles.rejectText}>{t('adminRejectLabel')}</Text>
+                                <Text style={styles.rejectText}>{"Odbij"}</Text>
                               </TouchableOpacity>
                             </View>
                           </View>

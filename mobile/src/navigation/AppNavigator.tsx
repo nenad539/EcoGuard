@@ -6,7 +6,6 @@ import { Home, Camera, BarChart3, User, Settings as SettingsIcon } from 'lucide-
 import { supabase } from '../lib/supabase';
 import { trackScreen } from '../lib/analytics';
 import { RootStackParamList, MainTabParamList } from './types';
-import { useLanguage } from '../lib/language';
 
 import { SplashScreen } from '../screens/SplashScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
@@ -35,7 +34,6 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
 function MainTabs() {
-  const { t } = useLanguage();
   return (
     <Tab.Navigator
       screenOptions={{

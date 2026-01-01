@@ -15,7 +15,6 @@ import { GlowCard } from '../components/common/GlowCard';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
-import { useLanguage } from '../lib/language';
 
 type Profile = {
   id: string;
@@ -44,7 +43,6 @@ const PAGE_SIZE = 20;
 export function CommunityScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const realtimeConnected = useRealtimeStatus();
-  const { t } = useLanguage();
   const [users, setUsers] = useState<Profile[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -249,7 +247,7 @@ export function CommunityScreen() {
             </View>
 
             {filtered.length === 0 ? (
-              <EmptyState title={t('communityEmptyTitle')} description={t('communityEmptyDesc')} />
+              <EmptyState title={"Nema korisnika"} description={"Pokusaj ponovo kasnije."} />
             ) : (
               <View style={styles.listSection}>
                 {rest.map((user, index) => {

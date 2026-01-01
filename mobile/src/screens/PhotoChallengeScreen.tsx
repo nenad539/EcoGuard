@@ -28,7 +28,6 @@ import { SkeletonBlock } from '../components/common/Skeleton';
 import { ScreenFade } from '../components/common/ScreenFade';
 import { RootStackParamList } from '../navigation/types';
 import { GlowCard } from '../components/common/GlowCard';
-import { useLanguage } from '../lib/language';
 
 const REGULAR_COMPLETION_TABLE_CANDIDATES = [
   process.env.EXPO_PUBLIC_REGULAR_COMPLETION_TABLE,
@@ -87,7 +86,6 @@ type PhotoCompletion = {
 export function PhotoChallengeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const realtimeConnected = useRealtimeStatus();
-  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<'regular' | 'photo'>('regular');
   const [userId, setUserId] = useState<string | null>(null);
 
@@ -238,14 +236,14 @@ export function PhotoChallengeScreen() {
 
     const table = await resolveRegularCompletionTable();
     if (!table) {
-      setRegularError(t('regularCompletionTableMissing'));
+      setRegularError("Tabela zavrsetaka nije dostupna.");
       setRegularLoading(false);
       return;
     }
 
     const challengeTable = await resolveRegularChallengeTable();
     if (!challengeTable) {
-      setRegularError(t('regularChallengeTableMissing'));
+      setRegularError("Tabela izazova nije dostupna.");
       setRegularLoading(false);
       return;
     }
@@ -256,7 +254,7 @@ export function PhotoChallengeScreen() {
       .order('id', { ascending: true });
 
     if (chErr) {
-      setRegularError(t('regularLoadError'));
+      setRegularError("Ne mogu ucitati izazove.");
       setRegularLoading(false);
       return;
     }
@@ -267,7 +265,7 @@ export function PhotoChallengeScreen() {
       .eq('user_id', userId);
 
     if (compErr) {
-      setRegularError(t('regularCompletionLoadError'));
+      setRegularError("Ne mogu ucitati zavrsetke.");
       setRegularLoading(false);
       return;
     }
@@ -312,14 +310,14 @@ export function PhotoChallengeScreen() {
     if (!userId) return;
     const table = regularCompletionTable || (await resolveRegularCompletionTable());
     if (!table) {
-      setRegularError(t('regularCompletionTableMissing'));
-      showError("Gre\u0161ka", t('regularCompletionTableMissingToast'));
+      setRegularError("Tabela zavrsetaka nije dostupna.");
+      showError("Gre\u0161ka", "Tabela zavrsetaka nije dostupna.");
       return;
     }
 
     if (regularCompletedToday) {
-      setRegularError(t('regularLimitMessage'));
-      showInfo(t('regularLimitTitle'), t('regularLimitMessage'));
+      setRegularError("Danas ste vec zavrsili jedan izazov.");
+      showInfo("Dnevni limit", "Danas ste vec zavrsili jedan izazov.");
       return;
     }
 
@@ -336,8 +334,8 @@ export function PhotoChallengeScreen() {
       .upsert(payload, { onConflict: 'user_id,challenge_id' });
 
     if (insErr) {
-      setRegularError(t('regularCompleteError'));
-      showError("Gre\u0161ka", t('regularCompleteErrorToast'));
+      setRegularError("Greska pri zavrsavanju izazova.");
+      showError("Gre\u0161ka", "Ne mogu sacuvati zavrsetak.");
       return;
     }
 
@@ -348,13 +346,13 @@ export function PhotoChallengeScreen() {
 
     await awardPoints(points);
     await logActivity({
-      opis: t('activityRegularCompleted').replace('{id}', String(challengeId)),
+      opis: "Dnevni izazov zavrsen: #{id}".replace('{id}', String(challengeId)),
       poena: points,
       kategorija: 'regular',
       status: 'completed',
     });
     trackEvent('regular_challenge_completed', { challengeId, points });
-    showSuccess("Uspjeh", t('regularCompleteSuccess'));
+    showSuccess("Uspjeh", "Izazov je zavrsen.");
   };
 
   const fetchPhotoChallenges = async (pageNumber = photoPage) => {
@@ -373,7 +371,7 @@ export function PhotoChallengeScreen() {
       .range(start, end);
 
     if (fetchError) {
-      setPhotoError(t('photoChallengesLoadError'));
+      setPhotoError("Ne mogu ucitati foto izazove.");
       setPhotoLoading(false);
       return;
     }
@@ -384,7 +382,7 @@ export function PhotoChallengeScreen() {
       .eq('user_id', userId);
 
     if (compErr) {
-      setPhotoError(t('photoChallengesCompletionLoadError'));
+      setPhotoError("Ne mogu ucitati statuse.");
       setPhotoLoading(false);
       return;
     }
@@ -529,7 +527,7 @@ export function PhotoChallengeScreen() {
           .eq(PHOTO_COMPLETION_ID_FIELD, completion.completionKey);
 
         await logActivity({
-          opis: t('activityPhotoApproved').replace('{title}', challenge.title),
+          opis: "Foto izazov odobren: {title}".replace('{title}', challenge.title),
           poena: challenge.points,
           kategorija: 'photo',
           status: 'completed',
@@ -556,7 +554,7 @@ export function PhotoChallengeScreen() {
     onProgress?: (value: number) => void
   ): Promise<{ success: boolean; error?: string }> => {
     if (!userId) {
-      return { success: false, error: t('photoLoginRequired') };
+      return { success: false, error: "Potrebna je prijava." };
     }
 
     setPhotoError(null);
@@ -599,8 +597,8 @@ export function PhotoChallengeScreen() {
       const challenge = photoChallenges.find((c) => c.id === submission.challengeId);
       await logActivity({
         opis: challenge
-          ? t('activityPhotoSubmitted').replace('{title}', challenge.title)
-          : t('activityPhotoSubmittedFallback').replace('{id}', String(submission.challengeId)),
+          ? "Foto izazov poslat: {title}".replace('{title}', challenge.title)
+          : "Foto izazov poslat: #{id}".replace('{id}', String(submission.challengeId)),
         poena: 0,
         kategorija: 'photo',
         status: 'pending',
@@ -610,7 +608,7 @@ export function PhotoChallengeScreen() {
 
       setActiveSubmission(null);
       fetchPhotoChallenges();
-      showSuccess("Poslato", t('photoSubmissionSuccessMessage'));
+      showSuccess("Poslato", "Prijava je poslata.");
       return { success: true };
     } catch (err: any) {
       console.error('Photo submission error', err);
@@ -620,7 +618,7 @@ export function PhotoChallengeScreen() {
         return next;
       });
       const message =
-        err?.message ?? err?.details ?? err?.hint ?? t('photoSubmissionErrorMessage');
+        err?.message ?? err?.details ?? err?.hint ?? "Greska pri slanju prijave.";
       setPhotoError(message);
       showError("Gre\u0161ka", message);
       return { success: false, error: message };
@@ -647,14 +645,14 @@ export function PhotoChallengeScreen() {
         <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.titleRow}>
           <View>
-            <Text style={styles.title}>{t('challengeScreenTitle')}</Text>
-            <Text style={styles.subtitle}>{t('challengeScreenSubtitle')}</Text>
+            <Text style={styles.title}>{"Izazovi"}</Text>
+            <Text style={styles.subtitle}>{"Redovni i foto izazovi"}</Text>
           </View>
           {activeTab === 'photo' ? (
             <TouchableOpacity onPress={() => navigation.navigate('CreateChallenge')}>
               <LinearGradient colors={gradients.primary} style={styles.createButton}>
                 <Plus color={colors.text} size={16} />
-                <Text style={styles.createLabel}>{t('challengeCreateLabel')}</Text>
+                <Text style={styles.createLabel}>{"Kreiraj"}</Text>
               </LinearGradient>
             </TouchableOpacity>
           ) : null}
@@ -666,7 +664,7 @@ export function PhotoChallengeScreen() {
             onPress={() => setActiveTab('regular')}
           >
             <Text style={[styles.tabText, activeTab === 'regular' && styles.tabTextActive]}>
-              {t('challengeTabRegular')}
+              {"Redovni"}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -674,7 +672,7 @@ export function PhotoChallengeScreen() {
             onPress={() => setActiveTab('photo')}
           >
             <Text style={[styles.tabText, activeTab === 'photo' && styles.tabTextActive]}>
-              {t('challengeTabPhoto')}
+              {"Foto"}
             </Text>
           </TouchableOpacity>
         </View>
@@ -697,10 +695,10 @@ export function PhotoChallengeScreen() {
             {regularError && <Text style={styles.error}>{regularError}</Text>}
             {regularUsingCache && <Text style={styles.cacheNote}>{"Prikazujem ke\u0161irane podatke."}</Text>}
             {regularCompletedToday ? (
-              <Text style={styles.limitNote}>{t('regularCompletedTodayNote')}</Text>
+              <Text style={styles.limitNote}>{"Danas ste vec zavrsili jedan izazov."}</Text>
             ) : null}
             {regularChallenges.length === 0 && !regularLoading ? (
-              <Text style={styles.muted}>{t('regularEmptyLabel')}</Text>
+              <Text style={styles.muted}>{"Nema dostupnih izazova."}</Text>
             ) : null}
             {regularChallenges.map((challenge) => {
               const Icon = iconMap[challenge.iconKey ?? 'default'] ?? iconMap.default;
@@ -734,10 +732,10 @@ export function PhotoChallengeScreen() {
                     <LinearGradient colors={gradients.primary} style={styles.actionInner}>
                       <Text style={styles.actionLabel}>
                         {challenge.status === 'completed'
-                          ? t('regularCompletedLabel')
+                          ? "Zavrseno"
                           : regularCompletedToday
-                          ? t('regularLimitReachedLabel')
-                          : t('regularCompleteLabel')}
+                          ? "Limit dostignut"
+                          : "Zavrsi"}
                       </Text>
                     </LinearGradient>
                   </TouchableOpacity>
@@ -773,7 +771,7 @@ export function PhotoChallengeScreen() {
                 <ChevronLeft size={16} color={colors.text} />
               </TouchableOpacity>
               <Text style={styles.pagerLabel}>
-                {t('photoPagerLabel').replace('{page}', String(photoPage))}
+                {"Strana {page}".replace('{page}', String(photoPage))}
               </Text>
               <TouchableOpacity
                 onPress={() => setPhotoPage((prev) => prev + 1)}
@@ -784,7 +782,7 @@ export function PhotoChallengeScreen() {
               </TouchableOpacity>
             </View>
             {photoCards.length === 0 && !photoLoading ? (
-              <Text style={styles.muted}>{t('photoEmptyLabel')}</Text>
+              <Text style={styles.muted}>{"Trenutno nema foto izazova."}</Text>
             ) : null}
             {photoCards.map((challenge) => {
               let remaining = '';
@@ -792,7 +790,7 @@ export function PhotoChallengeScreen() {
                 const end = new Date(challenge.endAt);
                 const diff = Math.max(0, end.getTime() - Date.now());
                 const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-                remaining = t('photoRemainingLabel').replace('{days}', String(days));
+                remaining = "Preostalo {days} dana".replace('{days}', String(days));
               }
               return (
               <GlowCard key={challenge.id} style={styles.cardShell} contentStyle={styles.card}>
@@ -824,15 +822,15 @@ export function PhotoChallengeScreen() {
                   }}
                   disabled={challenge.status !== 'available'}
                   accessibilityRole="button"
-                  accessibilityLabel={t('photoSendForChallengeLabel').replace('{title}', challenge.title)}
+                  accessibilityLabel={"Posalji fotografiju za {title}".replace('{title}', challenge.title)}
                 >
                   <LinearGradient colors={gradients.primary} style={styles.actionInner}>
                     <Text style={styles.actionLabel}>
                       {challenge.status === 'available'
-                        ? t('photoSendLabel')
+                        ? "Posalji"
                         : challenge.status === 'pending'
-                        ? t('photoStatusPendingLabel')
-                        : t('photoStatusApprovedLabel')}
+                        ? "Na cekanju"
+                        : "Odobreno"}
                     </Text>
                   </LinearGradient>
                 </TouchableOpacity>
