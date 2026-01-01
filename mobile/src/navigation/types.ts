@@ -12,6 +12,7 @@ export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
   Terms: undefined;
+  Privacy: undefined;
   MainTabs: { screen?: keyof MainTabParamList } | undefined;
   Challenges: undefined;
   Community: undefined;

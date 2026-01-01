@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Modal, View, Text, StyleSheet, TouchableOpacity, Image, TextInput, ActivityIndicator, ScrollView } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Camera, X, Upload, MapPin, Clock } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, radius, spacing, gradients } from '../styles/common';
 import { showError } from '../lib/toast';
+import { trackEvent } from '../lib/analytics';
+import { triggerHaptic } from '../lib/haptics';
+import { useLanguage } from '../lib/language';
 
 type PhotoSubmissionProps = {
   visible: boolean;
@@ -28,6 +31,7 @@ export function PhotoSubmission({
   onSubmit,
   onCancel,
 }: PhotoSubmissionProps) {
+  const { t } = useLanguage();
   const [submissionStep, setSubmissionStep] = useState<'capture' | 'details' | 'confirm'>('capture');
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [description, setDescription] = useState('');
@@ -46,14 +50,18 @@ export function PhotoSubmission({
   };
 
   const handleCancel = () => {
+    void triggerHaptic('selection');
+    trackEvent('photo_submission_cancelled', { challengeId, step: submissionStep });
     resetState();
     onCancel();
   };
 
   const capturePhoto = async () => {
+    void triggerHaptic('selection');
+    trackEvent('photo_capture_started', { challengeId });
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      showError('Dozvola potrebna', 'Omogućite pristup kameri.');
+      showError(t('cameraPermissionTitle'), t('cameraPermissionMessage'));
       return;
     }
 
@@ -65,7 +73,7 @@ export function PhotoSubmission({
 
     const asset = result.assets?.[0];
     if (!asset?.uri) {
-      showError('Greška', 'Fotografija nije učitana.');
+      showError("Gre\u0161ka", t('photoLoadError'));
       return;
     }
 
@@ -75,10 +83,12 @@ export function PhotoSubmission({
 
   const handleSubmit = async () => {
     if (!photoPreview) {
-      showError('Greška', 'Dodajte fotografiju prije slanja.');
+      showError("Gre\u0161ka", t('photoRequiredError'));
       return;
     }
 
+    void triggerHaptic('impact');
+    trackEvent('photo_submission_attempt', { challengeId });
     setIsSubmitting(true);
     setSubmitError(null);
     setUploadProgress(0.05);
@@ -93,21 +103,35 @@ export function PhotoSubmission({
         setUploadProgress
       );
       if (!result.success) {
-        setSubmitError(result.error ?? 'Neuspješno slanje fotografije.');
+        setSubmitError(result.error ?? t('photoSubmissionFailed'));
+        void triggerHaptic('error');
+        trackEvent('photo_submission_error', { challengeId });
         return;
       }
       setUploadProgress(1);
       resetState();
+      void triggerHaptic('success');
+      trackEvent('photo_submission_success', { challengeId });
+    } catch (error) {
+      setSubmitError(t('photoSubmissionFailed'));
+      void triggerHaptic('error');
+      trackEvent('photo_submission_error', { challengeId });
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const steps: { key: 'capture' | 'details' | 'confirm'; label: string }[] = [
-    { key: 'capture', label: 'Foto' },
-    { key: 'details', label: 'Detalji' },
-    { key: 'confirm', label: 'Potvrda' },
+    { key: 'capture', label: t('photoStepCapture') },
+    { key: 'details', label: t('photoStepDetails') },
+    { key: 'confirm', label: t('photoStepConfirm') },
   ];
+
+  useEffect(() => {
+    if (visible) {
+      trackEvent('photo_submission_opened', { challengeId });
+    }
+  }, [visible, challengeId]);
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
@@ -119,10 +143,14 @@ export function PhotoSubmission({
           <View style={styles.modal}>
             <View style={styles.header}>
               <View>
-                <Text style={styles.title}>Prihvati izazov</Text>
+                <Text style={styles.title}>{t('photoSubmissionTitle')}</Text>
                 <Text style={styles.subtitle}>{challengeTitle}</Text>
               </View>
-              <TouchableOpacity onPress={handleCancel}>
+              <TouchableOpacity
+                onPress={handleCancel}
+                accessibilityRole="button"
+                accessibilityLabel={t('photoSubmissionCloseLabel')}
+              >
                 <X color={colors.muted} size={20} />
               </TouchableOpacity>
             </View>
@@ -154,12 +182,16 @@ export function PhotoSubmission({
                 <LinearGradient colors={gradients.primary} style={styles.captureIcon}>
                   <Camera color={colors.text} size={32} />
                 </LinearGradient>
-                <Text style={styles.captureTitle}>Fotografiši dokaz</Text>
-                <Text style={styles.captureSubtitle}>Fotografiraj da si završio/la ovaj izazov</Text>
-                <TouchableOpacity onPress={capturePhoto}>
+                <Text style={styles.captureTitle}>{t('photoCaptureTitle')}</Text>
+                <Text style={styles.captureSubtitle}>{t('photoCaptureSubtitle')}</Text>
+                <TouchableOpacity
+                  onPress={capturePhoto}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('photoOpenCameraLabel')}
+                >
                   <LinearGradient colors={gradients.primary} style={styles.primaryButton}>
                     <Camera color={colors.text} size={18} />
-                    <Text style={styles.primaryLabel}>Otvori kameru</Text>
+                    <Text style={styles.primaryLabel}>{t('photoOpenCameraLabel')}</Text>
                   </LinearGradient>
                 </TouchableOpacity>
               </View>
@@ -168,17 +200,25 @@ export function PhotoSubmission({
             {submissionStep === 'details' && photoPreview && (
               <ScrollView contentContainerStyle={styles.stepContent}>
                 <Image source={{ uri: photoPreview }} style={styles.preview} />
-                <TouchableOpacity style={styles.secondaryButton} onPress={() => setSubmissionStep('capture')}>
+                <TouchableOpacity
+                  style={styles.secondaryButton}
+                  onPress={() => {
+                    void triggerHaptic('selection');
+                    setSubmissionStep('capture');
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('photoRetakeLabel')}
+                >
                   <Camera color={colors.primary} size={16} />
-                  <Text style={styles.secondaryLabel}>Ponovo fotografiši</Text>
+                  <Text style={styles.secondaryLabel}>{t('photoRetakeLabel')}</Text>
                 </TouchableOpacity>
 
               <View style={styles.formGroup}>
-                <Text style={styles.label}>Opis (opcionalno)</Text>
+                <Text style={styles.label}>{t('photoDescriptionLabel')}</Text>
                 <TextInput
                   value={description}
                   onChangeText={setDescription}
-                  placeholder="Opišite kako ste završili izazov..."
+                  placeholder={t('photoDescriptionPlaceholder')}
                   placeholderTextColor={colors.muted}
                   style={styles.input}
                   multiline
@@ -186,13 +226,13 @@ export function PhotoSubmission({
               </View>
 
               <View style={styles.formGroup}>
-                <Text style={styles.label}>Lokacija (opcionalno)</Text>
+                <Text style={styles.label}>{t('photoLocationLabel')}</Text>
                 <View style={styles.inputRow}>
                   <MapPin color={colors.muted} size={16} />
                   <TextInput
                     value={location}
                     onChangeText={setLocation}
-                    placeholder="Dodajte lokaciju..."
+                    placeholder={t('photoLocationPlaceholder')}
                     placeholderTextColor={colors.muted}
                     style={styles.inputInline}
                   />
@@ -203,19 +243,34 @@ export function PhotoSubmission({
                   colors={['rgba(34, 197, 94, 0.3)', 'rgba(15, 23, 42, 0.9)'] as const}
                   style={styles.rewardRow}
                 >
-                  <Text style={styles.rewardText}>Osvojićete +{challengePoints} poena</Text>
+                  <Text style={styles.rewardText}>
+                    {t('photoRewardText').replace('{points}', String(challengePoints))}
+                  </Text>
                 </LinearGradient>
 
                 <View style={styles.actionsRow}>
                   <TouchableOpacity
                     style={[styles.secondaryButton, styles.rowButton, styles.secondaryButtonRow]}
-                    onPress={() => setSubmissionStep('capture')}
+                    onPress={() => {
+                      void triggerHaptic('selection');
+                      setSubmissionStep('capture');
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('photoBackToPhotoLabel')}
                   >
-                    <Text style={styles.secondaryLabel}>Nazad</Text>
+                    <Text style={styles.secondaryLabel}>{"Nazad"}</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => setSubmissionStep('confirm')} style={styles.rowButton}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      void triggerHaptic('selection');
+                      setSubmissionStep('confirm');
+                    }}
+                    style={styles.rowButton}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('photoNextToConfirmLabel')}
+                  >
                     <LinearGradient colors={gradients.primary} style={[styles.primaryButton, styles.primaryButtonRow]}>
-                      <Text style={styles.primaryLabel}>Dalje</Text>
+                      <Text style={styles.primaryLabel}>{t('nextLabel')}</Text>
                     </LinearGradient>
                   </TouchableOpacity>
                 </View>
@@ -229,14 +284,26 @@ export function PhotoSubmission({
                   colors={['rgba(15, 23, 42, 0.95)', 'rgba(34, 197, 94, 0.12)'] as const}
                   style={styles.confirmBox}
                 >
-                  <Text style={styles.label}>Potvrdi slanje</Text>
-                  <Text style={styles.confirmText}>Izazov: {challengeTitle}</Text>
-                  <Text style={styles.confirmText}>Nagrada: +{challengePoints} poena</Text>
-                  {description ? <Text style={styles.confirmText}>Opis: {description}</Text> : null}
-                  {location ? <Text style={styles.confirmText}>Lokacija: {location}</Text> : null}
+                  <Text style={styles.label}>{t('photoConfirmTitle')}</Text>
+                  <Text style={styles.confirmText}>
+                    {t('photoConfirmChallengeLabel').replace('{title}', challengeTitle)}
+                  </Text>
+                  <Text style={styles.confirmText}>
+                    {t('photoConfirmRewardLabel').replace('{points}', String(challengePoints))}
+                  </Text>
+                  {description ? (
+                    <Text style={styles.confirmText}>
+                      {t('photoConfirmDescriptionLabel').replace('{description}', description)}
+                    </Text>
+                  ) : null}
+                  {location ? (
+                    <Text style={styles.confirmText}>
+                      {t('photoConfirmLocationLabel').replace('{location}', location)}
+                    </Text>
+                  ) : null}
                   <View style={styles.noticeRow}>
                     <Clock color={colors.muted} size={14} />
-                    <Text style={styles.noticeText}>Vaša fotografija će biti pregledana u roku od 24h</Text>
+                    <Text style={styles.noticeText}>{t('photoReviewNotice')}</Text>
                   </View>
                 </LinearGradient>
 
@@ -250,12 +317,23 @@ export function PhotoSubmission({
                 <View style={styles.actionsRow}>
                   <TouchableOpacity
                     style={[styles.secondaryButton, styles.rowButton, styles.secondaryButtonRow]}
-                    onPress={() => setSubmissionStep('details')}
+                    onPress={() => {
+                      void triggerHaptic('selection');
+                      setSubmissionStep('details');
+                    }}
                     disabled={isSubmitting}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('photoBackToDetailsLabel')}
                   >
-                    <Text style={styles.secondaryLabel}>Nazad</Text>
+                    <Text style={styles.secondaryLabel}>{"Nazad"}</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={handleSubmit} disabled={isSubmitting} style={styles.rowButton}>
+                  <TouchableOpacity
+                    onPress={handleSubmit}
+                    disabled={isSubmitting}
+                    style={styles.rowButton}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('photoSendAccessibilityLabel')}
+                  >
                     <LinearGradient colors={gradients.primary} style={[styles.primaryButton, styles.primaryButtonRow]}>
                       {isSubmitting ? (
                         <ActivityIndicator color={colors.text} />
@@ -263,7 +341,7 @@ export function PhotoSubmission({
                         <>
                           <Upload color={colors.text} size={16} />
                           <Text style={styles.primaryLabel}>
-                            {submitError ? 'Pokušaj ponovo' : 'Pošalji'}
+                            {submitError ? t('photoRetryLabel') : t('photoSendLabel')}
                           </Text>
                         </>
                       )}

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, Text, StyleSheet, View, TouchableOpacity, TextInput } from 'react-native';
 import { Search, Users, UserPlus, Mail, MessageCircle } from 'lucide-react-native';
 import { supabase } from '../lib/supabase';
@@ -16,6 +16,7 @@ import { GlowCard } from '../components/common/GlowCard';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
+import { useLanguage } from '../lib/language';
 
 const FRIENDS_TABLE = 'prijatelji';
 const NOTIFICATIONS_TABLE = 'notifications';
@@ -49,6 +50,7 @@ type TabKey = 'friends' | 'requests' | 'suggestions' | 'groups';
 export function FriendSystemScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const realtimeConnected = useRealtimeStatus();
+  const { t } = useLanguage();
   const [userId, setUserId] = useState<string | null>(null);
   const [friends, setFriends] = useState<Profile[]>([]);
   const [pendingIn, setPendingIn] = useState<FriendLink[]>([]);
@@ -67,10 +69,11 @@ export function FriendSystemScreen() {
   const [usingCache, setUsingCache] = useState(false);
   const [friendsVisible, setFriendsVisible] = useState(10);
   const [suggestionsVisible, setSuggestionsVisible] = useState(10);
+  const excludedIdsRef = useRef<Set<string>>(new Set());
 
   const normalizeGroup = (row: any): GroupSummary => ({
     id: row.id,
-    name: row.name ?? row.title ?? 'Grupa',
+    name: row.name ?? row.title ?? t('groupsFallbackName'),
     description: row.description ?? null,
   });
 
@@ -102,21 +105,32 @@ export function FriendSystemScreen() {
     return data?.user?.id ?? null;
   };
 
+  const updateExcludedIds = (uid: string, links: FriendLink[]) => {
+    const excluded = new Set<string>([uid]);
+    links.forEach((link) => {
+      if (link.korisnik_od) excluded.add(link.korisnik_od);
+      if (link.korisnik_do) excluded.add(link.korisnik_do);
+    });
+    excludedIdsRef.current = excluded;
+  };
+
   const loadConnections = async (uid: string) => {
     setLoadingConnections(true);
+    excludedIdsRef.current = new Set([uid]);
     const { data, error: linksError } = await supabase
       .from(FRIENDS_TABLE)
       .select('*')
       .or(`korisnik_od.eq.${uid},korisnik_do.eq.${uid}`);
 
     if (linksError) {
-      setError('Greška pri učitavanju prijatelja.');
-      showError('Greška', 'Ne mogu učitati prijatelje.');
+      setError("Gre\u0161ka pri u\u010ditavanju prijatelja.");
+      showError("Gre\u0161ka", "Ne mogu u\u010ditati prijatelje.");
       setLoadingConnections(false);
       return;
     }
 
     const links = (data ?? []) as FriendLink[];
+    updateExcludedIds(uid, links);
     const nextPendingIn = links.filter((l) => l.status === 'pending' && l.korisnik_do === uid);
     const nextPendingOut = links.filter((l) => l.status === 'pending' && l.korisnik_od === uid);
     setPendingIn(nextPendingIn);
@@ -147,19 +161,31 @@ export function FriendSystemScreen() {
     setCached(`friends:${uid}`, { friends: nextFriends, pendingIn: nextPendingIn, pendingOut: nextPendingOut });
     setUsingCache(false);
     setLoadingConnections(false);
+
+    if (activeTab === 'suggestions') {
+      const query = searchQuery.trim();
+      loadSuggestions(uid, query.length ? query : undefined);
+    }
   };
 
-  const loadSuggestions = async (uid: string) => {
+  const loadSuggestions = async (uid: string, query?: string) => {
     setLoadingSuggestions(true);
-    const { data } = await supabase
+    const trimmed = query?.trim();
+    let request = supabase
       .from('korisnik_profil')
       .select('id, korisnicko_ime, ukupno_poena, trenutni_bedz')
-      .neq('id', uid)
-      .limit(10);
+      .neq('id', uid);
+    if (trimmed) {
+      request = request.ilike('korisnicko_ime', `%${trimmed}%`);
+    }
+    const { data } = await request.limit(trimmed ? 20 : 30);
 
-    const nextSuggestions = (data ?? []) as Profile[];
+    const excludedIds = excludedIdsRef.current;
+    const nextSuggestions = ((data ?? []) as Profile[]).filter((profile) => !excludedIds.has(profile.id));
     setSuggestions(nextSuggestions);
-    setCached(`friend-suggestions:${uid}`, nextSuggestions);
+    if (!trimmed) {
+      setCached(`friend-suggestions:${uid}`, nextSuggestions);
+    }
     setUsingCache(false);
     setLoadingSuggestions(false);
   };
@@ -183,7 +209,7 @@ export function FriendSystemScreen() {
 
       if (memberIdsError) {
         console.error('Load groups member ids error', memberIdsError);
-        showError('Greška', 'Ne možemo učitati grupe.');
+        showError("Gre\u0161ka", "Ne mo\u017eemo u\u010ditati grupe.");
         setLoadingGroups(false);
         return;
       }
@@ -194,7 +220,7 @@ export function FriendSystemScreen() {
           joined = await fetchGroupsList(ids);
         } catch (error) {
           console.error('Load groups fallback error', error);
-          showError('Greška', 'Ne možemo učitati grupe.');
+          showError("Gre\u0161ka", "Ne mo\u017eemo u\u010ditati grupe.");
           setLoadingGroups(false);
           return;
         }
@@ -219,7 +245,7 @@ export function FriendSystemScreen() {
       setUsingCache(false);
     } catch (error) {
       console.error('Load groups list error', error);
-      showError('Greška', 'Ne možemo učitati grupe.');
+      showError("Gre\u0161ka", "Ne mo\u017eemo u\u010ditati grupe.");
     }
 
     setLoadingGroups(false);
@@ -369,13 +395,24 @@ export function FriendSystemScreen() {
   useEffect(() => {
     if (!userId || realtimeConnected) return;
     const interval = setInterval(() => {
+      const query = activeTab === 'suggestions' ? searchQuery.trim() : '';
       loadConnections(userId);
-      loadSuggestions(userId);
+      loadSuggestions(userId, query.length ? query : undefined);
       loadGroups(userId);
       loadUnreadCounts(userId);
     }, 20000);
     return () => clearInterval(interval);
-  }, [userId, realtimeConnected]);
+  }, [userId, realtimeConnected, activeTab, searchQuery]);
+
+  useEffect(() => {
+    if (!userId || activeTab !== 'suggestions') return;
+    const query = searchQuery.trim();
+    setSuggestionsVisible(10);
+    const timer = setTimeout(() => {
+      loadSuggestions(userId, query.length ? query : undefined);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [userId, activeTab, searchQuery]);
 
   const sendRequest = async (targetId: string) => {
     if (!userId) return;
@@ -398,8 +435,8 @@ export function FriendSystemScreen() {
       .single();
 
     if (insertError) {
-      setError('Ne možemo poslati zahtjev.');
-      showError('Greška', 'Ne možemo poslati zahtjev.');
+      setError("Ne mo\u017eemo poslati zahtjev.");
+      showError("Gre\u0161ka", "Ne mo\u017eemo poslati zahtjev.");
       setPendingOut((prev) => prev.filter((item) => item.id !== optimistic.id));
       setSuggestions(previousSuggestions);
       return;
@@ -414,20 +451,20 @@ export function FriendSystemScreen() {
       .select('korisnicko_ime')
       .eq('id', userId)
       .maybeSingle();
-    const senderName = profile?.korisnicko_ime ?? 'Korisnik';
+    const senderName = profile?.korisnicko_ime ?? t('defaultUserLabel');
 
     if (link?.id) {
       await supabase.from(NOTIFICATIONS_TABLE).insert({
         korisnik_id: targetId,
-        title: 'Novi zahtjev za prijateljstvo',
-        body: `${senderName} vam je poslao zahtjev za prijateljstvo.`,
+        title: t('notificationFriendRequestTitle'),
+        body: t('notificationFriendRequestBody').replace('{name}', senderName),
         type: 'friend_request',
         related_id: link.id,
         status: 'unread',
       });
     }
 
-    showSuccess('Poslato', 'Zahtjev je poslat.');
+    showSuccess("Poslato", "Zahtjev je poslat.");
     await loadConnections(userId);
   };
 
@@ -440,8 +477,8 @@ export function FriendSystemScreen() {
       .eq('id', link.id);
 
     if (updateError) {
-      setError('Ne možemo prihvatiti zahtjev.');
-      showError('Greška', 'Ne možemo prihvatiti zahtjev.');
+      setError("Ne mo\u017eemo prihvatiti zahtjev.");
+      showError("Gre\u0161ka", "Ne mo\u017eemo prihvatiti zahtjev.");
       setPendingIn((prev) => [...prev, link]);
       return;
     }
@@ -451,7 +488,7 @@ export function FriendSystemScreen() {
       .select('korisnicko_ime')
       .eq('id', userId)
       .maybeSingle();
-    const receiverName = profile?.korisnicko_ime ?? 'Korisnik';
+    const receiverName = profile?.korisnicko_ime ?? t('defaultUserLabel');
 
     const { data: friendProfile } = await supabase
       .from('korisnik_profil')
@@ -464,8 +501,8 @@ export function FriendSystemScreen() {
 
     await supabase.from(NOTIFICATIONS_TABLE).insert({
       korisnik_id: link.korisnik_od,
-      title: 'Zahtjev prihvaćen',
-      body: `${receiverName} je prihvatio/la vaš zahtjev.`,
+      title: t('notificationFriendAcceptTitle'),
+      body: t('notificationFriendAcceptBody').replace('{name}', receiverName),
       type: 'friend_accept',
       related_id: link.id,
       status: 'unread',
@@ -477,7 +514,7 @@ export function FriendSystemScreen() {
       .eq('related_id', link.id)
       .eq('korisnik_id', userId);
 
-    showSuccess('Uspjeh', 'Zahtjev je prihvaćen.');
+    showSuccess("Uspjeh", "Zahtjev je prihva\u0107en.");
     await loadConnections(userId);
   };
 
@@ -492,11 +529,11 @@ export function FriendSystemScreen() {
 
     if (deleteError) {
       setFriends(previous);
-      showError('Greška', 'Ne možemo ukloniti prijatelja.');
+      showError("Gre\u0161ka", "Ne mo\u017eemo ukloniti prijatelja.");
       return;
     }
 
-    showSuccess('Uklonjeno', 'Prijatelj je uklonjen.');
+    showSuccess("Uspjeh", "Prijatelj je uklonjen.");
     await loadConnections(userId);
   };
 
@@ -506,6 +543,10 @@ export function FriendSystemScreen() {
 
   const joinGroup = async (groupId: string) => {
     if (!userId) return;
+    if (!groupId) {
+      showError("Gre\u0161ka", t('groupsUnavailableError'));
+      return;
+    }
     const group = recommendedGroups.find((item) => item.id === groupId);
     const previousRecommended = recommendedGroups;
     const previousJoined = joinedGroups;
@@ -513,34 +554,43 @@ export function FriendSystemScreen() {
     if (group) setJoinedGroups((prev) => [group, ...prev]);
 
     const { error: insertError } = await supabase.from(GROUP_MEMBERS_TABLE).insert({
-      group_id: groupId,
+      group_id: String(groupId),
       user_id: userId,
       role: 'member',
     });
 
     if (insertError) {
-      showError('Greška', 'Ne možemo se pridružiti grupi.');
+      showError("Gre\u0161ka", "Ne mo\u017eemo se pridru\u017eiti grupi.");
       setRecommendedGroups(previousRecommended);
       setJoinedGroups(previousJoined);
       return;
     }
 
-    showSuccess('Uspjeh', 'Pridružili ste se grupi.');
+    showSuccess("Uspjeh", "Pridru\u017eili ste se grupi.");
     await loadGroups(userId);
   };
 
   const openGroup = (groupId: string) => {
-    navigation.navigate('GroupDetail', { groupId });
+    if (!groupId) {
+      showError("Gre\u0161ka", t('groupsUnavailableError'));
+      return;
+    }
+    navigation.navigate('GroupDetail', { groupId: String(groupId) });
   };
 
   const filteredFriends = useMemo(() => {
-    return friends.filter((friend) =>
-      friend.korisnicko_ime?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return friends;
+    return friends.filter((friend) => friend.korisnicko_ime?.toLowerCase().includes(query));
   }, [friends, searchQuery]);
 
   const visibleFriends = filteredFriends.slice(0, friendsVisible);
   const visibleSuggestions = suggestions.slice(0, suggestionsVisible);
+  const badgeLabel = (badge: 'gold' | 'silver' | 'bronze') => {
+    if (badge === 'gold') return "Gold";
+    if (badge === 'silver') return "Silver";
+    return "Bronze";
+  };
 
   return (
     <GradientBackground>
@@ -548,29 +598,40 @@ export function FriendSystemScreen() {
         <ScrollView contentContainerStyle={styles.content}>
           <BackButton onPress={() => navigation.goBack()} />
           <View style={styles.header}>
-            <Text style={styles.title}>Prijatelji</Text>
-            <Text style={styles.subtitle}>Poveži se s eko zajednicom</Text>
+            <Text style={styles.title}>{"Prijatelji"}</Text>
+            <Text style={styles.subtitle}>{"Pove\u017ei se s eko zajednicom"}</Text>
           </View>
 
-          <View style={styles.searchWrap}>
-            <Search size={16} color={colors.muted} style={styles.searchIcon} />
-            <TextInput
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder="Pretraži prijatelje..."
-              placeholderTextColor={colors.muted}
-              style={styles.searchInput}
-            />
-          </View>
+          {activeTab !== 'groups' && activeTab !== 'requests' ? (
+            <View style={styles.searchWrap}>
+              <Search size={16} color={colors.muted} style={styles.searchIcon} />
+              <TextInput
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder={
+                  activeTab === 'suggestions'
+                    ? "Pretra\u017ei korisnike..."
+                    : "Pretra\u017ei prijatelje..."
+                }
+                placeholderTextColor={colors.muted}
+                style={styles.searchInput}
+              />
+            </View>
+          ) : null}
 
-          <View style={styles.tabs}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.tabs}
+            nestedScrollEnabled
+          >
             <TouchableOpacity
               style={[styles.tab, activeTab === 'friends' && styles.tabActive]}
               onPress={() => setActiveTab('friends')}
             >
               <Users size={16} color={activeTab === 'friends' ? colors.softGreen : colors.muted} />
               <Text style={[styles.tabText, activeTab === 'friends' && styles.tabTextActive]}>
-                Prijatelji
+                {"Prijatelji"}
               </Text>
               <Text style={styles.tabCount}>{friends.length}</Text>
             </TouchableOpacity>
@@ -580,7 +641,7 @@ export function FriendSystemScreen() {
             >
               <Mail size={16} color={activeTab === 'requests' ? colors.softGreen : colors.muted} />
               <Text style={[styles.tabText, activeTab === 'requests' && styles.tabTextActive]}>
-                Zahtjevi
+                {"Zahtjevi"}
               </Text>
               <Text style={styles.tabCount}>{pendingIn.length}</Text>
             </TouchableOpacity>
@@ -589,7 +650,9 @@ export function FriendSystemScreen() {
               onPress={() => setActiveTab('groups')}
             >
               <Users size={16} color={activeTab === 'groups' ? colors.softGreen : colors.muted} />
-              <Text style={[styles.tabText, activeTab === 'groups' && styles.tabTextActive]}>Grupe</Text>
+              <Text style={[styles.tabText, activeTab === 'groups' && styles.tabTextActive]}>
+                {"Grupe"}
+              </Text>
               <Text style={styles.tabCount}>{joinedGroups.length}</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -598,13 +661,13 @@ export function FriendSystemScreen() {
             >
               <UserPlus size={16} color={activeTab === 'suggestions' ? colors.softGreen : colors.muted} />
               <Text style={[styles.tabText, activeTab === 'suggestions' && styles.tabTextActive]}>
-                Preporuke
+                {"Korisnici"}
               </Text>
             </TouchableOpacity>
-          </View>
+          </ScrollView>
 
           {error && <Text style={styles.error}>{error}</Text>}
-          {usingCache && <Text style={styles.cacheNote}>Prikazujem keširane podatke.</Text>}
+          {usingCache && <Text style={styles.cacheNote}>{"Prikazujem ke\u0161irane podatke."}</Text>}
 
           {activeTab === 'friends' && (
             <View style={styles.section}>
@@ -622,8 +685,8 @@ export function FriendSystemScreen() {
               </View>
             ) : filteredFriends.length === 0 ? (
                 <EmptyState
-                  title="Još nemate prijatelja"
-                  description="Povežite se sa zajednicom i pratite napredak."
+                  title={"Jo\u0161 nemate prijatelja"}
+                  description={"Pove\u017eite se sa zajednicom i pratite napredak."}
                 />
               ) : (
                 <>
@@ -631,15 +694,19 @@ export function FriendSystemScreen() {
                     <GlowCard key={friend.id} style={styles.cardShell} contentStyle={styles.card}>
                       <View>
                         <Text style={styles.cardTitle}>{friend.korisnicko_ime}</Text>
-                        <Text style={styles.cardSubtitle}>Poeni: {friend.ukupno_poena ?? 0}</Text>
+                        <Text style={styles.cardSubtitle}>
+                          {"Poeni"}: {friend.ukupno_poena ?? 0}
+                        </Text>
                       </View>
                       <View style={styles.friendActions}>
-                        <Text style={styles.badgeText}>{friend.trenutni_bedz ?? 'bronze'}</Text>
+                        <Text style={styles.badgeText}>
+                          {badgeLabel((friend.trenutni_bedz ?? 'bronze') as 'gold' | 'silver' | 'bronze')}
+                        </Text>
                         <View style={styles.friendButtons}>
                           <TouchableOpacity onPress={() => startChat(friend)}>
                             <LinearGradient colors={gradients.primary} style={styles.chatButton}>
                               <MessageCircle size={14} color={colors.text} />
-                              <Text style={styles.chatText}>Chat</Text>
+                              <Text style={styles.chatText}>{"Chat"}</Text>
                             </LinearGradient>
                           </TouchableOpacity>
                           {unreadCounts[friend.id] ? (
@@ -648,7 +715,7 @@ export function FriendSystemScreen() {
                             </View>
                           ) : null}
                           <TouchableOpacity onPress={() => removeFriend(friend.id)} style={styles.removeButton}>
-                            <Text style={styles.removeText}>Ukloni</Text>
+                            <Text style={styles.removeText}>{"Ukloni"}</Text>
                           </TouchableOpacity>
                         </View>
                       </View>
@@ -657,7 +724,7 @@ export function FriendSystemScreen() {
                   {filteredFriends.length > friendsVisible ? (
                     <TouchableOpacity onPress={() => setFriendsVisible((prev) => prev + 10)}>
                       <LinearGradient colors={gradients.primary} style={styles.loadMoreButton}>
-                        <Text style={styles.loadMoreText}>Prikaži više</Text>
+                        <Text style={styles.loadMoreText}>{"Prika\u017ei vi\u0161e"}</Text>
                       </LinearGradient>
                     </TouchableOpacity>
                   ) : null}
@@ -679,24 +746,24 @@ export function FriendSystemScreen() {
               </View>
             ) : pendingIn.length === 0 && pendingOut.length === 0 ? (
               <EmptyState
-                title="Nema aktivnih zahtjeva"
-                description="Novi zahtjevi će se pojaviti ovdje."
+                title={"Nema aktivnih zahtjeva"}
+                description={"Novi zahtjevi \u0107e se pojaviti ovdje."}
               />
             ) : (
                 <>
                   {pendingIn.map((req) => (
                   <GlowCard key={req.id} style={styles.cardShell} contentStyle={styles.card}>
-                    <Text style={styles.cardTitle}>Primljen zahtjev</Text>
+                    <Text style={styles.cardTitle}>{"Primljen zahtjev"}</Text>
                     <TouchableOpacity onPress={() => acceptRequest(req)}>
                       <LinearGradient colors={gradients.primary} style={styles.actionButton}>
-                        <Text style={styles.actionLabel}>Prihvati</Text>
+                        <Text style={styles.actionLabel}>{"Prihvati"}</Text>
                       </LinearGradient>
                     </TouchableOpacity>
                   </GlowCard>
                 ))}
                 {pendingOut.map((req) => (
                   <GlowCard key={req.id} style={styles.cardShell} contentStyle={styles.card}>
-                    <Text style={styles.cardTitle}>Poslan zahtjev (na čekanju)</Text>
+                    <Text style={styles.cardTitle}>{"Poslan zahtjev (na \u010dekanju)"}</Text>
                   </GlowCard>
                 ))}
               </>
@@ -724,25 +791,27 @@ export function FriendSystemScreen() {
                   <GlowCard key={suggestion.id} style={styles.cardShell} contentStyle={styles.card}>
                     <View>
                       <Text style={styles.cardTitle}>{suggestion.korisnicko_ime}</Text>
-                      <Text style={styles.cardSubtitle}>Poeni: {suggestion.ukupno_poena ?? 0}</Text>
+                      <Text style={styles.cardSubtitle}>
+                        {"Poeni"}: {suggestion.ukupno_poena ?? 0}
+                      </Text>
                     </View>
                     <TouchableOpacity onPress={() => sendRequest(suggestion.id)}>
                       <LinearGradient colors={gradients.primary} style={styles.actionButton}>
-                        <Text style={styles.actionLabel}>Dodaj</Text>
+                        <Text style={styles.actionLabel}>{"Dodaj"}</Text>
                       </LinearGradient>
                     </TouchableOpacity>
                   </GlowCard>
                   ))}
                   {suggestions.length === 0 ? (
                     <EmptyState
-                      title="Nema preporuka"
-                      description="Pokušaćemo da pronađemo nove korisnike."
+                      title={"Nema korisnika"}
+                      description={"Poku\u0161ajte drugi upit za pretragu."}
                     />
                   ) : null}
                   {suggestions.length > suggestionsVisible ? (
                     <TouchableOpacity onPress={() => setSuggestionsVisible((prev) => prev + 10)}>
                       <LinearGradient colors={gradients.primary} style={styles.loadMoreButton}>
-                        <Text style={styles.loadMoreText}>Prikaži više</Text>
+                        <Text style={styles.loadMoreText}>{"Prika\u017ei vi\u0161e"}</Text>
                       </LinearGradient>
                     </TouchableOpacity>
                   ) : null}
@@ -756,7 +825,7 @@ export function FriendSystemScreen() {
               <View style={styles.groupActions}>
                 <TouchableOpacity onPress={() => navigation.navigate('CreateGroup')}>
                   <LinearGradient colors={gradients.primary} style={styles.createGroupButton}>
-                    <Text style={styles.createGroupLabel}>Kreiraj grupu</Text>
+                    <Text style={styles.createGroupLabel}>{"Kreiraj grupu"}</Text>
                   </LinearGradient>
                 </TouchableOpacity>
               </View>
@@ -774,11 +843,11 @@ export function FriendSystemScreen() {
               </View>
             ) : (
                 <>
-                <Text style={styles.sectionTitle}>Moje grupe</Text>
+                <Text style={styles.sectionTitle}>{"Moje grupe"}</Text>
                 {joinedGroups.length === 0 ? (
                   <EmptyState
-                    title="Niste član nijedne grupe"
-                    description="Pridružite se grupi i pratite zajedničke izazove."
+                    title={"Niste \u010dlan nijedne grupe"}
+                    description={"Pridru\u017eite se grupi i pratite zajedni\u010dke izazove."}
                   />
                 ) : (
                   joinedGroups.map((group) => (
@@ -791,17 +860,19 @@ export function FriendSystemScreen() {
                         </View>
                         <TouchableOpacity onPress={() => openGroup(group.id)}>
                           <LinearGradient colors={gradients.primary} style={styles.actionButton}>
-                            <Text style={styles.actionLabel}>Otvori</Text>
+                            <Text style={styles.actionLabel}>{"Otvori"}</Text>
                           </LinearGradient>
                         </TouchableOpacity>
                       </GlowCard>
                     ))
                 )}
-                <Text style={[styles.sectionTitle, { marginTop: spacing.md }]}>Preporučene grupe</Text>
+                <Text style={[styles.sectionTitle, { marginTop: spacing.md }]}>
+                  {"Preporu\u010dene grupe"}
+                </Text>
                 {recommendedGroups.length === 0 ? (
                   <EmptyState
-                    title="Trenutno nema preporučenih grupa"
-                    description="Vrati se kasnije za nove preporuke."
+                    title={"Trenutno nema preporu\u010denih grupa"}
+                    description={"Vrati se kasnije za nove preporuke."}
                   />
                 ) : (
                   recommendedGroups.map((group) => (
@@ -814,7 +885,7 @@ export function FriendSystemScreen() {
                         </View>
                         <TouchableOpacity onPress={() => joinGroup(group.id)}>
                           <LinearGradient colors={gradients.primary} style={styles.actionButton}>
-                            <Text style={styles.actionLabel}>Pridruži se</Text>
+                            <Text style={styles.actionLabel}>{"Pridru\u017ei se"}</Text>
                           </LinearGradient>
                         </TouchableOpacity>
                       </GlowCard>

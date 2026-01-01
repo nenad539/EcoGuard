@@ -7,7 +7,7 @@ import { ScreenFade } from '../components/common/ScreenFade';
 import { BackButton } from '../components/common/BackButton';
 import { useLanguage } from '../lib/language';
 
-export function TermsScreen() {
+export function PrivacyScreen() {
   const navigation = useNavigation();
   const { t } = useLanguage();
 
@@ -15,10 +15,11 @@ export function TermsScreen() {
     <GradientBackground>
       <ScreenFade>
         <ScrollView contentContainerStyle={styles.content}>
-        <BackButton onPress={() => navigation.goBack()} />
-        <Text style={styles.title}>{"Uslovi kori\u0161\u0107enja"}</Text>
-        <Text style={styles.body}>{"Kori\u0161\u0107enjem aplikacije pristajete na prikupljanje osnovnih podataka za nagrade, rangiranje i aktivnosti."}</Text>
-        <Text style={styles.body}>{"Va\u0161e fotografije izazova podlije\u017eu provjeri prije dodjele poena. Dijelite autenti\u010dne aktivnosti."}</Text>
+          <BackButton onPress={() => navigation.goBack()} />
+          <Text style={styles.title}>{"Privatnost i dozvole"}</Text>
+          <Text style={styles.body}>{"Va\u0161e osnovne informacije koristimo isklju\u010divo za funkcionisanje aplikacije (profil, poeni, rang)."}</Text>
+          <Text style={styles.body}>{"Fotografije izazova se \u010duvaju radi provjere i dodjele poena. Ne dijelimo ih sa tre\u0107im stranama."}</Text>
+          <Text style={styles.body}>{"U pode\u0161avanjima telefona mo\u017eete upravljati dozvolama za kameru i obavje\u0161tenja."}</Text>
         </ScrollView>
       </ScreenFade>
     </GradientBackground>

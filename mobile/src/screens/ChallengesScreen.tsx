@@ -15,6 +15,7 @@ import { GlowCard } from '../components/common/GlowCard';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
+import { useLanguage } from '../lib/language';
 
 const COMPLETION_TABLE_CANDIDATES = [
   process.env.EXPO_PUBLIC_DAILY_COMPLETION_TABLE,
@@ -56,6 +57,7 @@ function getDailyChallengeIds(): number[] {
 export function ChallengesScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const realtimeConnected = useRealtimeStatus();
+  const { t } = useLanguage();
   const [dailyChallenges, setDailyChallenges] = useState<DailyChallenge[]>([]);
   const [completionMap, setCompletionMap] = useState<Record<number, ChallengeCompletion>>({});
   const [dailyPointsEarned, setDailyPointsEarned] = useState(0);
@@ -85,7 +87,7 @@ export function ChallengesScreen() {
 
       if (fetchError) {
         console.error('Error fetching daily challenges:', fetchError);
-        setError('Greška prilikom učitavanja izazova.');
+        setError(t('dailyChallengesLoadError'));
         setDailyChallenges([]);
       } else {
         setDailyChallenges(data ?? []);
@@ -156,7 +158,7 @@ export function ChallengesScreen() {
     }
 
     if (!tableToUse) {
-      setError('Nije pronađena tabela za završene izazove.');
+      setError(t('dailyChallengesCompletionTableMissing'));
       return;
     }
     setError(null);
@@ -170,7 +172,7 @@ export function ChallengesScreen() {
 
     if (fetchError) {
       console.error('Error fetching completions:', fetchError);
-      setError('Greška prilikom učitavanja završetaka.');
+      setError(t('dailyChallengesCompletionLoadError'));
     } else if (data) {
       const mapped = data.reduce<Record<number, ChallengeCompletion>>((acc, item) => {
         acc[item.challenge_id] = item;
@@ -242,7 +244,7 @@ export function ChallengesScreen() {
       .from('korisnik_profil')
       .select('ukupno_poena')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
     if (fetchError) {
       console.error('Failed to read points:', fetchError);
@@ -262,13 +264,13 @@ export function ChallengesScreen() {
 
   const handleCompleteChallenge = async (challengeId: number, points: number) => {
     if (!userId) {
-      setError('Morate biti prijavljeni da biste završili izazov.');
-      showError('Greška', 'Morate biti prijavljeni.');
+      setError(t('dailyChallengesLoginRequired'));
+      showError("Gre\u0161ka", t('dailyChallengesLoginRequired'));
       return;
     }
     if (!completionTable) {
-      setError('Nije pronađena tabela za završene izazove.');
-      showError('Greška', 'Tabela za završene izazove nije pronađena.');
+      setError(t('dailyChallengesCompletionTableMissing'));
+      showError("Gre\u0161ka", t('dailyChallengesCompletionTableMissingToast'));
       return;
     }
 
@@ -287,15 +289,15 @@ export function ChallengesScreen() {
 
     if (saveError) {
       console.error('Error saving completion:', saveError);
-      setError('Greška prilikom čuvanja završetka izazova.');
-      showError('Greška', 'Ne možemo sačuvati završetak.');
+      setError(t('dailyChallengesSaveError'));
+      showError("Gre\u0161ka", t('dailyChallengesSaveErrorToast'));
     } else {
       setCompletionMap((prev) => ({
         ...prev,
         [challengeId]: { challenge_id: challengeId, completed_at: payload.completed_at },
       }));
       await awardPoints(points);
-      showSuccess('Uspjeh', 'Izazov je završen.');
+      showSuccess("Uspjeh", t('dailyChallengesCompleteSuccess'));
     }
 
     setCompletionLoadingId(null);
@@ -331,10 +333,10 @@ export function ChallengesScreen() {
     <GradientBackground>
       <ScreenFade>
         <ScrollView contentContainerStyle={styles.content}>
-        <BackButton onPress={() => navigation.goBack()} />
-        <Text style={styles.title}>Dnevni izazovi</Text>
-        {usingCache && <Text style={styles.cacheNote}>Prikazujem keširane podatke.</Text>}
-        {error && <Text style={styles.error}>{error}</Text>}
+          <BackButton onPress={() => navigation.goBack()} />
+          <Text style={styles.title}>{t('dailyChallengesTitle')}</Text>
+          {usingCache && <Text style={styles.cacheNote}>{"Prikazujem ke\u0161irane podatke."}</Text>}
+          {error && <Text style={styles.error}>{error}</Text>}
 
         {loading && dailyChallenges.length === 0 ? (
           <View style={styles.skeletonGroup}>
@@ -359,7 +361,9 @@ export function ChallengesScreen() {
               {challenge.description ? (
                 <Text style={styles.cardDescription}>{challenge.description}</Text>
               ) : null}
-              <Text style={styles.points}>+{challenge.points} poena</Text>
+              <Text style={styles.points}>
+                +{challenge.points} {"poena"}
+              </Text>
               <TouchableOpacity
                 style={[styles.actionButton, isCompleted && styles.actionDisabled]}
                 onPress={() => handleCompleteChallenge(challenge.id, challenge.points)}
@@ -368,10 +372,10 @@ export function ChallengesScreen() {
                 <LinearGradient colors={gradients.primary} style={styles.actionInner}>
                   <Text style={styles.actionLabel}>
                     {isCompleted
-                      ? 'Završen'
+                      ? t('dailyChallengesCompletedLabel')
                       : completionLoadingId === challenge.id
-                      ? 'Čuvanje...'
-                      : 'Završi'}
+                      ? t('dailyChallengesSavingLabel')
+                      : t('dailyChallengesCompleteLabel')}
                   </Text>
                 </LinearGradient>
               </TouchableOpacity>
@@ -380,7 +384,7 @@ export function ChallengesScreen() {
         })}
 
         <GlowCard style={styles.summaryShell} contentStyle={styles.summaryCard}>
-          <Text style={styles.summaryTitle}>Poeni danas</Text>
+          <Text style={styles.summaryTitle}>{t('dailyChallengesPointsToday')}</Text>
           <Text style={styles.summaryValue}>{dailyPointsEarned}</Text>
         </GlowCard>
         </ScrollView>

@@ -1,6 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { Camera, CheckCircle2, AlertTriangle, Recycle, TreePine, Droplet, Plus } from 'lucide-react-native';
+import {
+  Camera,
+  CheckCircle2,
+  AlertTriangle,
+  Recycle,
+  TreePine,
+  Droplet,
+  Plus,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
@@ -8,6 +18,8 @@ import { getCached, setCached } from '../lib/cache';
 import { useRealtimeStatus } from '../lib/realtime';
 import { uploadPhotoChallenge } from '../lib/uploads';
 import { showError, showInfo, showSuccess } from '../lib/toast';
+import { trackEvent } from '../lib/analytics';
+import { triggerHaptic } from '../lib/haptics';
 import { colors, radius, spacing, gradients } from '../styles/common';
 import { GradientBackground } from '../components/common/GradientBackground';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -16,6 +28,7 @@ import { SkeletonBlock } from '../components/common/Skeleton';
 import { ScreenFade } from '../components/common/ScreenFade';
 import { RootStackParamList } from '../navigation/types';
 import { GlowCard } from '../components/common/GlowCard';
+import { useLanguage } from '../lib/language';
 
 const REGULAR_COMPLETION_TABLE_CANDIDATES = [
   process.env.EXPO_PUBLIC_REGULAR_COMPLETION_TABLE,
@@ -35,6 +48,7 @@ const PHOTO_COMPLETION_TABLE = 'photo_challenge_completions';
 const PHOTO_COMPLETION_ID_FIELD = 'photo_challenge_id';
 const ACTIVITY_TABLE = 'aktivnosti';
 const CACHE_TTL = 1000 * 60 * 5;
+const PHOTO_PAGE_SIZE = 10;
 
 const iconMap: Record<string, any> = {
   recycle: Recycle,
@@ -73,6 +87,7 @@ type PhotoCompletion = {
 export function PhotoChallengeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const realtimeConnected = useRealtimeStatus();
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<'regular' | 'photo'>('regular');
   const [userId, setUserId] = useState<string | null>(null);
 
@@ -93,6 +108,8 @@ export function PhotoChallengeScreen() {
   const [photoLoading, setPhotoLoading] = useState(false);
   const [activeSubmission, setActiveSubmission] = useState<PhotoChallenge | null>(null);
   const [photoUsingCache, setPhotoUsingCache] = useState(false);
+  const [photoPage, setPhotoPage] = useState(1);
+  const [photoHasNext, setPhotoHasNext] = useState(false);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -122,7 +139,10 @@ export function PhotoChallengeScreen() {
         setRegularUsingCache(cachedRegularCompletion.isStale);
       }
 
-      const cachedPhotoChallenges = await getCached<PhotoChallenge[]>('photo-challenges', CACHE_TTL);
+      const cachedPhotoChallenges = await getCached<PhotoChallenge[]>(
+        `photo-challenges:${photoPage}`,
+        CACHE_TTL
+      );
       if (cachedPhotoChallenges?.value?.length) {
         setPhotoChallenges(cachedPhotoChallenges.value);
         setPhotoUsingCache(cachedPhotoChallenges.isStale);
@@ -137,7 +157,7 @@ export function PhotoChallengeScreen() {
       }
     };
     loadCache();
-  }, [userId]);
+  }, [userId, photoPage]);
 
   const resolveRegularCompletionTable = async (): Promise<string | null> => {
     if (regularCompletionTable) return regularCompletionTable;
@@ -202,7 +222,7 @@ export function PhotoChallengeScreen() {
       .from('korisnik_profil')
       .select('ukupno_poena')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
     const currentPoints = profile?.ukupno_poena ?? 0;
     await supabase
@@ -218,14 +238,14 @@ export function PhotoChallengeScreen() {
 
     const table = await resolveRegularCompletionTable();
     if (!table) {
-      setRegularError('Nismo pronašli tabelu za završene izazove (regular).');
+      setRegularError(t('regularCompletionTableMissing'));
       setRegularLoading(false);
       return;
     }
 
     const challengeTable = await resolveRegularChallengeTable();
     if (!challengeTable) {
-      setRegularError('Tabela regularnih izazova nije pronađena.');
+      setRegularError(t('regularChallengeTableMissing'));
       setRegularLoading(false);
       return;
     }
@@ -236,7 +256,7 @@ export function PhotoChallengeScreen() {
       .order('id', { ascending: true });
 
     if (chErr) {
-      setRegularError('Greška pri učitavanju izazova.');
+      setRegularError(t('regularLoadError'));
       setRegularLoading(false);
       return;
     }
@@ -247,7 +267,7 @@ export function PhotoChallengeScreen() {
       .eq('user_id', userId);
 
     if (compErr) {
-      setRegularError('Greška pri učitavanju završenih izazova.');
+      setRegularError(t('regularCompletionLoadError'));
       setRegularLoading(false);
       return;
     }
@@ -292,14 +312,14 @@ export function PhotoChallengeScreen() {
     if (!userId) return;
     const table = regularCompletionTable || (await resolveRegularCompletionTable());
     if (!table) {
-      setRegularError('Nismo pronašli tabelu za završene izazove (regular).');
-      showError('Greška', 'Tabela za završene izazove nije pronađena.');
+      setRegularError(t('regularCompletionTableMissing'));
+      showError("Gre\u0161ka", t('regularCompletionTableMissingToast'));
       return;
     }
 
     if (regularCompletedToday) {
-      setRegularError('Možete završiti samo jedan regularni izazov dnevno.');
-      showInfo('Limit', 'Možete završiti samo jedan regularni izazov dnevno.');
+      setRegularError(t('regularLimitMessage'));
+      showInfo(t('regularLimitTitle'), t('regularLimitMessage'));
       return;
     }
 
@@ -316,8 +336,8 @@ export function PhotoChallengeScreen() {
       .upsert(payload, { onConflict: 'user_id,challenge_id' });
 
     if (insErr) {
-      setRegularError('Greška pri završavanju izazova.');
-      showError('Greška', 'Ne možemo završiti izazov.');
+      setRegularError(t('regularCompleteError'));
+      showError("Gre\u0161ka", t('regularCompleteErrorToast'));
       return;
     }
 
@@ -328,26 +348,32 @@ export function PhotoChallengeScreen() {
 
     await awardPoints(points);
     await logActivity({
-      opis: `Završen izazov #${challengeId}`,
+      opis: t('activityRegularCompleted').replace('{id}', String(challengeId)),
       poena: points,
       kategorija: 'regular',
       status: 'completed',
     });
-    showSuccess('Uspjeh', 'Izazov je završen.');
+    trackEvent('regular_challenge_completed', { challengeId, points });
+    showSuccess("Uspjeh", t('regularCompleteSuccess'));
   };
 
-  const fetchPhotoChallenges = async () => {
+  const fetchPhotoChallenges = async (pageNumber = photoPage) => {
     if (!userId) return;
     setPhotoLoading(true);
     setPhotoError(null);
 
-    const { data, error: fetchError } = await supabase
+    const start = (pageNumber - 1) * PHOTO_PAGE_SIZE;
+    const end = start + PHOTO_PAGE_SIZE - 1;
+    const nowIso = new Date().toISOString();
+    const { data, error: fetchError, count } = await supabase
       .from('photoChallenge')
-      .select('id, title, description, points, location, startAt, endAt, time_limit')
-      .order('id', { ascending: true });
+      .select('id, title, description, points, location, startAt, endAt, time_limit', { count: 'exact' })
+      .or(`endAt.is.null,endAt.gte.${nowIso}`)
+      .order('id', { ascending: true })
+      .range(start, end);
 
     if (fetchError) {
-      setPhotoError('Greška pri učitavanju foto izazova.');
+      setPhotoError(t('photoChallengesLoadError'));
       setPhotoLoading(false);
       return;
     }
@@ -358,7 +384,7 @@ export function PhotoChallengeScreen() {
       .eq('user_id', userId);
 
     if (compErr) {
-      setPhotoError('Greška pri učitavanju završenih foto izazova.');
+      setPhotoError(t('photoChallengesCompletionLoadError'));
       setPhotoLoading(false);
       return;
     }
@@ -375,16 +401,10 @@ export function PhotoChallengeScreen() {
       return acc;
     }, {});
 
-    const now = new Date();
-    const filtered = (data ?? []).filter((challenge: any) => {
-      if (!challenge.endAt) return true;
-      const endDate = new Date(challenge.endAt);
-      return endDate >= now;
-    });
-
-    setPhotoChallenges(filtered);
+    setPhotoChallenges((data ?? []) as PhotoChallenge[]);
     setPhotoCompletionMap(map);
-    setCached('photo-challenges', filtered);
+    setPhotoHasNext(Boolean(count && count > end + 1));
+    setCached(`photo-challenges:${pageNumber}`, (data ?? []) as PhotoChallenge[]);
     setCached(`photo-completions:${userId}`, map);
     setPhotoUsingCache(false);
     setPhotoLoading(false);
@@ -395,9 +415,14 @@ export function PhotoChallengeScreen() {
       fetchRegularChallenges();
     }
     if (userId && activeTab === 'photo') {
-      fetchPhotoChallenges();
+      fetchPhotoChallenges(photoPage);
     }
-  }, [userId, activeTab]);
+  }, [userId, activeTab, photoPage]);
+
+  useEffect(() => {
+    if (activeTab !== 'photo') return;
+    setPhotoPage(1);
+  }, [activeTab]);
 
   useEffect(() => {
     if (!userId || realtimeConnected) return;
@@ -409,7 +434,7 @@ export function PhotoChallengeScreen() {
       }
     }, 20000);
     return () => clearInterval(interval);
-  }, [userId, activeTab, realtimeConnected]);
+  }, [userId, activeTab, realtimeConnected, photoPage]);
 
   useEffect(() => {
     if (!userId) return;
@@ -480,7 +505,7 @@ export function PhotoChallengeScreen() {
       if (photoChallengesChannel) supabase.removeChannel(photoChallengesChannel);
       supabase.removeChannel(photoChannel);
     };
-  }, [userId, regularCompletionTable, regularChallengeTable]);
+  }, [userId, regularCompletionTable, regularChallengeTable, photoPage]);
 
   useEffect(() => {
     const awardApproved = async () => {
@@ -504,10 +529,14 @@ export function PhotoChallengeScreen() {
           .eq(PHOTO_COMPLETION_ID_FIELD, completion.completionKey);
 
         await logActivity({
-          opis: `Foto izazov odobren: ${challenge.title}`,
+          opis: t('activityPhotoApproved').replace('{title}', challenge.title),
           poena: challenge.points,
           kategorija: 'photo',
           status: 'completed',
+        });
+        trackEvent('photo_challenge_points_awarded', {
+          challengeId: completion.completionKey,
+          points: challenge.points,
         });
       }
 
@@ -527,7 +556,7 @@ export function PhotoChallengeScreen() {
     onProgress?: (value: number) => void
   ): Promise<{ success: boolean; error?: string }> => {
     if (!userId) {
-      return { success: false, error: 'Morate biti prijavljeni.' };
+      return { success: false, error: t('photoLoginRequired') };
     }
 
     setPhotoError(null);
@@ -569,7 +598,9 @@ export function PhotoChallengeScreen() {
 
       const challenge = photoChallenges.find((c) => c.id === submission.challengeId);
       await logActivity({
-        opis: challenge ? `Poslan foto izazov: ${challenge.title}` : `Poslan foto izazov #${submission.challengeId}`,
+        opis: challenge
+          ? t('activityPhotoSubmitted').replace('{title}', challenge.title)
+          : t('activityPhotoSubmittedFallback').replace('{id}', String(submission.challengeId)),
         poena: 0,
         kategorija: 'photo',
         status: 'pending',
@@ -579,7 +610,7 @@ export function PhotoChallengeScreen() {
 
       setActiveSubmission(null);
       fetchPhotoChallenges();
-      showSuccess('Poslato', 'Foto izazov je poslat na provjeru.');
+      showSuccess("Poslato", t('photoSubmissionSuccessMessage'));
       return { success: true };
     } catch (err: any) {
       console.error('Photo submission error', err);
@@ -589,9 +620,9 @@ export function PhotoChallengeScreen() {
         return next;
       });
       const message =
-        err?.message ?? err?.details ?? err?.hint ?? 'Ne možemo poslati foto izazov.';
+        err?.message ?? err?.details ?? err?.hint ?? t('photoSubmissionErrorMessage');
       setPhotoError(message);
-      showError('Greška', message);
+      showError("Gre\u0161ka", message);
       return { success: false, error: message };
     }
   };
@@ -608,20 +639,22 @@ export function PhotoChallengeScreen() {
     });
   }, [photoChallenges, photoCompletionMap]);
 
+  const photoHasPrev = photoPage > 1;
+
   return (
     <GradientBackground>
       <ScreenFade>
         <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.titleRow}>
           <View>
-            <Text style={styles.title}>Izazovi</Text>
-            <Text style={styles.subtitle}>Regularni i foto izazovi</Text>
+            <Text style={styles.title}>{t('challengeScreenTitle')}</Text>
+            <Text style={styles.subtitle}>{t('challengeScreenSubtitle')}</Text>
           </View>
           {activeTab === 'photo' ? (
             <TouchableOpacity onPress={() => navigation.navigate('CreateChallenge')}>
               <LinearGradient colors={gradients.primary} style={styles.createButton}>
                 <Plus color={colors.text} size={16} />
-                <Text style={styles.createLabel}>Kreiraj</Text>
+                <Text style={styles.createLabel}>{t('challengeCreateLabel')}</Text>
               </LinearGradient>
             </TouchableOpacity>
           ) : null}
@@ -632,13 +665,17 @@ export function PhotoChallengeScreen() {
             style={[styles.tab, activeTab === 'regular' && styles.tabActive]}
             onPress={() => setActiveTab('regular')}
           >
-            <Text style={[styles.tabText, activeTab === 'regular' && styles.tabTextActive]}>Regularni</Text>
+            <Text style={[styles.tabText, activeTab === 'regular' && styles.tabTextActive]}>
+              {t('challengeTabRegular')}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.tab, activeTab === 'photo' && styles.tabActive]}
             onPress={() => setActiveTab('photo')}
           >
-            <Text style={[styles.tabText, activeTab === 'photo' && styles.tabTextActive]}>Foto</Text>
+            <Text style={[styles.tabText, activeTab === 'photo' && styles.tabTextActive]}>
+              {t('challengeTabPhoto')}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -655,15 +692,15 @@ export function PhotoChallengeScreen() {
                 ))}
               </View>
             ) : regularLoading ? (
-              <Text style={styles.muted}>Učitavanje...</Text>
+              <Text style={styles.muted}>{"U\u010ditavanje..."}</Text>
             ) : null}
             {regularError && <Text style={styles.error}>{regularError}</Text>}
-            {regularUsingCache && <Text style={styles.cacheNote}>Prikazujem keširane podatke.</Text>}
+            {regularUsingCache && <Text style={styles.cacheNote}>{"Prikazujem ke\u0161irane podatke."}</Text>}
             {regularCompletedToday ? (
-              <Text style={styles.limitNote}>Danas ste završili regularni izazov.</Text>
+              <Text style={styles.limitNote}>{t('regularCompletedTodayNote')}</Text>
             ) : null}
             {regularChallenges.length === 0 && !regularLoading ? (
-              <Text style={styles.muted}>Nema regularnih izazova.</Text>
+              <Text style={styles.muted}>{t('regularEmptyLabel')}</Text>
             ) : null}
             {regularChallenges.map((challenge) => {
               const Icon = iconMap[challenge.iconKey ?? 'default'] ?? iconMap.default;
@@ -683,7 +720,9 @@ export function PhotoChallengeScreen() {
                     </View>
                     {challenge.status === 'completed' && <CheckCircle2 color={colors.primary} size={20} />}
                   </View>
-                  <Text style={styles.points}>+{challenge.points} poena</Text>
+                  <Text style={styles.points}>
+                    +{challenge.points} {"poena"}
+                  </Text>
                   <TouchableOpacity
                     style={[
                       styles.actionButton,
@@ -695,10 +734,10 @@ export function PhotoChallengeScreen() {
                     <LinearGradient colors={gradients.primary} style={styles.actionInner}>
                       <Text style={styles.actionLabel}>
                         {challenge.status === 'completed'
-                          ? 'Završen'
+                          ? t('regularCompletedLabel')
                           : regularCompletedToday
-                          ? 'Limit za danas'
-                          : 'Završi'}
+                          ? t('regularLimitReachedLabel')
+                          : t('regularCompleteLabel')}
                       </Text>
                     </LinearGradient>
                   </TouchableOpacity>
@@ -721,12 +760,31 @@ export function PhotoChallengeScreen() {
                 ))}
               </View>
             ) : photoLoading ? (
-              <Text style={styles.muted}>Učitavanje...</Text>
+              <Text style={styles.muted}>{"U\u010ditavanje..."}</Text>
             ) : null}
             {photoError && <Text style={styles.error}>{photoError}</Text>}
-            {photoUsingCache && <Text style={styles.cacheNote}>Prikazujem keširane podatke.</Text>}
+            {photoUsingCache && <Text style={styles.cacheNote}>{"Prikazujem ke\u0161irane podatke."}</Text>}
+            <View style={styles.photoPager}>
+              <TouchableOpacity
+                onPress={() => setPhotoPage((prev) => Math.max(1, prev - 1))}
+                disabled={!photoHasPrev || photoLoading}
+                style={[styles.pagerButton, (!photoHasPrev || photoLoading) && styles.pagerButtonDisabled]}
+              >
+                <ChevronLeft size={16} color={colors.text} />
+              </TouchableOpacity>
+              <Text style={styles.pagerLabel}>
+                {t('photoPagerLabel').replace('{page}', String(photoPage))}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setPhotoPage((prev) => prev + 1)}
+                disabled={!photoHasNext || photoLoading}
+                style={[styles.pagerButton, (!photoHasNext || photoLoading) && styles.pagerButtonDisabled]}
+              >
+                <ChevronRight size={16} color={colors.text} />
+              </TouchableOpacity>
+            </View>
             {photoCards.length === 0 && !photoLoading ? (
-              <Text style={styles.muted}>Nema foto izazova.</Text>
+              <Text style={styles.muted}>{t('photoEmptyLabel')}</Text>
             ) : null}
             {photoCards.map((challenge) => {
               let remaining = '';
@@ -734,7 +792,7 @@ export function PhotoChallengeScreen() {
                 const end = new Date(challenge.endAt);
                 const diff = Math.max(0, end.getTime() - Date.now());
                 const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-                remaining = `Preostalo ${days} dana`;
+                remaining = t('photoRemainingLabel').replace('{days}', String(days));
               }
               return (
               <GlowCard key={challenge.id} style={styles.cardShell} contentStyle={styles.card}>
@@ -754,19 +812,27 @@ export function PhotoChallengeScreen() {
                     <Camera color={colors.primary} size={20} />
                   )}
                 </View>
-                <Text style={styles.points}>+{challenge.points} poena</Text>
+                <Text style={styles.points}>
+                  +{challenge.points} {"poena"}
+                </Text>
                 <TouchableOpacity
                   style={[styles.actionButton, challenge.status !== 'available' && styles.actionDisabled]}
-                  onPress={() => setActiveSubmission(challenge)}
+                  onPress={() => {
+                    if (challenge.status !== 'available') return;
+                    void triggerHaptic('selection');
+                    setActiveSubmission(challenge);
+                  }}
                   disabled={challenge.status !== 'available'}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('photoSendForChallengeLabel').replace('{title}', challenge.title)}
                 >
                   <LinearGradient colors={gradients.primary} style={styles.actionInner}>
                     <Text style={styles.actionLabel}>
                       {challenge.status === 'available'
-                        ? 'Pošalji fotografiju'
+                        ? t('photoSendLabel')
                         : challenge.status === 'pending'
-                        ? 'Na čekanju'
-                        : 'Odobreno'}
+                        ? t('photoStatusPendingLabel')
+                        : t('photoStatusApprovedLabel')}
                     </Text>
                   </LinearGradient>
                 </TouchableOpacity>
@@ -846,6 +912,30 @@ const styles = StyleSheet.create({
   },
   tabTextActive: {
     color: colors.softGreen,
+  },
+  photoPager: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  pagerButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(30, 41, 59, 0.7)',
+    borderWidth: 1,
+    borderColor: 'rgba(51, 65, 85, 0.5)',
+  },
+  pagerButtonDisabled: {
+    opacity: 0.4,
+  },
+  pagerLabel: {
+    color: colors.muted,
+    fontWeight: '500',
   },
   section: {
     marginBottom: spacing.lg,

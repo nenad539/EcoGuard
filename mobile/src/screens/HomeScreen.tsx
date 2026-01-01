@@ -13,6 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SkeletonBlock } from '../components/common/Skeleton';
 import { ScreenFade } from '../components/common/ScreenFade';
 import { GlowCard } from '../components/common/GlowCard';
+import { useLanguage } from '../lib/language';
 
 const ACTIVITY_TABLE = 'aktivnosti';
 const CACHE_TTL = 1000 * 60 * 5;
@@ -37,6 +38,7 @@ const hexToRgba = (hex: string, alpha: number) => {
 export function HomeScreen() {
   const realtimeConnected = useRealtimeStatus();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { t } = useLanguage();
   const [userId, setUserId] = useState<string | null>(null);
   const [userName, setUserName] = useState('');
   const [userPoints, setUserPoints] = useState(0);
@@ -48,12 +50,12 @@ export function HomeScreen() {
   const [usingCache, setUsingCache] = useState(false);
 
   const levelLabelFromPoints = (pts: number) => {
-    if (pts >= 5000) return 'Legenda prirode';
-    if (pts >= 2500) return 'Eko heroj';
-    if (pts >= 1000) return 'Eko borac';
-    if (pts >= 500) return 'Aktivan član';
-    if (pts >= 100) return 'Početnik';
-    return 'Rookie';
+    if (pts >= 5000) return "Legenda prirode";
+    if (pts >= 2500) return "Eko heroj";
+    if (pts >= 1000) return "Eko borac";
+    if (pts >= 500) return "Aktivan \u010dlan";
+    if (pts >= 100) return "Po\u010detnik";
+    return "Rookie";
   };
 
   const getCurrentUserId = async () => {
@@ -79,10 +81,13 @@ export function HomeScreen() {
       .from('korisnik_profil')
       .select('dnevna_serija, posljednji_login')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
-    if (error || !data) {
+    if (error) {
       console.error('Streak fetch error:', error);
+      return 0;
+    }
+    if (!data) {
       return 0;
     }
 
@@ -150,21 +155,28 @@ export function HomeScreen() {
       .from('korisnik_profil')
       .select('korisnicko_ime, ukupno_poena, trenutni_bedz')
       .eq('id', uid)
-      .single();
+      .maybeSingle();
 
-    if (error || !data) {
+    if (error) {
       console.error('Profile error', error);
       setLoadingProfile(false);
       return;
     }
+    if (!data) {
+      setUserName(t('defaultUserLabel'));
+      setUserPoints(0);
+      setUserBadge('bronze');
+      setLoadingProfile(false);
+      return;
+    }
 
-    setUserName(data.korisnicko_ime ?? 'Korisnik');
+    setUserName(data.korisnicko_ime ?? t('defaultUserLabel'));
     setUserPoints(data.ukupno_poena ?? 0);
     const profileBadge = (data.trenutni_bedz as 'gold' | 'silver' | 'bronze' | null) ?? 'bronze';
     const nextBadge = await syncBadgeFromLeaderboard(uid, profileBadge);
     setUserBadge(nextBadge);
     setCached(`home-profile:${uid}`, {
-      korisnicko_ime: data.korisnicko_ime ?? 'Korisnik',
+      korisnicko_ime: data.korisnicko_ime ?? t('defaultUserLabel'),
       ukupno_poena: data.ukupno_poena ?? 0,
       trenutni_bedz: nextBadge,
     });
@@ -264,7 +276,8 @@ export function HomeScreen() {
     return () => clearInterval(interval);
   }, [realtimeConnected]);
 
-  const badgeLabel = userBadge === 'gold' ? 'Gold' : userBadge === 'silver' ? 'Silver' : 'Bronze';
+  const badgeLabel =
+    userBadge === 'gold' ? "Gold" : userBadge === 'silver' ? "Silver" : "Bronze";
   const badgeColor = userBadge === 'gold' ? colors.gold : userBadge === 'silver' ? colors.silver : colors.bronze;
 
   return (
@@ -276,7 +289,7 @@ export function HomeScreen() {
           {loadingProfile ? (
             <SkeletonBlock width={180} height={16} />
           ) : (
-            <Text style={styles.welcome}>Dobro došao nazad, {userName}</Text>
+          <Text style={styles.welcome}>{"Dobro do\u0161ao nazad,"} {userName}</Text>
           )}
           {loadingProfile ? (
             <SkeletonBlock width={140} height={12} style={{ marginTop: spacing.xs }} />
@@ -305,12 +318,12 @@ export function HomeScreen() {
           gradient={[hexToRgba(badgeColor, 0.45), 'rgba(15, 23, 42, 0.95)']}
         >
           <Medal color={badgeColor} size={26} />
-          <Text style={styles.statLabel}>Bedž</Text>
+          <Text style={styles.statLabel}>{"Bed\u017e"}</Text>
           {loadingProfile ? <SkeletonBlock width={60} height={14} /> : <Text style={styles.statValue}>{badgeLabel}</Text>}
         </GlowCard>
         <GlowCard style={styles.statCardShell} contentStyle={styles.statCard}>
           <Star color={colors.primary} size={26} />
-          <Text style={styles.statLabel}>Ukupni poeni</Text>
+          <Text style={styles.statLabel}>{"Ukupni poeni"}</Text>
           {loadingProfile ? <SkeletonBlock width={70} height={14} /> : <Text style={styles.statValue}>{userPoints}</Text>}
         </GlowCard>
       </View>
@@ -319,8 +332,10 @@ export function HomeScreen() {
         <View style={styles.streakRow}>
           <Flame color={colors.primary} size={24} />
           <View>
-            <Text style={styles.statLabel}>Dnevna serija</Text>
-            <Text style={styles.streakValue}>{userStreak} dana</Text>
+            <Text style={styles.statLabel}>{"Dnevna serija"}</Text>
+            <Text style={styles.streakValue}>
+              {userStreak} {"dana"}
+            </Text>
           </View>
         </View>
       </GlowCard>
@@ -328,13 +343,13 @@ export function HomeScreen() {
       <TouchableOpacity onPress={() => navigation.navigate('Challenges')}>
         <LinearGradient colors={gradients.primary} style={styles.cta}>
           <Star color={colors.text} size={18} />
-          <Text style={styles.ctaText}>Dnevni Izazovi</Text>
+          <Text style={styles.ctaText}>{"Dnevni Izazovi"}</Text>
         </LinearGradient>
       </TouchableOpacity>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Nedavne aktivnosti</Text>
-        {usingCache && <Text style={styles.cacheNote}>Prikazujem keširane podatke.</Text>}
+        <Text style={styles.sectionTitle}>{"Nedavne aktivnosti"}</Text>
+        {usingCache && <Text style={styles.cacheNote}>{"Prikazujem ke\u0161irane podatke."}</Text>}
         {loadingActivities && activities.length === 0 ? (
           <View style={styles.skeletonGroup}>
             {Array.from({ length: 3 }).map((_, index) => (
@@ -348,20 +363,20 @@ export function HomeScreen() {
             ))}
           </View>
         ) : activities.length === 0 ? (
-          <Text style={styles.empty}>Još nema aktivnosti.</Text>
+          <Text style={styles.empty}>{"Jo\u0161 nema aktivnosti."}</Text>
         ) : (
           activities.map((activity) => (
             <GlowCard key={activity.id} style={styles.activityShell} contentStyle={styles.activityItem}>
               <View style={styles.activityContent}>
                 <Text style={styles.activityTitle}>{activity.opis}</Text>
                 <Text style={styles.activityTime}>
-                  {activity.kreirano_u ? new Date(activity.kreirano_u).toLocaleString() : 'Nedavno'}
+                  {activity.kreirano_u ? new Date(activity.kreirano_u).toLocaleString() : "Nedavno"}
                 </Text>
               </View>
               <View style={styles.activityPointsWrap}>
                 <Text style={styles.activityPoints}>
                   {activity.status === 'pending'
-                    ? 'Na čekanju'
+                    ? t('statusPendingLabel')
                     : activity.poena_dodato != null
                     ? `+${activity.poena_dodato}`
                     : '+0'}
@@ -373,18 +388,18 @@ export function HomeScreen() {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Brze akcije</Text>
+        <Text style={styles.sectionTitle}>{"Brze akcije"}</Text>
         <View style={styles.quickRow}>
           <TouchableOpacity onPress={() => navigation.navigate('EcoTips')} style={styles.quickShell}>
             <GlowCard contentStyle={styles.quickAction}>
-              <Text style={styles.quickTitle}>Eko savjeti</Text>
-              <Text style={styles.quickSubtitle}>Saznaj više</Text>
+              <Text style={styles.quickTitle}>{"Eko savjeti"}</Text>
+              <Text style={styles.quickSubtitle}>{"Saznaj vi\u0161e"}</Text>
             </GlowCard>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => navigation.navigate('Community')} style={styles.quickShell}>
             <GlowCard contentStyle={styles.quickAction}>
-              <Text style={styles.quickTitle}>Zajednica</Text>
-              <Text style={styles.quickSubtitle}>Rang lista</Text>
+              <Text style={styles.quickTitle}>{"Zajednica"}</Text>
+              <Text style={styles.quickSubtitle}>{"Rang lista"}</Text>
             </GlowCard>
           </TouchableOpacity>
         </View>

@@ -12,9 +12,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { showError, showSuccess } from '../lib/toast';
 import { ScreenFade } from '../components/common/ScreenFade';
 import { BackButton } from '../components/common/BackButton';
+import { trackEvent } from '../lib/analytics';
+import { triggerHaptic } from '../lib/haptics';
+import { useLanguage } from '../lib/language';
 
 export function RegisterScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { t } = useLanguage();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -25,16 +29,21 @@ export function RegisterScreen() {
   const [loading, setLoading] = useState(false);
 
   const handleRegister = async () => {
+    void triggerHaptic('selection');
+    trackEvent('register_attempt');
     if (!email || !password) {
-      showError('Greška', 'Popunite email i lozinku');
+      showError("Gre\u0161ka", "Popunite email i lozinku");
+      trackEvent('register_error', { reason: 'missing_fields' });
       return;
     }
     if (password !== confirmPassword) {
-      showError('Greška', 'Lozinke se ne poklapaju');
+      showError("Gre\u0161ka", "Lozinke se ne poklapaju");
+      trackEvent('register_error', { reason: 'password_mismatch' });
       return;
     }
     if (!termsAccepted) {
-      showError('Greška', 'Morate prihvatiti uslove korišćenja');
+      showError("Gre\u0161ka", "Morate prihvatiti uslove kori\u0161\u0107enja");
+      trackEvent('register_error', { reason: 'terms_not_accepted' });
       return;
     }
 
@@ -48,7 +57,8 @@ export function RegisterScreen() {
 
     if (error) {
       setLoading(false);
-      showError('Greška', error.message);
+      showError("Gre\u0161ka", error.message);
+      trackEvent('register_error', { status: error.status ?? null });
       return;
     }
 
@@ -58,7 +68,9 @@ export function RegisterScreen() {
     }
 
     setLoading(false);
-    showSuccess('Uspešno', 'Proverite email za potvrdu naloga.');
+    showSuccess("Uspjeh", "Proverite email za potvrdu naloga.");
+    void triggerHaptic('success');
+    trackEvent('register_success');
     navigation.replace('Login');
   };
 
@@ -74,21 +86,21 @@ export function RegisterScreen() {
               <Shield size={38} color={colors.primary} strokeWidth={1.5} />
               <Leaf size={18} color={colors.primaryDark} style={styles.logoLeaf} />
             </View>
-            <Text style={styles.logoText}>GrowWithUs</Text>
+            <Text style={styles.logoText}>{"GrowWithUs"}</Text>
           </View>
         </View>
 
         <BlurView intensity={30} tint="dark" style={styles.form}>
-          <Text style={styles.formTitle}>Kreiraj nalog</Text>
+          <Text style={styles.formTitle}>{"Kreiraj nalog"}</Text>
 
           <View style={styles.field}>
-            <Text style={styles.label}>Ime</Text>
+            <Text style={styles.label}>{"Ime"}</Text>
             <View style={styles.inputWrapper}>
               <User color={colors.muted} size={18} style={styles.inputIcon} />
               <TextInput
                 value={name}
                 onChangeText={setName}
-                placeholder="Vaše ime"
+                placeholder={"Va\u0161e ime"}
                 placeholderTextColor={colors.muted}
                 style={styles.input}
               />
@@ -96,13 +108,13 @@ export function RegisterScreen() {
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>Email</Text>
+            <Text style={styles.label}>{"Email"}</Text>
             <View style={styles.inputWrapper}>
               <Mail color={colors.muted} size={18} style={styles.inputIcon} />
               <TextInput
                 value={email}
                 onChangeText={setEmail}
-                placeholder="youremail@example.com"
+                placeholder={"youremail@example.com"}
                 placeholderTextColor={colors.muted}
                 keyboardType="email-address"
                 autoCapitalize="none"
@@ -112,7 +124,7 @@ export function RegisterScreen() {
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>Lozinka</Text>
+            <Text style={styles.label}>{"Lozinka"}</Text>
             <View style={styles.inputWrapper}>
               <Lock color={colors.muted} size={18} style={styles.inputIcon} />
               <TextInput
@@ -124,8 +136,13 @@ export function RegisterScreen() {
                 style={styles.input}
               />
               <TouchableOpacity
-                onPress={() => setShowPassword((prev) => !prev)}
+                onPress={() => {
+                  void triggerHaptic('selection');
+                  setShowPassword((prev) => !prev);
+                }}
                 style={styles.toggleButton}
+                accessibilityRole="button"
+                accessibilityLabel={showPassword ? "Sakrij lozinku" : "Prika\u017ei lozinku"}
               >
                 {showPassword ? (
                   <EyeOff color={colors.muted} size={18} />
@@ -137,7 +154,7 @@ export function RegisterScreen() {
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>Potvrda lozinke</Text>
+            <Text style={styles.label}>{"Potvrda lozinke"}</Text>
             <View style={styles.inputWrapper}>
               <Lock color={colors.muted} size={18} style={styles.inputIcon} />
               <TextInput
@@ -149,8 +166,15 @@ export function RegisterScreen() {
                 style={styles.input}
               />
               <TouchableOpacity
-                onPress={() => setShowConfirmPassword((prev) => !prev)}
+                onPress={() => {
+                  void triggerHaptic('selection');
+                  setShowConfirmPassword((prev) => !prev);
+                }}
                 style={styles.toggleButton}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  showConfirmPassword ? "Sakrij potvrdu lozinke" : "Prika\u017ei potvrdu lozinke"
+                }
               >
                 {showConfirmPassword ? (
                   <EyeOff color={colors.muted} size={18} />
@@ -162,18 +186,38 @@ export function RegisterScreen() {
           </View>
 
           <View style={styles.termsRow}>
-            <Switch value={termsAccepted} onValueChange={setTermsAccepted} />
-            <Text style={styles.termsText}>Prihvatam uslove korišćenja</Text>
+            <Switch
+              value={termsAccepted}
+              onValueChange={setTermsAccepted}
+              accessibilityLabel={"Prihvatam uslove kori\u0161\u0107enja"}
+            />
+            <Text style={styles.termsText}>{"Prihvatam uslove kori\u0161\u0107enja"}</Text>
           </View>
 
-          <TouchableOpacity disabled={loading} onPress={handleRegister} style={styles.submitWrap}>
+          <TouchableOpacity
+            disabled={loading}
+            onPress={handleRegister}
+            style={styles.submitWrap}
+            accessibilityRole="button"
+            accessibilityLabel={"Registruj se"}
+            accessibilityState={{ disabled: loading }}
+          >
             <LinearGradient colors={gradients.primary} style={styles.submitButton}>
-              <Text style={styles.submitText}>{loading ? 'Učitavanje...' : 'Registruj se'}</Text>
+              <Text style={styles.submitText}>
+                {loading ? "U\u010ditavanje..." : "Registruj se"}
+              </Text>
             </LinearGradient>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-            <Text style={styles.linkMuted}>Već imate nalog? Prijavite se</Text>
+          <TouchableOpacity
+            onPress={() => {
+              void triggerHaptic('selection');
+              navigation.navigate('Login');
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={"Prijavi se"}
+          >
+            <Text style={styles.linkMuted}>{"Ve\u0107 imate nalog? Prijavite se"}</Text>
           </TouchableOpacity>
         </BlurView>
         </View>

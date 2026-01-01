@@ -3,8 +3,10 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Leaf, Shield } from 'lucide-react-native';
 import { colors, spacing } from '../styles/common';
 import { GradientBackground } from '../components/common/GradientBackground';
+import { useLanguage } from '../lib/language';
 
 export function SplashScreen() {
+  const { t } = useLanguage();
   return (
     <GradientBackground>
       <View style={styles.container}>
@@ -12,8 +14,8 @@ export function SplashScreen() {
           <Shield size={56} color={colors.primary} />
           <Leaf size={28} color={colors.primaryDark} style={styles.leaf} />
         </View>
-        <Text style={styles.brand}>GrowWithUs</Text>
-        <Text style={styles.subtitle}>Čuvaj prirodu.</Text>
+        <Text style={styles.brand}>{"GrowWithUs"}</Text>
+        <Text style={styles.subtitle}>{"\u010cuvaj prirodu."}</Text>
       </View>
     </GradientBackground>
   );

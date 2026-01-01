@@ -10,6 +10,7 @@ import { GlowCard } from '../components/common/GlowCard';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
+import { useLanguage } from '../lib/language';
 
 type EcoTip = {
   id: number;
@@ -22,110 +23,117 @@ type EcoTip = {
   impact: string;
 };
 
-const tips: EcoTip[] = [
-  {
-    id: 1,
-    title: 'Isključi svjetla kad izlaziš',
-    description: 'Isključivanje svjetala može uštedjeti do 15% energije',
-    details:
-      'Isključivanje nepotrebnih svjetala je jedan od najjednostavnijih načina za uštedu energije. Kada napuštaš sobu, uvijek provjeri da li su sva svjetla isključena. Razmotri i korištenje LED sijalica koje troše 75% manje energije od klasičnih žarulja.',
-    category: 'energy',
-    icon: Zap,
-    image:
-      'https://images.unsplash.com/photo-1737372805905-be0b91ec86fb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxlY28lMjB0aXBzJTIwc3VzdGFpbmFibGV8ZW58MXx8fHwxNzYwOTAyMzA4fDA&ixlib=rb-4.1.0&q=80&w=1080',
-    impact: 'Ušteda do 15% na mjesečnom računu',
-  },
-  {
-    id: 2,
-    title: 'Koristi višekratne kese',
-    description: 'Zamijeni plastične kese trajnim alternativama',
-    details:
-      'Plastične kese zagađuju naše okeane i tlo. Jedna pamučna torba može zamijeniti preko 700 plastičnih kesa tokom svog životnog vijeka. Uvijek nosi sa sobom višekratne kese kada ideš u kupovinu.',
-    category: 'recycling',
-    icon: Recycle,
-    image:
-      'https://images.unsplash.com/photo-1654718421032-8aee5603b51f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyZWN5Y2xpbmclMjBib3R0bGVzJTIwZWNvfGVufDF8fHx8MTc2MDg3OTYwNHww&ixlib=rb-4.1.0&q=80&w=1080',
-    impact: 'Smanjenje plastičnog otpada za 90%',
-  },
-  {
-    id: 3,
-    title: 'Šetaj umjesto vožnje',
-    description: 'Pješačenje smanjuje CO₂ emisije',
-    details:
-      'Za kratke udaljenosti, umjesto korištenja automobila, probaj pješačiti ili voziti bicikl. To ne samo da smanjuje ugljični otisak, već je i odlično za tvoje zdravlje. Samo 30 minuta pješačenja dnevno može značajno poboljšati tvoje opšte blagostanje.',
-    category: 'transport',
-    icon: Wind,
-    image:
-      'https://images.unsplash.com/photo-1656370465119-cb8d6735bda3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb21tdW5pdHklMjBwZW9wbGUlMjB0b2dldGhlcnxlbnwxfHx8fDE3NjA4NjEwNDd8MA&ixlib=rb-4.1.0&q=80&w=1080',
-    impact: 'Smanjenje CO₂ do 2kg dnevno',
-  },
-  {
-    id: 4,
-    title: 'Zatvaraj vodu dok peru zube',
-    description: 'Uštedi do 8 litara vode dnevno',
-    details:
-      'Zatvaranje slavine dok peru zube može uštedjeti do 8 litara vode po pranju. Tokom cijele godine, to je preko 2,900 litara uštedene vode po osobi. Primijeni ovu jednostavnu naviku i pomozi u očuvanju ove vrijedne prirodne resurse.',
-    category: 'water',
-    icon: Droplet,
-    image:
-      'https://images.unsplash.com/photo-1580933907066-9a0a6fe5fc13?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxncmVlbiUyMGhvdXNlJTIwdHJlZXN8ZW58MXx8fHwxNzYwOTAyMzA4fDA&ixlib=rb-4.1.0&q=80&w=1080',
-    impact: 'Ušteda preko 2,900L godišnje',
-  },
-  {
-    id: 5,
-    title: 'Izoliraj prozore i vrata',
-    description: 'Smanji gubitak toplote i štedi energiju',
-    details:
-      'Ispravan izolacija prozora i vrata može smanjiti gubitak toplote za do 30%. Koristi gumene brtve i zatvori sve pukotine kako bi tvoj dom bio energetski efikasniji. Ovo će ti pomoći da smanjiš troškove grijanja zimi i hlađenja ljeti.',
-    category: 'home',
-    icon: Home,
-    image:
-      'https://images.unsplash.com/photo-1580933907066-9a0a6fe5fc13?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHxncmVlbiUyMGhvdXNlJTIwdHJlZXN8ZW58MXx8fHwxNzYwOTAyMzA4fDA&ixlib=rb-4.1.0&q=80&w=1080',
-    impact: 'Smanjenje potrošnje energije za 30%',
-  },
-  {
-    id: 6,
-    title: 'Recikliraj elektronski otpad',
-    description: 'Pravilno odlaži stare uređaje',
-    details:
-      'Elektronski otpad sadrži opasne materijale koji mogu zagaditi zemlju i vodu. Uvijek odnosi stare telefone, računare i druge uređaje u ovlaštene centre za reciklažu. Mnogi djelovi mogu biti reciklirani i korišteni u novim proizvodima.',
-    category: 'recycling',
-    icon: Recycle,
-    image:
-      'https://images.unsplash.com/photo-1654718421032-8aee5603b51f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHxyZWN5Y2xpbmclMjBib3R0bGVzJTIwZWNvfGVufDF8fHx8MTc2MDg3OTYwNHww&ixlib=rb-4.1.0&q=80&w=1080',
-    impact: 'Sprječavanje zagađenja zemljišta',
-  },
-];
-
-const categories = [
-  { id: 'all', label: 'Sve', icon: Lightbulb },
-  { id: 'energy', label: 'Energija', icon: Zap },
-  { id: 'water', label: 'Voda', icon: Droplet },
-  { id: 'recycling', label: 'Reciklaža', icon: Recycle },
-  { id: 'transport', label: 'Transport', icon: Wind },
-  { id: 'home', label: 'Dom', icon: Home },
-];
-
 export function EcoTipsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { t } = useLanguage();
   const [selectedTip, setSelectedTip] = useState<EcoTip | null>(null);
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const tips = useMemo<EcoTip[]>(
+    () => [
+      {
+        id: 1,
+        title: t('ecoTip1Title'),
+        description: t('ecoTip1Description'),
+        details: t('ecoTip1Details'),
+        category: 'energy',
+        icon: Zap,
+        image:
+          'https://images.unsplash.com/photo-1737372805905-be0b91ec86fb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxlY28lMjB0aXBzJTIwc3VzdGFpbmFibGV8ZW58MXx8fHwxNzYwOTAyMzA4fDA&ixlib=rb-4.1.0&q=80&w=1080',
+        impact: t('ecoTip1Impact'),
+      },
+      {
+        id: 2,
+        title: t('ecoTip2Title'),
+        description: t('ecoTip2Description'),
+        details: t('ecoTip2Details'),
+        category: 'recycling',
+        icon: Recycle,
+        image:
+          'https://images.unsplash.com/photo-1654718421032-8aee5603b51f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHxyZWN5Y2xpbmclMjBib3R0bGVzJTIwZWNvfGVufDF8fHx8MTc2MDg3OTYwNHww&ixlib=rb-4.1.0&q=80&w=1080',
+        impact: t('ecoTip2Impact'),
+      },
+      {
+        id: 3,
+        title: t('ecoTip3Title'),
+        description: t('ecoTip3Description'),
+        details: t('ecoTip3Details'),
+        category: 'transport',
+        icon: Wind,
+        image:
+          'https://images.unsplash.com/photo-1656370465119-cb8d6735bda3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHxjb21tdW5pdHklMjBwZW9wbGUlMjB0b2dldGhlcnxlbnwxfHx8fDE3NjA4NjEwNDd8MA&ixlib=rb-4.1.0&q=80&w=1080',
+        impact: t('ecoTip3Impact'),
+      },
+      {
+        id: 4,
+        title: t('ecoTip4Title'),
+        description: t('ecoTip4Description'),
+        details: t('ecoTip4Details'),
+        category: 'water',
+        icon: Droplet,
+        image:
+          'https://images.unsplash.com/photo-1580933907066-9a0a6fe5fc13?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHxncmVlbiUyMGhvdXNlJTIwdHJlZXN8ZW58MXx8fHwxNzYwOTAyMzA4fDA&ixlib=rb-4.1.0&q=80&w=1080',
+        impact: t('ecoTip4Impact'),
+      },
+      {
+        id: 5,
+        title: t('ecoTip5Title'),
+        description: t('ecoTip5Description'),
+        details: t('ecoTip5Details'),
+        category: 'home',
+        icon: Home,
+        image:
+          'https://images.unsplash.com/photo-1580933907066-9a0a6fe5fc13?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHxncmVlbiUyMGhvdXNlJTIwdHJlZXN8ZW58MXx8fHwxNzYwOTAyMzA4fDA&ixlib=rb-4.1.0&q=80&w=1080',
+        impact: t('ecoTip5Impact'),
+      },
+      {
+        id: 6,
+        title: t('ecoTip6Title'),
+        description: t('ecoTip6Description'),
+        details: t('ecoTip6Details'),
+        category: 'recycling',
+        icon: Recycle,
+        image:
+          'https://images.unsplash.com/photo-1654718421032-8aee5603b51f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHxyZWN5Y2xpbmclMjBib3R0bGVzJTIwZWNvfGVufDF8fHx8MTc2MDg3OTYwNHww&ixlib=rb-4.1.0&q=80&w=1080',
+        impact: t('ecoTip6Impact'),
+      },
+    ],
+    [t]
+  );
+  const categories = useMemo(
+    () => [
+      { id: 'all', label: t('ecoCategoryAll'), icon: Lightbulb },
+      { id: 'energy', label: t('ecoCategoryEnergy'), icon: Zap },
+      { id: 'water', label: t('ecoCategoryWater'), icon: Droplet },
+      { id: 'recycling', label: t('ecoCategoryRecycling'), icon: Recycle },
+      { id: 'transport', label: t('ecoCategoryTransport'), icon: Wind },
+      { id: 'home', label: t('ecoCategoryHome'), icon: Home },
+    ],
+    [t]
+  );
+  const categoryLabelMap = useMemo(
+    () =>
+      categories.reduce<Record<string, string>>((acc, category) => {
+        acc[category.id] = category.label;
+        return acc;
+      }, {}),
+    [categories]
+  );
 
   const filteredTips = useMemo(() => {
     return selectedCategory === 'all'
       ? tips
       : tips.filter((tip) => tip.category === selectedCategory);
-  }, [selectedCategory]);
+  }, [selectedCategory, tips]);
 
   return (
     <GradientBackground>
       <ScreenFade>
         <ScrollView contentContainerStyle={styles.content}>
-        <BackButton onPress={() => navigation.goBack()} />
-        <View style={styles.header}>
-          <Text style={styles.title}>Eko savjeti</Text>
-          <Text style={styles.subtitle}>Pametne navike za čistiju planetu</Text>
-        </View>
+          <BackButton onPress={() => navigation.goBack()} />
+          <View style={styles.header}>
+            <Text style={styles.title}>{t('ecoTipsTitle')}</Text>
+            <Text style={styles.subtitle}>{t('ecoTipsSubtitle')}</Text>
+          </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryRow}>
           {categories.map((category) => (
@@ -166,27 +174,29 @@ export function EcoTipsScreen() {
           ))}
         </View>
 
-        <Modal visible={Boolean(selectedTip)} animationType="slide" transparent>
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalCard}>
-              <TouchableOpacity style={styles.modalClose} onPress={() => setSelectedTip(null)}>
-                <X size={18} color={colors.muted} />
-              </TouchableOpacity>
-              {selectedTip ? (
-                <ScrollView>
-                  <Image source={{ uri: selectedTip.image }} style={styles.modalImage} />
-                  <Text style={styles.modalTitle}>{selectedTip.title}</Text>
-                  <Text style={styles.modalCategory}>{selectedTip.category.toUpperCase()}</Text>
-                  <Text style={styles.modalDescription}>{selectedTip.description}</Text>
-                  <Text style={styles.modalDetails}>{selectedTip.details}</Text>
-                  <View style={styles.modalImpact}>
-                    <Text style={styles.modalImpactText}>{selectedTip.impact}</Text>
-                  </View>
-                </ScrollView>
-              ) : null}
+          <Modal visible={Boolean(selectedTip)} animationType="slide" transparent>
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalCard}>
+                <TouchableOpacity style={styles.modalClose} onPress={() => setSelectedTip(null)}>
+                  <X size={18} color={colors.muted} />
+                </TouchableOpacity>
+                {selectedTip ? (
+                  <ScrollView>
+                    <Image source={{ uri: selectedTip.image }} style={styles.modalImage} />
+                    <Text style={styles.modalTitle}>{selectedTip.title}</Text>
+                    <Text style={styles.modalCategory}>
+                      {categoryLabelMap[selectedTip.category] ?? selectedTip.category.toUpperCase()}
+                    </Text>
+                    <Text style={styles.modalDescription}>{selectedTip.description}</Text>
+                    <Text style={styles.modalDetails}>{selectedTip.details}</Text>
+                    <View style={styles.modalImpact}>
+                      <Text style={styles.modalImpactText}>{selectedTip.impact}</Text>
+                    </View>
+                  </ScrollView>
+                ) : null}
+              </View>
             </View>
-          </View>
-        </Modal>
+          </Modal>
         </ScrollView>
       </ScreenFade>
     </GradientBackground>

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, Text, StyleSheet, View, TouchableOpacity } from 'react-native';
-import { TrendingUp, Award, Target, Recycle, Droplet, Battery, Flame } from 'lucide-react-native';
+import { TrendingUp, Award, Target, Flame, Camera, Users } from 'lucide-react-native';
 import { supabase } from '../lib/supabase';
 import { getCached, setCached } from '../lib/cache';
 import { useRealtimeStatus } from '../lib/realtime';
@@ -10,24 +10,49 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SkeletonBlock } from '../components/common/Skeleton';
 import { ScreenFade } from '../components/common/ScreenFade';
 import { GlowCard } from '../components/common/GlowCard';
+import { trackEvent } from '../lib/analytics';
+import { triggerHaptic } from '../lib/haptics';
+import { useLanguage } from '../lib/language';
 
 const CACHE_TTL = 1000 * 60 * 5;
+const ACTIVITY_TABLE = 'aktivnosti';
+const COMPLETION_STATUSES = new Set(['completed', 'approved']);
+
+type TimeFilter = 'day' | 'week' | 'month';
+
+type ActivityRow = {
+  poena_dodato: number | null;
+  kategorija: string | null;
+  status: string | null;
+  kreirano_u: string | null;
+};
+
+type TypeTotals = Record<string, { count: number; points: number }>;
 
 export function StatisticsScreen() {
   const realtimeConnected = useRealtimeStatus();
-  const [timeFilter, setTimeFilter] = useState<'day' | 'week' | 'month'>('week');
-  const [loading, setLoading] = useState(false);
+  const { t } = useLanguage();
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>('week');
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [activityLoading, setActivityLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [usingCache, setUsingCache] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
 
-  const [recikliranoStvari, setRecikliranoStvari] = useState<number | null>(null);
-  const [ustedjenaEnergija, setUstedjenaEnergija] = useState<number | null>(null);
-  const [smanjenCo2, setSmanjenCo2] = useState<number | null>(null);
   const [izazovaZavrseno, setIzazovaZavrseno] = useState<number | null>(null);
   const [dnevnaSerija, setDnevnaSerija] = useState<number | null>(null);
   const [ukupnoPoena, setUkupnoPoena] = useState<number | null>(null);
   const [rank, setRank] = useState<number | null>(null);
+  const [periodPoints, setPeriodPoints] = useState(0);
+  const [periodCompletions, setPeriodCompletions] = useState(0);
+  const [pointsSeries, setPointsSeries] = useState<number[]>([]);
+  const [pointsLabels, setPointsLabels] = useState<string[]>([]);
+  const [completionSeries, setCompletionSeries] = useState<number[]>([]);
+  const [completionLabels, setCompletionLabels] = useState<string[]>([]);
+  const [typeTotals, setTypeTotals] = useState<TypeTotals>({});
+
+  const timeFilterLabel =
+    timeFilter === 'day' ? t('statsFilterDay') : timeFilter === 'week' ? t('statsFilterWeek') : t('statsFilterMonth');
 
   const getUserId = async (): Promise<string | undefined> => {
     if (userId) return userId;
@@ -43,26 +68,90 @@ export function StatisticsScreen() {
     return fallbackId;
   };
 
-  const refreshStats = async () => {
+  const buildBuckets = (filter: TimeFilter) => {
+    const now = new Date();
+    const buckets: { label: string; start: Date; end: Date }[] = [];
+
+    if (filter === 'day') {
+      const end = new Date(now);
+      end.setMinutes(0, 0, 0);
+      const start = new Date(end.getTime() - 24 * 60 * 60 * 1000);
+      for (let i = 0; i < 6; i += 1) {
+        const bucketStart = new Date(start.getTime() + i * 4 * 60 * 60 * 1000);
+        const bucketEnd = new Date(bucketStart.getTime() + 4 * 60 * 60 * 1000);
+        const label = `${String(bucketStart.getHours()).padStart(2, '0')}h`;
+        buckets.push({
+          label,
+          start: bucketStart,
+          end: i === 5 ? now : bucketEnd,
+        });
+      }
+      return buckets;
+    }
+
+    if (filter === 'week') {
+      const start = new Date(now);
+      start.setHours(0, 0, 0, 0);
+      start.setDate(start.getDate() - 6);
+      const dayLabels = [
+        t('daySunShort'),
+        t('dayMonShort'),
+        t('dayTueShort'),
+        t('dayWedShort'),
+        t('dayThuShort'),
+        t('dayFriShort'),
+        t('daySatShort'),
+      ];
+      for (let i = 0; i < 7; i += 1) {
+        const bucketStart = new Date(start.getTime() + i * 24 * 60 * 60 * 1000);
+        const bucketEnd = new Date(bucketStart.getTime() + 24 * 60 * 60 * 1000);
+        buckets.push({
+          label: dayLabels[bucketStart.getDay()],
+          start: bucketStart,
+          end: i === 6 ? now : bucketEnd,
+        });
+      }
+      return buckets;
+    }
+
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() - 27);
+    for (let i = 0; i < 4; i += 1) {
+      const bucketStart = new Date(start.getTime() + i * 7 * 24 * 60 * 60 * 1000);
+      const bucketEnd = new Date(bucketStart.getTime() + 7 * 24 * 60 * 60 * 1000);
+      buckets.push({
+        label: t('weekLabel').replace('{week}', String(i + 1)),
+        start: bucketStart,
+        end: i === 3 ? now : bucketEnd,
+      });
+    }
+    return buckets;
+  };
+
+  const refreshSummary = async () => {
     const userId = await getUserId();
     if (!userId) return;
 
     const { data: profile, error: profileError } = await supabase
       .from('korisnik_profil')
-      .select(
-        'reciklirano_stvari, ustedjena_energija, smanjen_co2, izazova_zavrseno, dnevna_serija, ukupno_poena'
-      )
+      .select('izazova_zavrseno, dnevna_serija, ukupno_poena')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
     if (profileError) {
       setError(profileError.message);
       return;
     }
+    if (!profile) {
+      setIzazovaZavrseno(0);
+      setDnevnaSerija(0);
+      setUkupnoPoena(0);
+      setRank(null);
+      setUsingCache(false);
+      return;
+    }
 
-    setRecikliranoStvari(profile?.reciklirano_stvari ?? null);
-    setUstedjenaEnergija(profile?.ustedjena_energija ?? null);
-    setSmanjenCo2(profile?.smanjen_co2 ?? null);
     setIzazovaZavrseno(profile?.izazova_zavrseno ?? null);
     setDnevnaSerija(profile?.dnevna_serija ?? null);
     setUkupnoPoena(profile?.ukupno_poena ?? null);
@@ -76,10 +165,7 @@ export function StatisticsScreen() {
     const idx = leaderboard?.findIndex((row) => row.id === userId);
     if (idx != null && idx >= 0) setRank(idx + 1);
 
-    setCached(`stats:${userId}`, {
-      reciklirano_stvari: profile?.reciklirano_stvari ?? null,
-      ustedjena_energija: profile?.ustedjena_energija ?? null,
-      smanjen_co2: profile?.smanjen_co2 ?? null,
+    setCached(`stats-summary:${userId}`, {
       izazova_zavrseno: profile?.izazova_zavrseno ?? null,
       dnevna_serija: profile?.dnevna_serija ?? null,
       ukupno_poena: profile?.ukupno_poena ?? null,
@@ -88,41 +174,136 @@ export function StatisticsScreen() {
     setUsingCache(false);
   };
 
+  const refreshActivityStats = async () => {
+    const userId = await getUserId();
+    if (!userId) return;
+
+    const buckets = buildBuckets(timeFilter);
+    const startIso = buckets[0]?.start.toISOString();
+    if (!startIso) return;
+
+    const { data: rows, error: activityError } = await supabase
+      .from(ACTIVITY_TABLE)
+      .select('poena_dodato, kategorija, status, kreirano_u')
+      .eq('korisnik_id', userId)
+      .gte('kreirano_u', startIso)
+      .order('kreirano_u', { ascending: true });
+
+    if (activityError) {
+      setError(activityError.message);
+      return;
+    }
+
+    const pointsByBucket = Array.from({ length: buckets.length }, () => 0);
+    const completionsByBucket = Array.from({ length: buckets.length }, () => 0);
+    let totalPoints = 0;
+    let totalCompletions = 0;
+    const totals: TypeTotals = {
+      regular: { count: 0, points: 0 },
+      photo: { count: 0, points: 0 },
+      group: { count: 0, points: 0 },
+    };
+
+    (rows ?? []).forEach((row) => {
+      const activity = row as ActivityRow;
+      if (!activity.kreirano_u) return;
+      const activityDate = new Date(activity.kreirano_u);
+      const points = activity.poena_dodato ?? 0;
+      const isCompletion = COMPLETION_STATUSES.has(activity.status ?? '');
+      const bucketIndex = buckets.findIndex(
+        (bucket) => activityDate >= bucket.start && activityDate < bucket.end
+      );
+
+      if (bucketIndex >= 0) {
+        pointsByBucket[bucketIndex] += points;
+        if (isCompletion) completionsByBucket[bucketIndex] += 1;
+      }
+
+      totalPoints += points;
+      if (isCompletion) {
+        totalCompletions += 1;
+        const category = activity.kategorija ?? 'other';
+        if (!totals[category]) totals[category] = { count: 0, points: 0 };
+        totals[category].count += 1;
+        totals[category].points += points;
+      }
+    });
+
+    setPeriodPoints(totalPoints);
+    setPeriodCompletions(totalCompletions);
+    setPointsSeries(pointsByBucket);
+    setPointsLabels(buckets.map((bucket) => bucket.label));
+    setCompletionSeries(completionsByBucket);
+    setCompletionLabels(buckets.map((bucket) => bucket.label));
+    setTypeTotals(totals);
+
+    setCached(`stats-activity:${userId}:${timeFilter}`, {
+      periodPoints: totalPoints,
+      periodCompletions: totalCompletions,
+      pointsSeries: pointsByBucket,
+      pointsLabels: buckets.map((bucket) => bucket.label),
+      completionSeries: completionsByBucket,
+      completionLabels: buckets.map((bucket) => bucket.label),
+      typeTotals: totals,
+    });
+    setUsingCache(false);
+  };
+
   useEffect(() => {
     let mounted = true;
     const loadStats = async () => {
-      setLoading(true);
+      setSummaryLoading(true);
+      setActivityLoading(true);
       setError(null);
       try {
         const uid = await getUserId();
         if (uid) {
           const cached = await getCached<{
-            reciklirano_stvari: number | null;
-            ustedjena_energija: number | null;
-            smanjen_co2: number | null;
             izazova_zavrseno: number | null;
             dnevna_serija: number | null;
             ukupno_poena: number | null;
             rank: number | null;
-          }>(`stats:${uid}`, CACHE_TTL);
+          }>(`stats-summary:${uid}`, CACHE_TTL);
           if (cached?.value) {
-            setRecikliranoStvari(cached.value.reciklirano_stvari);
-            setUstedjenaEnergija(cached.value.ustedjena_energija);
-            setSmanjenCo2(cached.value.smanjen_co2);
             setIzazovaZavrseno(cached.value.izazova_zavrseno);
             setDnevnaSerija(cached.value.dnevna_serija);
             setUkupnoPoena(cached.value.ukupno_poena);
             setRank(cached.value.rank);
             setUsingCache(cached.isStale);
-            setLoading(false);
+            setSummaryLoading(false);
+          }
+
+          const cachedActivity = await getCached<{
+            periodPoints: number;
+            periodCompletions: number;
+            pointsSeries: number[];
+            pointsLabels: string[];
+            completionSeries: number[];
+            completionLabels: string[];
+            typeTotals: TypeTotals;
+          }>(`stats-activity:${uid}:${timeFilter}`, CACHE_TTL);
+          if (cachedActivity?.value) {
+            setPeriodPoints(cachedActivity.value.periodPoints);
+            setPeriodCompletions(cachedActivity.value.periodCompletions);
+            setPointsSeries(cachedActivity.value.pointsSeries);
+            setPointsLabels(cachedActivity.value.pointsLabels);
+            setCompletionSeries(cachedActivity.value.completionSeries);
+            setCompletionLabels(cachedActivity.value.completionLabels);
+            setTypeTotals(cachedActivity.value.typeTotals);
+            setUsingCache(cachedActivity.isStale);
+            setActivityLoading(false);
           }
         }
-        await refreshStats();
-      } catch (err) {
-        console.error(err);
-        setError('Greška prilikom učitavanja statistike.');
-      } finally {
-        if (mounted) setLoading(false);
+        await refreshSummary();
+        await refreshActivityStats();
+    } catch (err) {
+      console.error(err);
+      setError(t('statsLoadError'));
+    } finally {
+        if (mounted) {
+          setSummaryLoading(false);
+          setActivityLoading(false);
+        }
       }
     };
 
@@ -143,7 +324,10 @@ export function StatisticsScreen() {
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'korisnik_profil', filter: `id=eq.${userId}` },
-          () => refreshStats()
+          () => {
+            setSummaryLoading(true);
+            refreshSummary().finally(() => setSummaryLoading(false));
+          }
         )
         .subscribe();
     };
@@ -157,33 +341,77 @@ export function StatisticsScreen() {
   useEffect(() => {
     if (realtimeConnected) return;
     const interval = setInterval(() => {
-      refreshStats();
+      refreshSummary();
+      refreshActivityStats();
     }, 30000);
     return () => clearInterval(interval);
-  }, [realtimeConnected]);
+  }, [realtimeConnected, timeFilter]);
 
-  const pointsData = useMemo(() => {
-    if (timeFilter === 'day') return [30, 45, 60, 40];
-    if (timeFilter === 'month') return [450, 520, 480, 600];
-    return [120, 150, 90, 180, 140, 200, 160];
+  useEffect(() => {
+    const updateActivity = async () => {
+      setActivityLoading(true);
+      setError(null);
+      try {
+        const uid = await getUserId();
+        if (uid) {
+          const cachedActivity = await getCached<{
+            periodPoints: number;
+            periodCompletions: number;
+            pointsSeries: number[];
+            pointsLabels: string[];
+            completionSeries: number[];
+            completionLabels: string[];
+            typeTotals: TypeTotals;
+          }>(`stats-activity:${uid}:${timeFilter}`, CACHE_TTL);
+          if (cachedActivity?.value) {
+            setPeriodPoints(cachedActivity.value.periodPoints);
+            setPeriodCompletions(cachedActivity.value.periodCompletions);
+            setPointsSeries(cachedActivity.value.pointsSeries);
+            setPointsLabels(cachedActivity.value.pointsLabels);
+            setCompletionSeries(cachedActivity.value.completionSeries);
+            setCompletionLabels(cachedActivity.value.completionLabels);
+            setTypeTotals(cachedActivity.value.typeTotals);
+            setUsingCache(cachedActivity.isStale);
+          }
+        }
+        await refreshActivityStats();
+    } catch (err) {
+      console.error(err);
+      setError(t('statsLoadError'));
+    } finally {
+      setActivityLoading(false);
+    }
+  };
+
+    updateActivity();
   }, [timeFilter]);
 
-  const recyclingData = useMemo(() => {
-    if (timeFilter === 'day') return [1.2, 2.5, 1.8];
-    if (timeFilter === 'month') return [5.2, 6.8, 7.5, 9.1];
-    return [5.2, 6.8, 7.5, 9.1];
-  }, [timeFilter]);
+  const maxPoints = Math.max(...pointsSeries, 1);
+  const maxCompletions = Math.max(...completionSeries, 1);
+  const breakdownItems = useMemo(() => {
+    const build = (key: string, label: string, icon: typeof Target, tint: string) => ({
+      key,
+      label,
+      icon,
+      tint,
+      count: typeTotals[key]?.count ?? 0,
+      points: typeTotals[key]?.points ?? 0,
+    });
 
-  const maxPoints = Math.max(...pointsData);
-  const maxRecycle = Math.max(...recyclingData);
+    return [
+      build('regular', t('statsBreakdownRegular'), Target, colors.primary),
+      build('photo', t('statsBreakdownPhoto'), Camera, '#38bdf8'),
+      build('group', t('statsBreakdownGroup'), Users, '#f59e0b'),
+    ];
+  }, [typeTotals, t]);
 
   return (
     <GradientBackground>
       <ScreenFade>
         <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.title}>Statistika</Text>
-          <Text style={styles.subtitle}>Pratite svoj napredak</Text>
+          <Text style={styles.title}>{t('statsTitle')}</Text>
+          <Text style={styles.subtitle}>{t('statsSubtitle')}</Text>
         </View>
 
         <View style={styles.filterRow}>
@@ -191,17 +419,25 @@ export function StatisticsScreen() {
             <TouchableOpacity
               key={filter}
               style={[styles.filterTab, timeFilter === filter && styles.filterTabActive]}
-              onPress={() => setTimeFilter(filter)}
+              onPress={() => {
+                void triggerHaptic('selection');
+                trackEvent('stats_filter_change', { filter });
+                setTimeFilter(filter);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={`${t('statsFilterLabel')} ${
+                filter === 'day' ? t('statsFilterDay') : filter === 'week' ? t('statsFilterWeek') : t('statsFilterMonth')
+              }`}
             >
               <Text style={[styles.filterText, timeFilter === filter && styles.filterTextActive]}>
-                {filter === 'day' ? 'Dan' : filter === 'week' ? 'Sedmica' : 'Mjesec'}
+                {filter === 'day' ? t('statsFilterDay') : filter === 'week' ? t('statsFilterWeek') : t('statsFilterMonth')}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        {usingCache && <Text style={styles.cacheNote}>Prikazujem keširane podatke.</Text>}
-        {loading && <Text style={styles.muted}>Učitavanje...</Text>}
+        {usingCache && <Text style={styles.cacheNote}>{"Prikazujem ke\u0161irane podatke."}</Text>}
+        {(summaryLoading || activityLoading) && <Text style={styles.muted}>{"U\u010ditavanje..."}</Text>}
         {error && <Text style={styles.error}>{error}</Text>}
 
         <View style={styles.summaryGrid}>
@@ -209,8 +445,8 @@ export function StatisticsScreen() {
             <LinearGradient colors={gradients.primary} style={styles.summaryIcon}>
               <Award size={18} color={colors.text} />
             </LinearGradient>
-            <Text style={styles.summaryLabel}>Ukupno poena</Text>
-            {loading && ukupnoPoena == null ? (
+            <Text style={styles.summaryLabel}>{"Ukupno poena"}</Text>
+            {summaryLoading && ukupnoPoena == null ? (
               <SkeletonBlock width={60} height={14} />
             ) : (
               <Text style={styles.summaryValue}>{ukupnoPoena ?? 0}</Text>
@@ -220,8 +456,8 @@ export function StatisticsScreen() {
             <LinearGradient colors={gradients.primary} style={styles.summaryIcon}>
               <Target size={18} color={colors.text} />
             </LinearGradient>
-            <Text style={styles.summaryLabel}>Izazova završeno</Text>
-            {loading && izazovaZavrseno == null ? (
+            <Text style={styles.summaryLabel}>{"Izazova zavr\u0161eno"}</Text>
+            {summaryLoading && izazovaZavrseno == null ? (
               <SkeletonBlock width={60} height={14} />
             ) : (
               <Text style={styles.summaryValue}>{izazovaZavrseno ?? 0}</Text>
@@ -234,8 +470,8 @@ export function StatisticsScreen() {
             <LinearGradient colors={gradients.primary} style={styles.summaryIcon}>
               <TrendingUp size={18} color={colors.text} />
             </LinearGradient>
-            <Text style={styles.summaryLabel}>Rang</Text>
-            {loading && rank == null ? (
+            <Text style={styles.summaryLabel}>{t('statsRankLabel')}</Text>
+            {summaryLoading && rank == null ? (
               <SkeletonBlock width={40} height={14} />
             ) : (
               <Text style={styles.summaryValue}>{rank ?? '-'}</Text>
@@ -245,8 +481,8 @@ export function StatisticsScreen() {
             <LinearGradient colors={gradients.primary} style={styles.summaryIcon}>
               <Flame size={18} color={colors.text} />
             </LinearGradient>
-            <Text style={styles.summaryLabel}>Dnevna serija</Text>
-            {loading && dnevnaSerija == null ? (
+            <Text style={styles.summaryLabel}>{"Dnevna serija"}</Text>
+            {summaryLoading && dnevnaSerija == null ? (
               <SkeletonBlock width={40} height={14} />
             ) : (
               <Text style={styles.summaryValue}>{dnevnaSerija ?? 0}</Text>
@@ -254,17 +490,43 @@ export function StatisticsScreen() {
           </GlowCard>
         </View>
 
+        <View style={styles.periodGrid}>
+          <GlowCard style={styles.summaryCardShell} contentStyle={styles.summaryCard}>
+            <LinearGradient colors={gradients.primary} style={styles.summaryIcon}>
+              <Award size={18} color={colors.text} />
+            </LinearGradient>
+            <Text style={styles.summaryLabel}>{t('statsPeriodPointsLabel')}</Text>
+            {activityLoading ? (
+              <SkeletonBlock width={60} height={14} />
+            ) : (
+              <Text style={styles.summaryValue}>{periodPoints}</Text>
+            )}
+          </GlowCard>
+          <GlowCard style={styles.summaryCardShell} contentStyle={styles.summaryCard}>
+            <LinearGradient colors={gradients.primary} style={styles.summaryIcon}>
+              <Target size={18} color={colors.text} />
+            </LinearGradient>
+            <Text style={styles.summaryLabel}>{t('statsPeriodCompletionsLabel')}</Text>
+            {activityLoading ? (
+              <SkeletonBlock width={60} height={14} />
+            ) : (
+              <Text style={styles.summaryValue}>{periodCompletions}</Text>
+            )}
+          </GlowCard>
+        </View>
+
         <GlowCard style={styles.chartShell} contentStyle={styles.chartCard}>
           <View style={styles.chartHeader}>
-            <Text style={styles.chartTitle}>Poeni kroz vrijeme</Text>
-            <Text style={styles.chartSubtitle}>
-              {timeFilter === 'day' ? 'Danas' : timeFilter === 'week' ? 'Sedmica' : 'Mjesec'}
-            </Text>
+            <Text style={styles.chartTitle}>{t('statsPointsOverTimeTitle')}</Text>
+            <Text style={styles.chartSubtitle}>{timeFilterLabel}</Text>
           </View>
           <View style={styles.barRow}>
-            {pointsData.map((value, idx) => (
-              <View key={`p-${idx}`} style={styles.barWrapper}>
-                <View style={[styles.bar, { height: `${(value / maxPoints) * 100}%` }]} />
+            {pointsSeries.map((value, idx) => (
+              <View key={`p-${idx}`} style={styles.barColumn}>
+                <View style={styles.barWrapper}>
+                  <View style={[styles.bar, { height: `${(value / maxPoints) * 100}%` }]} />
+                </View>
+                <Text style={styles.barLabel}>{pointsLabels[idx]}</Text>
               </View>
             ))}
           </View>
@@ -272,34 +534,38 @@ export function StatisticsScreen() {
 
         <GlowCard style={styles.chartShell} contentStyle={styles.chartCard}>
           <View style={styles.chartHeader}>
-            <Text style={styles.chartTitle}>Reciklaža (kg)</Text>
-            <Text style={styles.chartSubtitle}>Aktivnost</Text>
+            <Text style={styles.chartTitle}>{t('statsCompletionsTitle')}</Text>
+            <Text style={styles.chartSubtitle}>{timeFilterLabel}</Text>
           </View>
           <View style={styles.barRow}>
-            {recyclingData.map((value, idx) => (
-              <View key={`r-${idx}`} style={styles.barWrapper}>
-                <View style={[styles.barAlt, { height: `${(value / maxRecycle) * 100}%` }]} />
+            {completionSeries.map((value, idx) => (
+              <View key={`c-${idx}`} style={styles.barColumn}>
+                <View style={styles.barWrapper}>
+                  <View style={[styles.barAlt, { height: `${(value / maxCompletions) * 100}%` }]} />
+                </View>
+                <Text style={styles.barLabel}>{completionLabels[idx]}</Text>
               </View>
             ))}
           </View>
         </GlowCard>
 
         <View style={styles.metricsGrid}>
-          <GlowCard style={styles.metricCardShell} contentStyle={styles.metricCard}>
-            <Recycle size={18} color={colors.primary} />
-            <Text style={styles.metricLabel}>Reciklirano</Text>
-            <Text style={styles.metricValue}>{recikliranoStvari ?? 0}</Text>
-          </GlowCard>
-          <GlowCard style={styles.metricCardShell} contentStyle={styles.metricCard}>
-            <Battery size={18} color={colors.primary} />
-            <Text style={styles.metricLabel}>Energija</Text>
-            <Text style={styles.metricValue}>{ustedjenaEnergija ?? 0}</Text>
-          </GlowCard>
-          <GlowCard style={styles.metricCardShell} contentStyle={styles.metricCard}>
-            <Droplet size={18} color={colors.primary} />
-            <Text style={styles.metricLabel}>CO₂</Text>
-            <Text style={styles.metricValue}>{smanjenCo2 ?? 0}</Text>
-          </GlowCard>
+          {breakdownItems.map((item) => (
+            <GlowCard key={item.key} style={styles.metricCardShell} contentStyle={styles.metricCard}>
+              <View style={[styles.metricIcon, { backgroundColor: item.tint }]}>
+                <item.icon size={16} color={colors.text} />
+              </View>
+              <Text style={styles.metricLabel}>{item.label}</Text>
+              {activityLoading ? (
+                <SkeletonBlock width={40} height={12} />
+              ) : (
+                <Text style={styles.metricValue}>{item.count}</Text>
+              )}
+              <Text style={styles.metricSubValue}>
+                {item.points} {"poena"}
+              </Text>
+            </GlowCard>
+          ))}
         </View>
         </ScrollView>
       </ScreenFade>
@@ -365,6 +631,11 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginBottom: spacing.sm,
   },
+  periodGrid: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
   summaryCardShell: {
     flex: 1,
   },
@@ -414,14 +685,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: spacing.sm,
-    height: 120,
+    height: 140,
+  },
+  barColumn: {
+    flex: 1,
+    alignItems: 'center',
+    gap: spacing.xs,
   },
   barWrapper: {
-    flex: 1,
+    width: '100%',
+    height: 110,
     backgroundColor: 'rgba(30, 41, 59, 0.6)',
     borderRadius: radius.sm,
     justifyContent: 'flex-end',
     overflow: 'hidden',
+  },
+  barLabel: {
+    color: colors.muted,
+    fontSize: 11,
   },
   bar: {
     backgroundColor: colors.primary,
@@ -446,6 +727,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
   },
+  metricIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   metricLabel: {
     color: colors.muted,
     fontSize: 12,
@@ -453,5 +741,9 @@ const styles = StyleSheet.create({
   metricValue: {
     color: colors.text,
     fontWeight: '600',
+  },
+  metricSubValue: {
+    color: colors.muted,
+    fontSize: 11,
   },
 });

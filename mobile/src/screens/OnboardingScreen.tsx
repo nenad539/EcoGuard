@@ -8,34 +8,35 @@ import { colors, radius, spacing, gradients } from '../styles/common';
 import { GradientBackground } from '../components/common/GradientBackground';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ScreenFade } from '../components/common/ScreenFade';
-
-const slides = [
-  {
-    title: 'Prati svoje ekološke navike',
-    description: 'Zapisuj i prati sve svoje ekološke aktivnosti svakodnevno',
-    image:
-      'https://images.unsplash.com/photo-1654718421032-8aee5603b51f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyZWN5Y2xpbmclMjBib3R0bGVzJTIwZWNvfGVufDF8fHx8MTc2MDg3OTYwNHww&ixlib=rb-4.1.0&q=80&w=1080',
-    icon: Recycle,
-  },
-  {
-    title: 'Smanji ugljeni otisak',
-    description: 'Smanjuj svoj CO₂ otisak korak po korak',
-    image:
-      'https://images.unsplash.com/photo-1580933907066-9a0a6fe5fc13?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxncmVlbiUyMGhvdXNlJTIwdHJlZXN8ZW58MXx8fHwxNzYwOTAyMzA4fDA&ixlib=rb-4.1.0&q=80&w=1080',
-    icon: Home,
-  },
-  {
-    title: 'Udruži se s drugima',
-    description: 'Pridruži se zajednici i podijeli svoje uspjehe',
-    image:
-      'https://images.unsplash.com/photo-1656370465119-cb8d6735bda3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb21tdW5pdHklMjBwZW9wbGUlMjB0b2dldGhlcnxlbnwxfHx8fDE3NjA4NjEwNDd8MA&ixlib=rb-4.1.0&q=80&w=1080',
-    icon: Users,
-  },
-];
+import { useLanguage } from '../lib/language';
 
 export function OnboardingScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { t } = useLanguage();
   const [currentSlide, setCurrentSlide] = useState(0);
+  const slides = [
+    {
+      title: t('onboardingSlide1Title'),
+      description: t('onboardingSlide1Desc'),
+      image:
+        'https://images.unsplash.com/photo-1654718421032-8aee5603b51f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyZWN5Y2xpbmclMjBib3R0bGVzJTIwZWNvfGVufDF8fHx8MTc2MDg3OTYwNHww&ixlib=rb-4.1.0&q=80&w=1080',
+      icon: Recycle,
+    },
+    {
+      title: t('onboardingSlide2Title'),
+      description: t('onboardingSlide2Desc'),
+      image:
+        'https://images.unsplash.com/photo-1580933907066-9a0a6fe5fc13?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHxncmVlbiUyMGhvdXNlJTIwdHJlZXN8ZW58MXx8fHwxNzYwOTAyMzA4fDA&ixlib=rb-4.1.0&q=80&w=1080',
+      icon: Home,
+    },
+    {
+      title: t('onboardingSlide3Title'),
+      description: t('onboardingSlide3Desc'),
+      image:
+        'https://images.unsplash.com/photo-1656370465119-cb8d6735bda3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHxjb21tdW5pdHklMjBwZW9wbGUlMjB0b2dldGhlcnxlbnwxfHx8fDE3NjA4NjEwNDd8MA&ixlib=rb-4.1.0&q=80&w=1080',
+      icon: Users,
+    },
+  ];
 
   const handleNext = () => {
     if (currentSlide < slides.length - 1) {
@@ -57,7 +58,7 @@ export function OnboardingScreen() {
         <View style={styles.container}>
           <View style={styles.skipRow}>
             <TouchableOpacity onPress={handleSkip}>
-              <Text style={styles.skipText}>Preskoči</Text>
+              <Text style={styles.skipText}>{t('onboardingSkipLabel')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -84,17 +85,17 @@ export function OnboardingScreen() {
           <TouchableOpacity onPress={handleNext}>
             <LinearGradient colors={gradients.primary} style={styles.primaryButton}>
               <Text style={styles.primaryLabel}>
-                {currentSlide < slides.length - 1 ? 'Dalje' : 'Započni sada'}
+                {currentSlide < slides.length - 1 ? t('nextLabel') : t('onboardingStartLabel')}
               </Text>
             </LinearGradient>
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => navigation.navigate('Register')} style={styles.link}>
-            <Text style={styles.linkText}>Nemate nalog? Registrujte se</Text>
+            <Text style={styles.linkText}>{"Nemate nalog? Registrujte se"}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => navigation.navigate('Terms')} style={styles.link}>
-            <Text style={styles.linkMuted}>Uslovi korišćenja</Text>
+            <Text style={styles.linkMuted}>{"Uslovi kori\u0161\u0107enja"}</Text>
           </TouchableOpacity>
         </View>
       </ScreenFade>

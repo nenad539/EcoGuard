@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Switch, ScrollView } from 'react-native';
-import { Bell, Globe, Shield, Info, ChevronRight } from 'lucide-react-native';
+import { Bell, Shield, Info, ChevronRight } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, radius, spacing, gradients } from '../styles/common';
@@ -33,13 +33,13 @@ export function SettingsScreen() {
 
   const sections = [
     {
-      title: 'Obavještenja',
+      title: "Obavje\u0161tenja",
       items: [
         {
           id: 'notifications',
           icon: Bell,
-          label: 'Push obavještenja',
-          description: 'Primaj obavještenja o novim izazovima',
+          label: "Push obavje\u0161tenja",
+          description: "Primaj obavje\u0161tenja o novim izazovima",
           type: 'toggle' as const,
           value: settings.notifications,
           onChange: (value: boolean) => setSettings({ ...settings, notifications: value }),
@@ -47,32 +47,21 @@ export function SettingsScreen() {
       ],
     },
     {
-      title: 'Jezik i region',
-      items: [
-        {
-          id: 'language',
-          icon: Globe,
-          label: 'Jezik',
-          description: 'Srpski / Engleski',
-          type: 'link' as const,
-        },
-      ],
-    },
-    {
-      title: 'Privatnost i bezbjednost',
+      title: "Privatnost i bezbjednost",
       items: [
         {
           id: 'privacy',
           icon: Shield,
-          label: 'Privatnost i dozvole',
-          description: 'Upravljaj pristupom aplikaciji',
+          label: "Privatnost i dozvole",
+          description: "Upravljaj pristupom aplikaciji",
           type: 'link' as const,
+          onPress: () => navigation.navigate('Privacy' as never),
         },
         {
           id: 'terms',
           icon: Info,
-          label: 'Uslovi korišćenja',
-          description: 'Pročitaj pravila korišćenja',
+          label: "Uslovi kori\u0161\u0107enja",
+          description: "Pro\u010ditaj pravila kori\u0161\u0107enja",
           type: 'link' as const,
           onPress: () => navigation.navigate('Terms' as never),
         },
@@ -81,13 +70,13 @@ export function SettingsScreen() {
     ...(isAdmin
       ? [
           {
-            title: 'Administracija',
+            title: "Administracija",
             items: [
               {
                 id: 'moderation',
                 icon: Shield,
-                label: 'Moderacija prijava',
-                description: 'Odobri ili odbij foto i grupne prijave',
+                label: "Moderacija prijava",
+                description: "Odobri ili odbij foto i grupne prijave",
                 type: 'link' as const,
                 onPress: () => navigation.navigate('AdminModeration' as never),
               },
@@ -102,8 +91,8 @@ export function SettingsScreen() {
       <ScreenFade>
         <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.title}>Podešavanja</Text>
-          <Text style={styles.subtitle}>Prilagodi svoju aplikaciju</Text>
+          <Text style={styles.title}>{"Pode\u0161avanja"}</Text>
+          <Text style={styles.subtitle}>{"Prilagodi svoju aplikaciju"}</Text>
         </View>
 
         <View style={styles.sections}>
@@ -143,14 +132,14 @@ export function SettingsScreen() {
 
         <View style={styles.appInfoCard}>
           <Text style={styles.appEmoji}>🌱</Text>
-          <Text style={styles.appTitle}>GrowWithUs</Text>
-          <Text style={styles.appDescription}>Čuvaj prirodu.</Text>
-          <Text style={styles.appDetail}>Verzija 1.0.0</Text>
-          <Text style={styles.appDetail}>© 2025 GrowWithUs Nenad</Text>
+          <Text style={styles.appTitle}>{"GrowWithUs"}</Text>
+          <Text style={styles.appDescription}>{"\u010cuvaj prirodu."}</Text>
+          <Text style={styles.appDetail}>{"Verzija 1.0.0"}</Text>
+          <Text style={styles.appDetail}>{"\u00a9 2025 GrowWithUs Nenad"}</Text>
         </View>
 
         <View style={styles.contactCard}>
-          <Text style={styles.contactTitle}>Kontakt i podrška</Text>
+          <Text style={styles.contactTitle}>{"Kontakt i podr\u0161ka"}</Text>
           <TouchableOpacity style={styles.contactButton}>
             <Text style={styles.contactText}>📧 support@growwithus.com</Text>
           </TouchableOpacity>

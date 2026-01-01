@@ -1,5 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ScrollView, Text, StyleSheet, View, TextInput, TouchableOpacity } from 'react-native';
+import {
+  ScrollView,
+  Text,
+  StyleSheet,
+  View,
+  TextInput,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 import { Send } from 'lucide-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
@@ -14,6 +23,7 @@ import { BackButton } from '../components/common/BackButton';
 import { EmptyState } from '../components/common/EmptyState';
 import { useRealtimeStatus } from '../lib/realtime';
 import { showError } from '../lib/toast';
+import { useLanguage } from '../lib/language';
 
 const DIRECT_MESSAGES_TABLE = 'direct_messages';
 const PAGE_SIZE = 30;
@@ -31,12 +41,13 @@ export function FriendChatScreen() {
   const route = useRoute<RouteProp<RootStackParamList, 'FriendChat'>>();
   const { friendId, friendName } = route.params;
   const realtimeConnected = useRealtimeStatus();
+  const { t } = useLanguage();
 
   const [userId, setUserId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
-  const [title, setTitle] = useState(friendName ?? 'Chat');
+  const [title, setTitle] = useState(friendName ?? t('friendChatDefaultTitle'));
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
 
@@ -69,7 +80,7 @@ export function FriendChatScreen() {
       .range(0, Math.max(0, limit - 1));
 
     if (error) {
-      showError('Greška', 'Ne mogu učitati poruke.');
+      showError("Gre\u0161ka", t('friendChatLoadError'));
       setLoading(false);
       return;
     }
@@ -163,7 +174,7 @@ export function FriendChatScreen() {
     });
 
     if (error) {
-      showError('Greška', 'Ne možemo poslati poruku.');
+      showError("Gre\u0161ka", t('friendChatSendError'));
       setMessages((prev) => prev.filter((item) => item.id !== optimistic.id));
       setMessage(optimistic.content);
     }
@@ -179,30 +190,34 @@ export function FriendChatScreen() {
   return (
     <GradientBackground>
       <ScreenFade>
-        <View style={styles.container}>
+        <KeyboardAvoidingView
+          style={styles.container}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+        >
           <BackButton onPress={() => navigation.goBack()} />
           <View style={styles.header}>
             <View>
               <Text style={styles.title}>{title}</Text>
-              <Text style={styles.subtitle}>Direktne poruke</Text>
+              <Text style={styles.subtitle}>{t('friendChatSubtitle')}</Text>
             </View>
             <View style={styles.statusPill}>
-              <Text style={styles.statusText}>Online</Text>
+              <Text style={styles.statusText}>{t('friendChatStatusOnline')}</Text>
             </View>
           </View>
 
           <View style={styles.messagesWrap}>
-            <ScrollView contentContainerStyle={styles.messages}>
-            {loading ? <Text style={styles.muted}>Učitavanje...</Text> : null}
+            <ScrollView contentContainerStyle={styles.messages} keyboardShouldPersistTaps="handled">
+            {loading ? <Text style={styles.muted}>{"U\u010ditavanje..."}</Text> : null}
             {!loading && rendered.length === 0 ? (
               <EmptyState
-                title="Još nema poruka"
-                description="Pošalji prvu poruku i pokreni razgovor."
+                title={t('friendChatEmptyTitle')}
+                description={t('friendChatEmptyDesc')}
               />
             ) : null}
             {hasMore ? (
               <TouchableOpacity onPress={() => setPage((prev) => prev + 1)} style={styles.loadMore}>
-                <Text style={styles.loadMoreText}>Učitaj starije</Text>
+                <Text style={styles.loadMoreText}>{t('friendChatLoadMoreLabel')}</Text>
               </TouchableOpacity>
             ) : null}
             {rendered.map((msg) => {
@@ -233,7 +248,7 @@ export function FriendChatScreen() {
             <TextInput
               value={message}
               onChangeText={setMessage}
-              placeholder="Napiši poruku..."
+              placeholder={t('friendChatPlaceholder')}
               placeholderTextColor={colors.muted}
               style={styles.input}
             />
@@ -243,7 +258,7 @@ export function FriendChatScreen() {
               </LinearGradient>
             </TouchableOpacity>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </ScreenFade>
     </GradientBackground>
   );

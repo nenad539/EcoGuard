@@ -15,6 +15,7 @@ import { GlowCard } from '../components/common/GlowCard';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
+import { useLanguage } from '../lib/language';
 
 type Profile = {
   id: string;
@@ -31,20 +32,11 @@ const hexToRgba = (hex: string, alpha: number) => {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
-const levelLabelFromPoints = (pts: number) => {
-  if (pts >= 5000) return 'Legenda prirode';
-  if (pts >= 2500) return 'Eko heroj';
-  if (pts >= 1000) return 'Eko borac';
-  if (pts >= 500) return 'Aktivan član';
-  if (pts >= 100) return 'Početnik';
-  return 'Rookie';
-};
-
 const filterOptions = [
-  { id: 'all', label: 'Svi' },
-  { id: 'gold', label: 'Gold' },
-  { id: 'silver', label: 'Silver' },
-  { id: 'bronze', label: 'Bronze' },
+  { id: 'all' },
+  { id: 'gold' },
+  { id: 'silver' },
+  { id: 'bronze' },
 ];
 const CACHE_TTL = 1000 * 60 * 5;
 const PAGE_SIZE = 20;
@@ -52,6 +44,7 @@ const PAGE_SIZE = 20;
 export function CommunityScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const realtimeConnected = useRealtimeStatus();
+  const { t } = useLanguage();
   const [users, setUsers] = useState<Profile[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -61,6 +54,15 @@ export function CommunityScreen() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+
+  const levelLabelFromPoints = (pts: number) => {
+    if (pts >= 5000) return "Legenda prirode";
+    if (pts >= 2500) return "Eko heroj";
+    if (pts >= 1000) return "Eko borac";
+    if (pts >= 500) return "Aktivan \u010dlan";
+    if (pts >= 100) return "Po\u010detnik";
+    return "Rookie";
+  };
 
   const loadLeaderboard = async (pageNumber = 1, append = false) => {
     if (append) setLoadingMore(true);
@@ -74,7 +76,7 @@ export function CommunityScreen() {
       .range(start, end);
 
     if (error) {
-      setError('Greška pri učitavanju rang liste.');
+      setError("Gre\u0161ka pri u\u010ditavanju rang liste.");
       setLoading(false);
       setLoadingMore(false);
       return;
@@ -146,23 +148,28 @@ export function CommunityScreen() {
 
   const podium = filtered.slice(0, 3);
   const rest = filtered.slice(3);
+  const badgeLabel = (badge: 'gold' | 'silver' | 'bronze') => {
+    if (badge === 'gold') return "Gold";
+    if (badge === 'silver') return "Silver";
+    return "Bronze";
+  };
 
   return (
     <GradientBackground>
       <ScreenFade>
         <ScrollView contentContainerStyle={styles.content}>
-        <BackButton onPress={() => navigation.goBack()} />
-        <View style={styles.header}>
-          <Text style={styles.title}>Zajednica</Text>
-          <Text style={styles.subtitle}>Top rang lista i bedževi</Text>
-        </View>
+          <BackButton onPress={() => navigation.goBack()} />
+          <View style={styles.header}>
+            <Text style={styles.title}>{"Zajednica"}</Text>
+            <Text style={styles.subtitle}>{"Top rang lista i bed\u017eevi"}</Text>
+          </View>
 
         <View style={styles.searchContainer}>
           <Search size={16} color={colors.muted} style={styles.searchIcon} />
           <TextInput
             value={searchQuery}
             onChangeText={setSearchQuery}
-            placeholder="Pretraži korisnike..."
+            placeholder={"Pretra\u017ei korisnike..."}
             placeholderTextColor={colors.muted}
             style={styles.searchInput}
           />
@@ -176,14 +183,20 @@ export function CommunityScreen() {
               onPress={() => setFilter(option.id as any)}
             >
               <Text style={[styles.filterText, filter === option.id && styles.filterTextActive]}>
-                {option.label}
+                {option.id === 'all'
+                  ? "Svi"
+                  : option.id === 'gold'
+                  ? "Gold"
+                  : option.id === 'silver'
+                  ? "Silver"
+                  : "Bronze"}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
 
         {error && <Text style={styles.error}>{error}</Text>}
-        {usingCache && <Text style={styles.cacheNote}>Prikazujem keširane podatke.</Text>}
+        {usingCache && <Text style={styles.cacheNote}>{"Prikazujem ke\u0161irane podatke."}</Text>}
 
         {loading && users.length === 0 ? (
           <View style={styles.skeletonWrap}>
@@ -227,17 +240,16 @@ export function CommunityScreen() {
                       <Text style={styles.podiumAvatarText}>{user.korisnicko_ime?.[0]?.toUpperCase() ?? 'U'}</Text>
                     </LinearGradient>
                     <Text style={styles.podiumName}>{user.korisnicko_ime}</Text>
-                    <Text style={styles.podiumPoints}>{user.ukupno_poena ?? 0} poena</Text>
+                    <Text style={styles.podiumPoints}>
+                      {user.ukupno_poena ?? 0} {"poena"}
+                    </Text>
                   </View>
                 );
               })}
             </View>
 
             {filtered.length === 0 ? (
-              <EmptyState
-                title="Nema rezultata"
-                description="Pokušajte sa drugim filtrom ili pretragom."
-              />
+              <EmptyState title={t('communityEmptyTitle')} description={t('communityEmptyDesc')} />
             ) : (
               <View style={styles.listSection}>
                 {rest.map((user, index) => {
@@ -257,7 +269,7 @@ export function CommunityScreen() {
                       </View>
                       <View style={styles.listPoints}>
                         <Text style={styles.pointsValue}>{user.ukupno_poena ?? 0}</Text>
-                        <Text style={[styles.badgeText, { color: badgeColor }]}>{badge}</Text>
+                        <Text style={[styles.badgeText, { color: badgeColor }]}>{badgeLabel(badge)}</Text>
                       </View>
                     </GlowCard>
                   );
@@ -271,7 +283,9 @@ export function CommunityScreen() {
                 disabled={loadingMore}
               >
                 <LinearGradient colors={gradients.primary} style={styles.loadMoreInner}>
-                  <Text style={styles.loadMoreText}>{loadingMore ? 'Učitavanje...' : 'Prikaži više'}</Text>
+                  <Text style={styles.loadMoreText}>
+                    {loadingMore ? "U\u010ditavanje..." : "Prika\u017ei vi\u0161e"}
+                  </Text>
                 </LinearGradient>
               </TouchableOpacity>
             ) : null}

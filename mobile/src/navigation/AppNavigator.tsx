@@ -1,16 +1,19 @@
-import React, { useEffect, useState } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import React, { useEffect, useRef, useState } from 'react';
+import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Home, Camera, BarChart3, User, Settings as SettingsIcon } from 'lucide-react-native';
 import { supabase } from '../lib/supabase';
+import { trackScreen } from '../lib/analytics';
 import { RootStackParamList, MainTabParamList } from './types';
+import { useLanguage } from '../lib/language';
 
 import { SplashScreen } from '../screens/SplashScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { RegisterScreen } from '../screens/RegisterScreen';
 import { TermsScreen } from '../screens/TermsScreen';
+import { PrivacyScreen } from '../screens/PrivacyScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { PhotoChallengeScreen } from '../screens/PhotoChallengeScreen';
 import { StatisticsScreen } from '../screens/StatisticsScreen';
@@ -32,6 +35,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
 function MainTabs() {
+  const { t } = useLanguage();
   return (
     <Tab.Navigator
       screenOptions={{
@@ -49,7 +53,7 @@ function MainTabs() {
         name="Settings"
         component={SettingsScreen}
         options={{
-          title: 'Podešavanja',
+          title: "Pode\u0161avanja",
           tabBarIcon: ({ color, size }) => <SettingsIcon color={color} size={size} />,
         }}
       />
@@ -57,7 +61,7 @@ function MainTabs() {
         name="PhotoChallenges"
         component={PhotoChallengeScreen}
         options={{
-          title: 'Izazovi',
+          title: "Izazovi",
           tabBarIcon: ({ color, size }) => <Camera color={color} size={size} />,
         }}
       />
@@ -65,7 +69,7 @@ function MainTabs() {
         name="Home"
         component={HomeScreen}
         options={{
-          title: 'Početna',
+          title: "Po\u010detna",
           tabBarIcon: ({ color, size }) => <Home color={color} size={size} />,
         }}
       />
@@ -73,7 +77,7 @@ function MainTabs() {
         name="Statistics"
         component={StatisticsScreen}
         options={{
-          title: 'Statistika',
+          title: "Statistika",
           tabBarIcon: ({ color, size }) => <BarChart3 color={color} size={size} />,
         }}
       />
@@ -81,7 +85,7 @@ function MainTabs() {
         name="Profile"
         component={ProfileScreen}
         options={{
-          title: 'Nalog',
+          title: "Nalog",
           tabBarIcon: ({ color, size }) => <User color={color} size={size} />,
         }}
       />
@@ -93,6 +97,8 @@ export function AppNavigator() {
   const [initialRoute, setInitialRoute] = useState<'Splash' | 'Onboarding' | 'MainTabs' | 'Login'>('Splash');
   const [checking, setChecking] = useState(true);
   const [showSplash, setShowSplash] = useState(true);
+  const navigationRef = useNavigationContainerRef<RootStackParamList>();
+  const routeNameRef = useRef<string | undefined>();
 
   useEffect(() => {
     let mounted = true;
@@ -134,17 +140,29 @@ export function AppNavigator() {
   }
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator
-        key={initialRoute}
-        initialRouteName={initialRoute}
-        screenOptions={{ headerShown: false }}
-      >
+    <NavigationContainer
+      ref={navigationRef}
+      onReady={() => {
+        const route = navigationRef.getCurrentRoute();
+        routeNameRef.current = route?.name;
+        if (route?.name) {
+          trackScreen(route.name);
+        }
+      }}
+      onStateChange={() => {
+        const route = navigationRef.getCurrentRoute();
+        if (!route?.name || routeNameRef.current === route.name) return;
+        routeNameRef.current = route.name;
+        trackScreen(route.name);
+      }}
+    >
+      <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Splash" component={SplashScreen} />
         <Stack.Screen name="Onboarding" component={OnboardingScreen} />
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Register" component={RegisterScreen} />
         <Stack.Screen name="Terms" component={TermsScreen} />
+        <Stack.Screen name="Privacy" component={PrivacyScreen} />
         <Stack.Screen name="MainTabs" component={MainTabs} />
         <Stack.Screen name="Challenges" component={ChallengesScreen} />
         <Stack.Screen name="Community" component={CommunityScreen} />

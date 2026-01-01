@@ -3,6 +3,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Leaf } from 'lucide-react-native';
 import { colors, gradients, radius, spacing } from '../../styles/common';
+import { triggerHaptic } from '../../lib/haptics';
 
 type EmptyStateProps = {
   title: string;
@@ -27,7 +28,15 @@ export function EmptyState({
       <Text style={styles.title}>{title}</Text>
       {description ? <Text style={styles.description}>{description}</Text> : null}
       {actionLabel && onAction ? (
-        <TouchableOpacity onPress={onAction} style={styles.actionButton}>
+        <TouchableOpacity
+          onPress={() => {
+            void triggerHaptic('selection');
+            onAction();
+          }}
+          style={styles.actionButton}
+          accessibilityRole="button"
+          accessibilityLabel={actionLabel}
+        >
           <Text style={styles.actionText}>{actionLabel}</Text>
         </TouchableOpacity>
       ) : null}

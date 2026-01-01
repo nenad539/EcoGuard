@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ScrollView, Text, StyleSheet, View, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -8,6 +8,8 @@ import { getCached, setCached } from '../lib/cache';
 import { useRealtimeStatus } from '../lib/realtime';
 import { colors, radius, spacing, gradients } from '../styles/common';
 import { showError } from '../lib/toast';
+import { trackEvent } from '../lib/analytics';
+import { triggerHaptic } from '../lib/haptics';
 import { GradientBackground } from '../components/common/GradientBackground';
 import { SkeletonBlock } from '../components/common/Skeleton';
 import { ScreenFade } from '../components/common/ScreenFade';
@@ -15,6 +17,7 @@ import { GlowCard } from '../components/common/GlowCard';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
+import { useLanguage } from '../lib/language';
 
 type Activity = {
   id: string;
@@ -28,6 +31,7 @@ const CACHE_TTL = 1000 * 60 * 5;
 
 export function ProfileScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { t } = useLanguage();
   const ACTIVITY_TABLE = 'aktivnosti';
   const realtimeConnected = useRealtimeStatus();
 
@@ -42,6 +46,8 @@ export function ProfileScreen() {
   const [loadingActivities, setLoadingActivities] = useState(true);
   const [usingCache, setUsingCache] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const logoutInFlight = useRef(false);
+  const profileInsertBlocked = useRef(false);
 
   const getUserId = async (): Promise<string | undefined> => {
     if (userId) return userId;
@@ -67,13 +73,14 @@ export function ProfileScreen() {
       return null;
     }
     if (profile) return profile;
+    if (profileInsertBlocked.current) return null;
 
     const { data: auth } = await supabase.auth.getUser();
     const fallbackName =
       auth?.user?.user_metadata?.name ??
       auth?.user?.user_metadata?.full_name ??
       auth?.user?.email ??
-      'Korisnik';
+      t('defaultUserLabel');
     const { data: inserted, error: insertError } = await supabase
       .from('korisnik_profil')
       .insert({ id: uid, korisnicko_ime: fallbackName })
@@ -81,6 +88,10 @@ export function ProfileScreen() {
       .maybeSingle();
     if (insertError) {
       console.error('Profile insert error', insertError);
+      if (insertError.code === '42501') {
+        profileInsertBlocked.current = true;
+        showError("Gre\u0161ka", t('profileCreatePermissionError'));
+      }
       return null;
     }
     return inserted ?? null;
@@ -151,7 +162,7 @@ export function ProfileScreen() {
 
     const profile = await ensureProfile(userId);
     if (!profile) {
-      setUserName('Korisnik');
+      setUserName(t('defaultUserLabel'));
       setUserPoints('0');
       setUserCompleted('0');
       setUserBadge('bronze');
@@ -159,7 +170,7 @@ export function ProfileScreen() {
       return;
     }
 
-    setUserName(profile?.korisnicko_ime ?? 'Korisnik');
+    setUserName(profile?.korisnicko_ime ?? t('defaultUserLabel'));
     setUserPoints(String(profile?.ukupno_poena ?? 0));
     setUserCompleted(String(profile?.izazova_zavrseno ?? 0));
     const profileBadge = (profile?.trenutni_bedz as 'gold' | 'silver' | 'bronze' | null) ?? 'bronze';
@@ -203,7 +214,7 @@ export function ProfileScreen() {
           trenutni_bedz: 'gold' | 'silver' | 'bronze' | null;
         }>(`profile:${uid}`, CACHE_TTL);
         if (cachedProfile?.value) {
-          setUserName(cachedProfile.value.korisnicko_ime ?? 'Korisnik');
+          setUserName(cachedProfile.value.korisnicko_ime ?? t('defaultUserLabel'));
           setUserPoints(String(cachedProfile.value.ukupno_poena ?? 0));
           setUserCompleted(String(cachedProfile.value.izazova_zavrseno ?? 0));
           if (cachedProfile.value.trenutni_bedz) setUserBadge(cachedProfile.value.trenutni_bedz);
@@ -267,29 +278,67 @@ export function ProfileScreen() {
   const points = Number(userPoints || 0);
 
   const levelLabelFromPoints = (pts: number) => {
-    if (pts >= 5000) return 'Legenda prirode';
-    if (pts >= 2500) return 'Eko heroj';
-    if (pts >= 1000) return 'Eko borac';
-    if (pts >= 500) return 'Aktivan član';
-    if (pts >= 100) return 'Početnik';
-    return 'Rookie';
+    if (pts >= 5000) return "Legenda prirode";
+    if (pts >= 2500) return "Eko heroj";
+    if (pts >= 1000) return "Eko borac";
+    if (pts >= 500) return "Aktivan \u010dlan";
+    if (pts >= 100) return "Po\u010detnik";
+    return "Rookie";
   };
 
   const achievements = [
-    { title: 'Početnik', description: 'Sakupi 100 poena', unlocked: points >= 100, icon: Award },
-    { title: 'Aktivan član', description: 'Sakupi 500 poena', unlocked: points >= 500, icon: Target },
-    { title: 'Eko borac', description: 'Sakupi 1000 poena', unlocked: points >= 1000, icon: Flame },
-    { title: 'Eko heroj', description: 'Sakupi 2500 poena', unlocked: points >= 2500, icon: Award },
-    { title: 'Legenda prirode', description: 'Sakupi 5000 poena', unlocked: points >= 5000, icon: Award },
+    { title: "Po\u010detnik", description: "Sakupi 100 poena", unlocked: points >= 100, icon: Award },
+    { title: "Aktivan \u010dlan", description: "Sakupi 500 poena", unlocked: points >= 500, icon: Target },
+    { title: "Eko borac", description: "Sakupi 1000 poena", unlocked: points >= 1000, icon: Flame },
+    { title: "Eko heroj", description: "Sakupi 2500 poena", unlocked: points >= 2500, icon: Award },
+    { title: "Legenda prirode", description: "Sakupi 5000 poena", unlocked: points >= 5000, icon: Award },
   ];
 
   const stats = [
-    { label: 'Izazova završeno', value: userCompleted, icon: Target },
-    { label: 'Dnevna serija', value: userStreak, icon: Flame },
-    { label: 'Ukupno poena', value: Number(userPoints).toLocaleString(), icon: Award },
+    { label: "Izazova zavr\u0161eno", value: userCompleted, icon: Target },
+    { label: "Dnevna serija", value: userStreak, icon: Flame },
+    { label: "Ukupno poena", value: Number(userPoints).toLocaleString(), icon: Award },
   ];
 
-  const badgeLabel = userBadge === 'gold' ? 'Gold' : userBadge === 'silver' ? 'Silver' : 'Bronze';
+  const badgeLabel =
+    userBadge === 'gold' ? "Gold" : userBadge === 'silver' ? "Silver" : "Bronze";
+
+  const handleLogout = useCallback(async () => {
+    if (logoutInFlight.current) return;
+    logoutInFlight.current = true;
+    setLoggingOut(true);
+    void triggerHaptic('warning');
+    trackEvent('logout_attempt');
+
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        const { error: localError } = await supabase.auth.signOut({ scope: 'local' });
+        if (localError) {
+          showError("Gre\u0161ka", localError.message);
+          trackEvent('logout_error', { status: localError.status ?? null });
+          return;
+        }
+      }
+    } catch (error) {
+      const { error: localError } = await supabase.auth.signOut({ scope: 'local' });
+      if (localError) {
+        showError("Gre\u0161ka", localError.message);
+        trackEvent('logout_error', { status: localError.status ?? null });
+        return;
+      }
+    } finally {
+      setLoggingOut(false);
+      logoutInFlight.current = false;
+    }
+
+    trackEvent('logout_success');
+    const rootNavigation = navigation.getParent() ?? navigation;
+    rootNavigation.reset({
+      index: 0,
+      routes: [{ name: 'Login' }],
+    });
+  }, [navigation]);
 
   return (
     <GradientBackground>
@@ -298,10 +347,15 @@ export function ProfileScreen() {
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.navigate('MainTabs', { screen: 'Home' })}
+            onPress={() => {
+              void triggerHaptic('selection');
+              navigation.navigate('MainTabs', { screen: 'Home' });
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={t('profileBackToHomeLabel')}
           >
             <ArrowLeft color={colors.softGreen} size={18} />
-            <Text style={styles.backText}>Nazad</Text>
+            <Text style={styles.backText}>{"Nazad"}</Text>
           </TouchableOpacity>
         </View>
 
@@ -339,21 +393,21 @@ export function ProfileScreen() {
             <View style={styles.profileActions}>
               <TouchableOpacity style={styles.actionButton} onPress={() => navigation.navigate('EditProfile')}>
                 <Edit size={16} color={colors.softGreen} />
-                <Text style={styles.actionText}>Uredi profil</Text>
+                <Text style={styles.actionText}>{"Uredi profil"}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.actionButton}
                 onPress={() => navigation.navigate('MainTabs', { screen: 'Statistics' })}
               >
                 <BarChart3 size={16} color={colors.softGreen} />
-                <Text style={styles.actionText}>Statistika</Text>
+                <Text style={styles.actionText}>{"Statistika"}</Text>
               </TouchableOpacity>
             </View>
           </BlurView>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Tvoja statistika</Text>
+          <Text style={styles.sectionTitle}>{"Tvoja statistika"}</Text>
           <View style={styles.statsGrid}>
             {stats.map((stat) => (
               <GlowCard key={stat.label} style={styles.statCardShell} contentStyle={styles.statCard}>
@@ -372,7 +426,7 @@ export function ProfileScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Dostignuća</Text>
+          <Text style={styles.sectionTitle}>{"Dostignu\u0107a"}</Text>
           <View style={styles.achievementsGrid}>
             {achievements.map((achievement) => (
               <GlowCard
@@ -410,8 +464,8 @@ export function ProfileScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Nedavne aktivnosti</Text>
-          {usingCache && <Text style={styles.cacheNote}>Prikazujem keširane podatke.</Text>}
+          <Text style={styles.sectionTitle}>{"Nedavne aktivnosti"}</Text>
+          {usingCache && <Text style={styles.cacheNote}>{"Prikazujem ke\u0161irane podatke."}</Text>}
           {loadingActivities && activities.length === 0 ? (
             <View style={styles.skeletonGroup}>
               {Array.from({ length: 3 }).map((_, index) => (
@@ -425,15 +479,15 @@ export function ProfileScreen() {
               ))}
             </View>
           ) : activities.length === 0 ? (
-            <Text style={styles.emptyText}>Još nema aktivnosti.</Text>
+            <Text style={styles.emptyText}>{"Jo\u0161 nema aktivnosti."}</Text>
           ) : (
             activities.map((activity) => (
               <GlowCard key={activity.id} style={styles.activityShell} contentStyle={styles.activityItem}>
                 <View style={styles.activityContent}>
                   <Text style={styles.activityAction}>{activity.opis}</Text>
                   <Text style={styles.activityDate}>
-                    {activity.kategorija ?? 'Aktivnost'} ·{' '}
-                    {activity.kreirano_u ? new Date(activity.kreirano_u).toLocaleString() : 'Nedavno'}
+                    {activity.kategorija ?? t('activityFallbackLabel')} ·{' '}
+                    {activity.kreirano_u ? new Date(activity.kreirano_u).toLocaleString() : "Nedavno"}
                   </Text>
                 </View>
                 <Text style={styles.activityPoints}>+{activity.poena_dodato ?? 0}</Text>
@@ -446,23 +500,15 @@ export function ProfileScreen() {
           <TouchableOpacity
             style={styles.logoutButton}
             disabled={loggingOut}
-            onPress={async () => {
-              if (loggingOut) return;
-              setLoggingOut(true);
-              const { error } = await supabase.auth.signOut();
-              setLoggingOut(false);
-              if (error) {
-                showError('Greška', error.message);
-                return;
-              }
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'Login' }],
-              });
-            }}
+            onPress={handleLogout}
+            accessibilityRole="button"
+            accessibilityLabel={"Odjavi se"}
+            accessibilityState={{ disabled: loggingOut }}
           >
             <LogOut size={16} color="#f87171" />
-            <Text style={styles.logoutText}>{loggingOut ? 'Odjava...' : 'Odjavi se'}</Text>
+            <Text style={styles.logoutText}>
+              {loggingOut ? "Odjava..." : "Odjavi se"}
+            </Text>
           </TouchableOpacity>
         </View>
         </ScrollView>

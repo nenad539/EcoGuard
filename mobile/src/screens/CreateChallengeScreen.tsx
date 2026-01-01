@@ -12,9 +12,11 @@ import { GlowCard } from '../components/common/GlowCard';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
+import { useLanguage } from '../lib/language';
 
 export function CreateChallengeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { t } = useLanguage();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
@@ -24,26 +26,26 @@ export function CreateChallengeScreen() {
 
   const handleSubmit = async () => {
     if (!title || !points || !durationDays) {
-      showError('Greška', 'Unesite naziv, poene i trajanje.');
+      showError("Gre\u0161ka", t('createPhotoChallengeMissingFields'));
       return;
     }
 
     const days = Number(durationDays);
     if (!Number.isFinite(days) || days <= 0) {
-      showError('Greška', 'Trajanje mora biti pozitivan broj dana.');
+      showError("Gre\u0161ka", t('createPhotoChallengeInvalidDuration'));
       return;
     }
 
     const pointsValue = Number(points);
     if (!Number.isFinite(pointsValue) || pointsValue <= 0) {
-      showError('Greška', 'Poeni moraju biti pozitivan broj.');
+      showError("Gre\u0161ka", t('createPhotoChallengeInvalidPoints'));
       return;
     }
 
     const { data: auth } = await supabase.auth.getUser();
     const userId = auth?.user?.id;
     if (!userId) {
-      showError('Greška', 'Morate biti prijavljeni da biste kreirali izazov.');
+      showError("Gre\u0161ka", t('createPhotoChallengeLoginRequired'));
       return;
     }
 
@@ -68,11 +70,11 @@ export function CreateChallengeScreen() {
     setIsSubmitting(false);
 
     if (error) {
-      showError('Greška', error.message);
+      showError("Gre\u0161ka", error.message);
       return;
     }
 
-    showSuccess('Uspjeh', 'Izazov je kreiran.');
+    showSuccess("Uspjeh", t('createPhotoChallengeSuccess'));
     setTitle('');
     setDescription('');
     setLocation('');
@@ -85,21 +87,38 @@ export function CreateChallengeScreen() {
       <ScreenFade>
         <View style={styles.container}>
           <BackButton onPress={() => navigation.goBack()} />
-          <Text style={styles.title}>Kreiraj foto izazov</Text>
+          <Text style={styles.title}>{t('createPhotoChallengeTitle')}</Text>
           <GlowCard contentStyle={styles.card}>
-            <FormInput label="Naziv" value={title} onChangeText={setTitle} />
-            <FormInput label="Opis" value={description} onChangeText={setDescription} />
-            <FormInput label="Lokacija" value={location} onChangeText={setLocation} />
+            <FormInput label={t('createPhotoChallengeNameLabel')} value={title} onChangeText={setTitle} />
             <FormInput
-              label="Trajanje (dana)"
+              label={t('createPhotoChallengeDescriptionLabel')}
+              value={description}
+              onChangeText={setDescription}
+            />
+            <FormInput
+              label={t('createPhotoChallengeLocationLabel')}
+              value={location}
+              onChangeText={setLocation}
+            />
+            <FormInput
+              label={t('createPhotoChallengeDurationLabel')}
               value={durationDays}
               onChangeText={setDurationDays}
               keyboardType="numeric"
             />
-            <FormInput label="Poeni" value={points} onChangeText={setPoints} keyboardType="numeric" />
+            <FormInput
+              label={t('createPhotoChallengePointsLabel')}
+              value={points}
+              onChangeText={setPoints}
+              keyboardType="numeric"
+            />
             <TouchableOpacity onPress={handleSubmit} disabled={isSubmitting}>
               <LinearGradient colors={gradients.primary} style={styles.actionButton}>
-                {isSubmitting ? <ActivityIndicator color={colors.text} /> : <Text style={styles.actionLabel}>Kreiraj</Text>}
+                {isSubmitting ? (
+                  <ActivityIndicator color={colors.text} />
+                ) : (
+                  <Text style={styles.actionLabel}>{t('createPhotoChallengeSubmitLabel')}</Text>
+                )}
               </LinearGradient>
             </TouchableOpacity>
           </GlowCard>

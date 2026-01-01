@@ -1,6 +1,7 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, ViewStyle } from 'react-native';
 import { colors, radius, spacing } from '../../styles/common';
+import { triggerHaptic } from '../../lib/haptics';
 
 type PrimaryButtonProps = {
   label: string;
@@ -12,10 +13,17 @@ type PrimaryButtonProps = {
 export function PrimaryButton({ label, onPress, disabled, style }: PrimaryButtonProps) {
   return (
     <TouchableOpacity
-      onPress={onPress}
+      onPress={() => {
+        if (disabled) return;
+        void triggerHaptic('selection');
+        onPress();
+      }}
       disabled={disabled}
       style={[styles.button, disabled && styles.disabled, style]}
       activeOpacity={0.8}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: Boolean(disabled) }}
     >
       <Text style={styles.label}>{label}</Text>
     </TouchableOpacity>

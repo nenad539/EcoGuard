@@ -16,6 +16,7 @@ import { GlowCard } from '../components/common/GlowCard';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
+import { useLanguage } from '../lib/language';
 
 const NOTIFICATIONS_TABLE = 'notifications';
 const FRIENDS_TABLE = 'prijatelji';
@@ -35,6 +36,7 @@ type NotificationItem = {
 export function NotificationsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const realtimeConnected = useRealtimeStatus();
+  const { t } = useLanguage();
   const [userId, setUserId] = useState<string | null>(null);
   const [profileName, setProfileName] = useState('');
   const [items, setItems] = useState<NotificationItem[]>([]);
@@ -53,8 +55,8 @@ export function NotificationsScreen() {
       .limit(50);
 
     if (error) {
-      setError('Greška pri učitavanju obavještenja.');
-      showError('Greška', 'Ne mogu učitati obavještenja.');
+      setError(t('notificationsLoadError'));
+      showError("Gre\u0161ka", t('notificationsLoadErrorToast'));
       setLoading(false);
       return;
     }
@@ -138,10 +140,10 @@ export function NotificationsScreen() {
       .eq('korisnik_id', userId)
       .eq('status', 'unread');
     if (updateError) {
-      showError('Greška', 'Ne mogu označiti sva obavještenja.');
+      showError("Gre\u0161ka", t('notificationsMarkAllError'));
       return;
     }
-    showSuccess('Uspjeh', 'Sva obavještenja su pročitana.');
+    showSuccess("Uspjeh", t('notificationsMarkAllSuccess'));
   };
 
   const acceptFriendRequest = async (item: NotificationItem) => {
@@ -153,12 +155,12 @@ export function NotificationsScreen() {
       .maybeSingle();
 
     if (linkError || !link) {
-      showError('Greška', 'Zahtjev nije pronađen.');
+      showError("Gre\u0161ka", t('notificationsFriendRequestNotFound'));
       return;
     }
 
     if (link.korisnik_do !== userId) {
-      showError('Greška', 'Nemate dozvolu za ovaj zahtjev.');
+      showError("Gre\u0161ka", t('notificationsFriendRequestNoPermission'));
       return;
     }
 
@@ -173,21 +175,21 @@ export function NotificationsScreen() {
       .eq('id', link.id);
 
     if (updateError) {
-      showError('Greška', 'Ne mogu prihvatiti zahtjev.');
+      showError("Gre\u0161ka", t('notificationsFriendRequestAcceptError'));
       return;
     }
 
     await supabase.from(NOTIFICATIONS_TABLE).insert({
       korisnik_id: link.korisnik_od,
-      title: 'Zahtjev prihvaćen',
-      body: `${profileName || 'Korisnik'} je prihvatio/la vaš zahtjev.`,
+      title: t('notificationFriendAcceptTitle'),
+      body: t('notificationFriendAcceptBody').replace('{name}', profileName || t('defaultUserLabel')),
       type: 'friend_accept',
       related_id: link.id,
       status: 'unread',
     });
 
     await markRead(item.id);
-    showSuccess('Uspjeh', 'Zahtjev je prihvaćen.');
+    showSuccess("Uspjeh", t('notificationsFriendRequestAcceptSuccess'));
   };
 
   const acceptGroupInvite = async (item: NotificationItem) => {
@@ -203,7 +205,7 @@ export function NotificationsScreen() {
 
     if (existing) {
       await markRead(item.id);
-      showSuccess('Uspjeh', 'Već ste član grupe.');
+      showSuccess("Uspjeh", t('notificationsGroupAlreadyMember'));
       return;
     }
 
@@ -228,12 +230,12 @@ export function NotificationsScreen() {
     }
 
     if (!inserted) {
-      showError('Greška', lastError?.message ?? 'Ne možemo prihvatiti poziv.');
+      showError("Gre\u0161ka", lastError?.message ?? t('notificationsGroupAcceptError'));
       return;
     }
 
     await markRead(item.id);
-    showSuccess('Uspjeh', 'Pridruženi ste grupi.');
+    showSuccess("Uspjeh", t('notificationsGroupAcceptSuccess'));
   };
 
   const unreadCount = useMemo(
@@ -247,7 +249,7 @@ export function NotificationsScreen() {
     const { error: deleteError } = await supabase.from(NOTIFICATIONS_TABLE).delete().eq('id', id);
     if (deleteError) {
       setItems(prev);
-      showError('Greška', 'Ne mogu obrisati obavještenje.');
+      showError("Gre\u0161ka", t('notificationsDeleteError'));
     }
   };
 
@@ -272,12 +274,12 @@ export function NotificationsScreen() {
       return new Date(item.created_at) < sevenDaysAgo;
     });
 
-    if (todayItems.length) groups.push({ label: 'Danas', items: todayItems });
-    if (weekItems.length) groups.push({ label: 'Ove sedmice', items: weekItems });
-    if (olderItems.length) groups.push({ label: 'Ranije', items: olderItems });
+    if (todayItems.length) groups.push({ label: t('notificationsGroupToday'), items: todayItems });
+    if (weekItems.length) groups.push({ label: t('notificationsGroupWeek'), items: weekItems });
+    if (olderItems.length) groups.push({ label: t('notificationsGroupEarlier'), items: olderItems });
 
     return groups;
-  }, [items]);
+  }, [items, t]);
 
   const renderIcon = (type: string | null) => {
     if (type === 'friend_request') return <UserPlus size={18} color={colors.text} />;
@@ -290,30 +292,32 @@ export function NotificationsScreen() {
     <GradientBackground>
       <ScreenFade>
         <ScrollView contentContainerStyle={styles.content}>
-        <BackButton onPress={() => navigation.goBack()} />
-        <View style={styles.header}>
-          <View style={styles.headerRow}>
-            <Text style={styles.title}>Obavještenja</Text>
+          <BackButton onPress={() => navigation.goBack()} />
+          <View style={styles.header}>
+            <View style={styles.headerRow}>
+              <Text style={styles.title}>{t('notificationsTitle')}</Text>
+              {unreadCount > 0 && (
+                <View style={styles.unreadBadge}>
+                  <Text style={styles.unreadBadgeText}>{unreadCount}</Text>
+                </View>
+              )}
+            </View>
+            <Text style={styles.subtitle}>
+              {unreadCount > 0
+                ? t('notificationsUnreadSubtitle').replace('{count}', String(unreadCount))
+                : t('notificationsAllReadSubtitle')}
+            </Text>
             {unreadCount > 0 && (
-              <View style={styles.unreadBadge}>
-                <Text style={styles.unreadBadgeText}>{unreadCount}</Text>
-              </View>
+              <TouchableOpacity onPress={markAllRead}>
+                <LinearGradient colors={gradients.primary} style={styles.headerAction}>
+                  <Text style={styles.headerActionText}>{t('notificationsMarkAllLabel')}</Text>
+                </LinearGradient>
+              </TouchableOpacity>
             )}
           </View>
-          <Text style={styles.subtitle}>
-            {unreadCount > 0 ? `${unreadCount} nepročitanih` : 'Sve je pročitano'}
-          </Text>
-          {unreadCount > 0 && (
-            <TouchableOpacity onPress={markAllRead}>
-              <LinearGradient colors={gradients.primary} style={styles.headerAction}>
-                <Text style={styles.headerActionText}>Označi sve kao pročitano</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          )}
-        </View>
 
         {error && <Text style={styles.error}>{error}</Text>}
-        {usingCache && <Text style={styles.cacheNote}>Prikazujem keširane podatke.</Text>}
+        {usingCache && <Text style={styles.cacheNote}>{"Prikazujem ke\u0161irane podatke."}</Text>}
 
         {loading && items.length === 0 ? (
           <View style={styles.skeletonWrap}>
@@ -332,8 +336,8 @@ export function NotificationsScreen() {
           </View>
         ) : items.length === 0 ? (
           <EmptyState
-            title="Nema obavještenja"
-            description="Kada stignu nova obavještenja, biće prikazana ovdje."
+            title={t('notificationsEmptyTitle')}
+            description={t('notificationsEmptyDesc')}
           />
         ) : (
           grouped.map((group) => (
@@ -353,11 +357,11 @@ export function NotificationsScreen() {
                       : undefined
                   }
                 >
-                  <View style={styles.cardRow}>
+                    <View style={styles.cardRow}>
                     <View style={styles.iconWrap}>{renderIcon(item.type)}</View>
                     <View style={styles.cardContent}>
                       <View style={styles.cardTitleRow}>
-                        <Text style={styles.cardTitle}>{item.title ?? 'Obavještenje'}</Text>
+                        <Text style={styles.cardTitle}>{item.title ?? t('notificationFallbackTitle')}</Text>
                         {item.status === 'unread' && <View style={styles.unreadDot} />}
                       </View>
                       {item.body ? <Text style={styles.cardBody}>{item.body}</Text> : null}
@@ -370,20 +374,20 @@ export function NotificationsScreen() {
                     {item.type === 'friend_request' && item.related_id ? (
                       <TouchableOpacity onPress={() => acceptFriendRequest(item)}>
                         <LinearGradient colors={gradients.primary} style={styles.primaryButton}>
-                          <Text style={styles.primaryLabel}>Prihvati</Text>
+                          <Text style={styles.primaryLabel}>{"Prihvati"}</Text>
                         </LinearGradient>
                       </TouchableOpacity>
                     ) : null}
                     {item.type === 'group_invite' && item.related_id ? (
                       <TouchableOpacity onPress={() => acceptGroupInvite(item)}>
                         <LinearGradient colors={gradients.primary} style={styles.primaryButton}>
-                          <Text style={styles.primaryLabel}>Pridruži se</Text>
+                          <Text style={styles.primaryLabel}>{"Pridru\u017ei se"}</Text>
                         </LinearGradient>
                       </TouchableOpacity>
                     ) : null}
                     {item.status !== 'read' && (
                       <TouchableOpacity onPress={() => markRead(item.id)} style={styles.secondaryButton}>
-                        <Text style={styles.secondaryLabel}>Označi pročitano</Text>
+                        <Text style={styles.secondaryLabel}>{t('notificationsMarkReadLabel')}</Text>
                       </TouchableOpacity>
                     )}
                     <TouchableOpacity onPress={() => removeNotification(item.id)} style={styles.iconButton}>

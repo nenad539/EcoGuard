@@ -11,6 +11,7 @@ import { EmptyState } from '../components/common/EmptyState';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { GlowCard } from '../components/common/GlowCard';
+import { useLanguage } from '../lib/language';
 
 const PHOTO_COMPLETIONS_TABLE = 'photo_challenge_completions';
 const GROUP_SUBMISSIONS_TABLE = 'group_activity_submissions';
@@ -65,6 +66,7 @@ type ProfileInfo = {
 
 export function AdminModerationScreen() {
   const navigation = useNavigation();
+  const { t } = useLanguage();
   const [userId, setUserId] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -125,7 +127,7 @@ export function AdminModerationScreen() {
       .limit(50);
 
     if (error) {
-      showError('Greška', 'Ne mogu učitati foto prijave.');
+      showError("Gre\u0161ka", t('adminPhotoLoadError'));
       return;
     }
 
@@ -145,7 +147,7 @@ export function AdminModerationScreen() {
         .select('id, title, points')
         .in('id', challengeIds);
       if (challengeError) {
-        showError('Greška', challengeError.message);
+        showError("Gre\u0161ka", challengeError.message);
       } else {
         const map = (challenges ?? []).reduce<Record<number, ChallengeInfo>>((acc, item) => {
           acc[item.id] = item as ChallengeInfo;
@@ -168,7 +170,7 @@ export function AdminModerationScreen() {
       .limit(50);
 
     if (error) {
-      showError('Greška', 'Ne mogu učitati grupne prijave.');
+      showError("Gre\u0161ka", t('adminGroupLoadError'));
       return;
     }
 
@@ -263,6 +265,7 @@ export function AdminModerationScreen() {
       status: payload.status,
       putanja_slike: payload.putanja_slike ?? null,
       lokacija: payload.lokacija ?? null,
+      kreirano_u: new Date().toISOString(),
     });
   };
 
@@ -292,7 +295,7 @@ export function AdminModerationScreen() {
       .eq('id', item.id);
 
     if (approveError) {
-      showError('Greška', approveError.message);
+      showError("Gre\u0161ka", approveError.message);
       return;
     }
 
@@ -303,13 +306,13 @@ export function AdminModerationScreen() {
         .update({ points_awarded: true })
         .eq('id', item.id);
       if (awardError) {
-        showError('Greška', awardError.message);
+        showError("Gre\u0161ka", awardError.message);
       }
     }
 
     await logActivity({
       korisnik_id: item.user_id,
-      opis: `Foto izazov odobren: ${challenge?.title ?? 'Izazov'}`,
+      opis: t('adminPhotoApprovedActivity').replace('{title}', challenge?.title ?? t('challengeFallbackTitle')),
       poena: points,
       kategorija: 'photo',
       status: 'approved',
@@ -319,32 +322,37 @@ export function AdminModerationScreen() {
 
     await notifyUser(
       item.user_id,
-      'Foto izazov odobren',
-      `Vaša prijava za ${challenge?.title ?? 'foto izazov'} je odobrena.`,
+      t('adminPhotoApprovedTitle'),
+      t('adminPhotoApprovedBody').replace('{title}', challenge?.title ?? t('photoChallengeFallbackTitle')),
       String(item.id)
     );
 
-    showSuccess('Uspjeh', 'Foto izazov je odobren.');
+    showSuccess("Uspjeh", t('adminPhotoApprovedSuccess'));
     loadPhotoQueue();
   };
 
   const rejectPhoto = async (item: PhotoQueueItem) => {
     const { error } = await supabase.from(PHOTO_COMPLETIONS_TABLE).delete().eq('id', item.id);
     if (error) {
-      showError('Greška', error.message);
+      showError("Gre\u0161ka", error.message);
       return;
     }
     await logActivity({
       korisnik_id: item.user_id,
-      opis: 'Foto izazov odbijen',
+      opis: t('adminPhotoRejectedActivity'),
       poena: 0,
       kategorija: 'photo',
       status: 'rejected',
       putanja_slike: item.image_url,
       lokacija: item.location,
     });
-    await notifyUser(item.user_id, 'Foto izazov odbijen', 'Vaša prijava nije odobrena.', String(item.id));
-    showSuccess('Odbijeno', 'Prijava je odbijena.');
+    await notifyUser(
+      item.user_id,
+      t('adminPhotoRejectedTitle'),
+      t('adminPhotoRejectedBody'),
+      String(item.id)
+    );
+    showSuccess("Uspjeh", t('adminSubmissionRejectedSuccess'));
     loadPhotoQueue();
   };
 
@@ -363,7 +371,7 @@ export function AdminModerationScreen() {
       .eq('id', item.id);
 
     if (approveError) {
-      showError('Greška', approveError.message);
+      showError("Gre\u0161ka", approveError.message);
       return;
     }
 
@@ -374,13 +382,13 @@ export function AdminModerationScreen() {
         .update({ points_awarded: true })
         .eq('id', item.id);
       if (awardError) {
-        showError('Greška', awardError.message);
+        showError("Gre\u0161ka", awardError.message);
       }
     }
 
     await logActivity({
       korisnik_id: item.user_id,
-      opis: `Grupna aktivnost odobrena: ${activity?.title ?? 'Aktivnost'}`,
+      opis: t('adminGroupApprovedActivity').replace('{title}', activity?.title ?? t('activityFallbackTitle')),
       poena: points ?? 0,
       kategorija: 'group',
       status: 'approved',
@@ -390,32 +398,37 @@ export function AdminModerationScreen() {
 
     await notifyUser(
       item.user_id,
-      'Grupna aktivnost odobrena',
-      `Vaša prijava za ${activity?.title ?? 'grupnu aktivnost'} je odobrena.`,
+      t('adminGroupApprovedTitle'),
+      t('adminGroupApprovedBody').replace('{title}', activity?.title ?? t('groupActivityFallbackTitle')),
       String(item.id)
     );
 
-    showSuccess('Uspjeh', 'Grupna prijava je odobrena.');
+    showSuccess("Uspjeh", t('adminGroupApprovedSuccess'));
     loadGroupQueue();
   };
 
   const rejectGroup = async (item: GroupQueueItem) => {
     const { error } = await supabase.from(GROUP_SUBMISSIONS_TABLE).delete().eq('id', item.id);
     if (error) {
-      showError('Greška', error.message);
+      showError("Gre\u0161ka", error.message);
       return;
     }
     await logActivity({
       korisnik_id: item.user_id,
-      opis: 'Grupna aktivnost odbijena',
+      opis: t('adminGroupRejectedActivity'),
       poena: 0,
       kategorija: 'group',
       status: 'rejected',
       putanja_slike: item.image_url,
       lokacija: item.location,
     });
-    await notifyUser(item.user_id, 'Grupna aktivnost odbijena', 'Vaša prijava nije odobrena.', String(item.id));
-    showSuccess('Odbijeno', 'Prijava je odbijena.');
+    await notifyUser(
+      item.user_id,
+      t('adminGroupRejectedTitle'),
+      t('adminGroupRejectedBody'),
+      String(item.id)
+    );
+    showSuccess("Uspjeh", t('adminSubmissionRejectedSuccess'));
     loadGroupQueue();
   };
 
@@ -428,14 +441,14 @@ export function AdminModerationScreen() {
         <ScrollView contentContainerStyle={styles.content}>
           <BackButton onPress={() => navigation.goBack()} />
           <View style={styles.header}>
-            <Text style={styles.title}>Admin moderacija</Text>
-            <Text style={styles.subtitle}>Pregledaj i odobri prijave</Text>
+            <Text style={styles.title}>{t('adminModerationTitle')}</Text>
+            <Text style={styles.subtitle}>{t('adminModerationSubtitle')}</Text>
           </View>
 
           {!isAdmin ? (
             <EmptyState
-              title="Nemaš administratorski pristup"
-              description="Ovaj deo je dostupan samo administratorima."
+              title={t('adminNoAccessTitle')}
+              description={t('adminNoAccessDesc')}
             />
           ) : (
             <>
@@ -446,7 +459,7 @@ export function AdminModerationScreen() {
                 >
                   <Camera size={16} color={activeTab === 'photo' ? colors.softGreen : colors.muted} />
                   <Text style={[styles.tabText, activeTab === 'photo' && styles.tabTextActive]}>
-                    Foto izazovi
+                    {t('adminTabPhoto')}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -455,19 +468,19 @@ export function AdminModerationScreen() {
                 >
                   <Users size={16} color={activeTab === 'group' ? colors.softGreen : colors.muted} />
                   <Text style={[styles.tabText, activeTab === 'group' && styles.tabTextActive]}>
-                    Grupne aktivnosti
+                    {t('adminTabGroup')}
                   </Text>
                 </TouchableOpacity>
               </View>
 
-              {loading ? <Text style={styles.muted}>Učitavanje...</Text> : null}
+              {loading ? <Text style={styles.muted}>{"U\u010ditavanje..."}</Text> : null}
 
               {activeTab === 'photo' && (
                 <View style={styles.section}>
                   {photoCards.length === 0 && !loading ? (
                     <EmptyState
-                      title="Nema foto prijava"
-                      description="Sve prijave su obrađene."
+                      title={t('adminPhotoEmptyTitle')}
+                      description={t('adminPhotoEmptyDesc')}
                     />
                   ) : (
                     photoCards.map((item) => {
@@ -479,21 +492,35 @@ export function AdminModerationScreen() {
                             <Image source={{ uri: item.image_url }} style={styles.preview} />
                           ) : null}
                           <View style={styles.cardBody}>
-                            <Text style={styles.cardTitle}>{challenge?.title ?? 'Foto izazov'}</Text>
-                            <Text style={styles.cardMeta}>Korisnik: {user?.korisnicko_ime ?? 'Korisnik'}</Text>
-                            {item.description ? <Text style={styles.cardMeta}>Opis: {item.description}</Text> : null}
-                            {item.location ? <Text style={styles.cardMeta}>Lokacija: {item.location}</Text> : null}
-                            <Text style={styles.points}>+{challenge?.points ?? 0} poena</Text>
+                            <Text style={styles.cardTitle}>
+                              {challenge?.title ?? t('photoChallengeFallbackTitle')}
+                            </Text>
+                            <Text style={styles.cardMeta}>
+                              {t('adminUserLabel')}: {user?.korisnicko_ime ?? t('defaultUserLabel')}
+                            </Text>
+                            {item.description ? (
+                              <Text style={styles.cardMeta}>
+                                {t('adminDescriptionLabel')}: {item.description}
+                              </Text>
+                            ) : null}
+                            {item.location ? (
+                              <Text style={styles.cardMeta}>
+                                {t('adminLocationLabel')}: {item.location}
+                              </Text>
+                            ) : null}
+                            <Text style={styles.points}>
+                              +{challenge?.points ?? 0} {"poena"}
+                            </Text>
                             <View style={styles.actions}>
                               <TouchableOpacity onPress={() => approvePhoto(item)}>
                                 <LinearGradient colors={gradients.primary} style={styles.actionButton}>
                                   <CheckCircle2 size={16} color={colors.text} />
-                                  <Text style={styles.actionText}>Odobri</Text>
+                                  <Text style={styles.actionText}>{t('adminApproveLabel')}</Text>
                                 </LinearGradient>
                               </TouchableOpacity>
                               <TouchableOpacity onPress={() => rejectPhoto(item)} style={styles.rejectButton}>
                                 <XCircle size={16} color={colors.danger} />
-                                <Text style={styles.rejectText}>Odbij</Text>
+                                <Text style={styles.rejectText}>{t('adminRejectLabel')}</Text>
                               </TouchableOpacity>
                             </View>
                           </View>
@@ -508,8 +535,8 @@ export function AdminModerationScreen() {
                 <View style={styles.section}>
                   {groupCards.length === 0 && !loading ? (
                     <EmptyState
-                      title="Nema grupnih prijava"
-                      description="Sve prijave su obrađene."
+                      title={t('adminGroupEmptyTitle')}
+                      description={t('adminGroupEmptyDesc')}
                     />
                   ) : (
                     groupCards.map((item) => {
@@ -522,22 +549,38 @@ export function AdminModerationScreen() {
                             <Image source={{ uri: item.image_url }} style={styles.preview} />
                           ) : null}
                           <View style={styles.cardBody}>
-                            <Text style={styles.cardTitle}>{activity?.title ?? 'Grupna aktivnost'}</Text>
-                            <Text style={styles.cardMeta}>Grupa: {group?.name ?? 'Grupa'}</Text>
-                            <Text style={styles.cardMeta}>Korisnik: {user?.korisnicko_ime ?? 'Korisnik'}</Text>
-                            {item.description ? <Text style={styles.cardMeta}>Opis: {item.description}</Text> : null}
-                            {item.location ? <Text style={styles.cardMeta}>Lokacija: {item.location}</Text> : null}
-                            <Text style={styles.points}>+{activity?.points ?? 0} poena</Text>
+                            <Text style={styles.cardTitle}>
+                              {activity?.title ?? t('groupActivityFallbackTitle')}
+                            </Text>
+                            <Text style={styles.cardMeta}>
+                              {t('adminGroupLabel')}: {group?.name ?? t('groupsFallbackName')}
+                            </Text>
+                            <Text style={styles.cardMeta}>
+                              {t('adminUserLabel')}: {user?.korisnicko_ime ?? t('defaultUserLabel')}
+                            </Text>
+                            {item.description ? (
+                              <Text style={styles.cardMeta}>
+                                {t('adminDescriptionLabel')}: {item.description}
+                              </Text>
+                            ) : null}
+                            {item.location ? (
+                              <Text style={styles.cardMeta}>
+                                {t('adminLocationLabel')}: {item.location}
+                              </Text>
+                            ) : null}
+                            <Text style={styles.points}>
+                              +{activity?.points ?? 0} {"poena"}
+                            </Text>
                             <View style={styles.actions}>
                               <TouchableOpacity onPress={() => approveGroup(item)}>
                                 <LinearGradient colors={gradients.primary} style={styles.actionButton}>
                                   <CheckCircle2 size={16} color={colors.text} />
-                                  <Text style={styles.actionText}>Odobri</Text>
+                                  <Text style={styles.actionText}>{t('adminApproveLabel')}</Text>
                                 </LinearGradient>
                               </TouchableOpacity>
                               <TouchableOpacity onPress={() => rejectGroup(item)} style={styles.rejectButton}>
                                 <XCircle size={16} color={colors.danger} />
-                                <Text style={styles.rejectText}>Odbij</Text>
+                                <Text style={styles.rejectText}>{t('adminRejectLabel')}</Text>
                               </TouchableOpacity>
                             </View>
                           </View>

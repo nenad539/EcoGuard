@@ -11,9 +11,13 @@ import { GradientBackground } from '../components/common/GradientBackground';
 import { LinearGradient } from 'expo-linear-gradient';
 import { showError, showSuccess } from '../lib/toast';
 import { ScreenFade } from '../components/common/ScreenFade';
+import { trackEvent } from '../lib/analytics';
+import { triggerHaptic } from '../lib/haptics';
+import { useLanguage } from '../lib/language';
 
 export function LoginScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { t } = useLanguage();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -22,8 +26,11 @@ export function LoginScreen() {
   const [resetEmail, setResetEmail] = useState('');
 
   const handleLogin = async () => {
+    void triggerHaptic('selection');
+    trackEvent('login_attempt');
     if (!email || !password) {
-      showError('Greška', 'Unesite email i lozinku');
+      showError("Gre\u0161ka", "Unesite email i lozinku");
+      trackEvent('login_error', { reason: 'missing_fields' });
       return;
     }
 
@@ -32,27 +39,36 @@ export function LoginScreen() {
     setLoading(false);
 
     if (error) {
-      showError('Greška', error.message);
+      showError("Gre\u0161ka", error.message);
+      trackEvent('login_error', { status: error.status ?? null });
       return;
     }
 
-    showSuccess('Uspjeh', 'Prijava uspješna.');
+    showSuccess("Uspjeh", "Prijava uspje\u0161na.");
+    void triggerHaptic('success');
+    trackEvent('login_success');
     navigation.replace('MainTabs');
   };
 
   const handleReset = async () => {
+    void triggerHaptic('selection');
+    trackEvent('password_reset_request');
     if (!resetEmail) {
-      showError('Greška', 'Unesite email adresu');
+      showError("Gre\u0161ka", "Unesite email adresu");
+      trackEvent('password_reset_error', { reason: 'missing_email' });
       return;
     }
 
     const { error } = await supabase.auth.resetPasswordForEmail(resetEmail);
     if (error) {
-      showError('Greška', error.message);
+      showError("Gre\u0161ka", error.message);
+      trackEvent('password_reset_error', { status: error.status ?? null });
       return;
     }
 
-    showSuccess('Poslato', 'Provjerite email za reset lozinke.');
+    showSuccess("Poslato", "Provjerite email za reset lozinke.");
+    void triggerHaptic('success');
+    trackEvent('password_reset_sent');
     setForgot(false);
     setResetEmail('');
   };
@@ -62,21 +78,21 @@ export function LoginScreen() {
       <ScreenFade>
         <View style={styles.container}>
         <View style={styles.header}>
-          <View style={styles.logoRow}>
-            <View style={styles.logoCircle}>
-              <Shield size={40} color={colors.primary} strokeWidth={1.5} />
-              <Leaf size={20} color={colors.primaryDark} style={styles.logoLeaf} />
-            </View>
-            <Text style={styles.logoText}>Grow With Us</Text>
+            <View style={styles.logoRow}>
+              <View style={styles.logoCircle}>
+                <Shield size={40} color={colors.primary} strokeWidth={1.5} />
+                <Leaf size={20} color={colors.primaryDark} style={styles.logoLeaf} />
+              </View>
+            <Text style={styles.logoText}>{"GrowWithUs"}</Text>
           </View>
         </View>
 
         {!forgot ? (
           <BlurView intensity={30} tint="dark" style={styles.form}>
-            <Text style={styles.formTitle}>Dobrodošli nazad</Text>
+            <Text style={styles.formTitle}>{"Dobrodo\u0161li nazad"}</Text>
 
             <View style={styles.field}>
-              <Text style={styles.label}>Email</Text>
+              <Text style={styles.label}>{"Email"}</Text>
               <View style={styles.inputWrapper}>
                 <Mail color={colors.muted} size={18} style={styles.inputIcon} />
                 <TextInput
@@ -92,7 +108,7 @@ export function LoginScreen() {
             </View>
 
             <View style={styles.field}>
-              <Text style={styles.label}>Lozinka</Text>
+              <Text style={styles.label}>{"Lozinka"}</Text>
               <View style={styles.inputWrapper}>
                 <Lock color={colors.muted} size={18} style={styles.inputIcon} />
                 <TextInput
@@ -104,8 +120,13 @@ export function LoginScreen() {
                   style={styles.input}
                 />
                 <TouchableOpacity
-                  onPress={() => setShowPassword((prev) => !prev)}
+                  onPress={() => {
+                    void triggerHaptic('selection');
+                    setShowPassword((prev) => !prev);
+                  }}
                   style={styles.toggleButton}
+                  accessibilityRole="button"
+                  accessibilityLabel={showPassword ? 'Sakrij lozinku' : 'Prikaži lozinku'}
                 >
                   {showPassword ? (
                     <EyeOff color={colors.muted} size={18} />
@@ -116,28 +137,51 @@ export function LoginScreen() {
               </View>
             </View>
 
-            <TouchableOpacity onPress={() => setForgot(true)}>
-              <Text style={styles.link}>Zaboravljena lozinka?</Text>
+            <TouchableOpacity
+              onPress={() => {
+                void triggerHaptic('selection');
+                setForgot(true);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={"Zaboravljena lozinka?"}
+            >
+              <Text style={styles.link}>{"Zaboravljena lozinka?"}</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity disabled={loading} onPress={handleLogin} style={styles.submitWrap}>
+            <TouchableOpacity
+              disabled={loading}
+              onPress={handleLogin}
+              style={styles.submitWrap}
+              accessibilityRole="button"
+              accessibilityLabel={"Prijavi se"}
+              accessibilityState={{ disabled: loading }}
+            >
               <LinearGradient colors={gradients.primary} style={styles.submitButton}>
-                <Text style={styles.submitText}>{loading ? 'Učitavanje...' : 'Prijavi se'}</Text>
+                <Text style={styles.submitText}>
+                  {loading ? "U\u010ditavanje..." : "Prijavi se"}
+                </Text>
               </LinearGradient>
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-              <Text style={styles.linkMuted}>Nemate nalog? Registrujte se</Text>
+            <TouchableOpacity
+              onPress={() => {
+                void triggerHaptic('selection');
+                navigation.navigate('Register');
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={"Registruj se"}
+            >
+              <Text style={styles.linkMuted}>{"Nemate nalog? Registrujte se"}</Text>
             </TouchableOpacity>
           </BlurView>
         ) : (
           <BlurView intensity={30} tint="dark" style={styles.form}>
-            <Text style={styles.formTitle}>Reset lozinke</Text>
+            <Text style={styles.formTitle}>{"Reset lozinke"}</Text>
             <Text style={styles.formSubtitle}>
-              Unesite email adresu i poslaćemo vam link za reset.
+              {"Unesite email adresu i posla\u0107emo vam link za reset."}
             </Text>
             <View style={styles.field}>
-              <Text style={styles.label}>Email</Text>
+              <Text style={styles.label}>{"Email"}</Text>
               <View style={styles.inputWrapper}>
                 <Mail color={colors.muted} size={18} style={styles.inputIcon} />
                 <TextInput
@@ -151,13 +195,25 @@ export function LoginScreen() {
                 />
               </View>
             </View>
-            <TouchableOpacity onPress={handleReset} style={styles.submitWrap}>
+            <TouchableOpacity
+              onPress={handleReset}
+              style={styles.submitWrap}
+              accessibilityRole="button"
+              accessibilityLabel={"Po\u0161alji link"}
+            >
               <LinearGradient colors={gradients.primary} style={styles.submitButton}>
-                <Text style={styles.submitText}>Pošalji link</Text>
+                <Text style={styles.submitText}>{"Po\u0161alji link"}</Text>
               </LinearGradient>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => setForgot(false)}>
-              <Text style={styles.linkMuted}>Nazad na prijavu</Text>
+            <TouchableOpacity
+              onPress={() => {
+                void triggerHaptic('selection');
+                setForgot(false);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={"Nazad na prijavu"}
+            >
+              <Text style={styles.linkMuted}>{"Nazad na prijavu"}</Text>
             </TouchableOpacity>
           </BlurView>
         )}
